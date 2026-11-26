@@ -18,7 +18,7 @@ Config.GridSize = 2 -- structures snap to this grid
 Config.SpawnNoBuildRadius = 25 -- nobody can build right on top of the spawn
 
 -- Drops
-Config.DropScale = 1.6 -- items on the ground are drawn this much bigger than their icon model
+Config.DropScale = 2 -- items on the ground are drawn this much bigger than their icon model
 Config.DropLifetime = 180 -- seconds before an item on the ground disappears
 Config.LootSackLifetime = 300
 
