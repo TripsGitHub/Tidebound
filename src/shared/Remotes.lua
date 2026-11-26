@@ -23,7 +23,6 @@ local NAMES = {
 	"Place", -- (itemId, position, rotation)
 	"ClaimQuest", -- (questId)
 	"Buy", -- (shopEntryId)
-	"SetLook", -- (look, done?) pick a castaway look (see Shared/Looks)
 }
 
 local folder: Folder

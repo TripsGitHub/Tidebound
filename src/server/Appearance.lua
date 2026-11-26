@@ -24,8 +24,7 @@ end
 
 local function findPart(character: Model, names: { string }): BasePart?
 	for _, name in names do
-		-- HeadBlock is the castaway head Avatar welds on, inside the Look folder.
-		local p = character:FindFirstChild(name, name == "HeadBlock")
+		local p = character:FindFirstChild(name)
 		if p and p:IsA("BasePart") then
 			return p
 		end
@@ -60,7 +59,7 @@ end
 
 -- Where each armour slot sits, for R15 and R6 characters.
 local SLOT_PARTS = {
-	head = { { names = { "HeadBlock", "Head" }, offset = CFrame.new(0, 0.45, 0), scale = 1 } },
+	head = { { names = { "Head" }, offset = CFrame.new(0, 0.45, 0), scale = 1 } },
 	body = { { names = { "UpperTorso", "Torso" }, offset = CFrame.new(0, 0, 0), scale = 1 } },
 	legs = {
 		{ names = { "LeftUpperLeg", "Left Leg" }, offset = CFrame.new(0, 0, 0), scale = 0.55, half = "left" },

@@ -19,7 +19,6 @@ local Hover = require(Client.Hover)
 local Anim = require(Client.Anim)
 local Gates = require(Client.Gates)
 local Nameplates = require(Client.Nameplates)
-local LookScreen = require(Client.LookScreen)
 
 local player = Players.LocalPlayer
 local equipped: string? = nil
@@ -50,15 +49,10 @@ UI.init({
 	onInventory = function()
 		InventoryScreen.toggle()
 	end,
-	onLook = function()
-		InventoryScreen.close()
-		LookScreen.toggle()
-	end,
 	onCancelBuild = function()
 		hold(nil)
 	end,
 })
-LookScreen.init(UI.root :: ScreenGui)
 InventoryScreen.init(UI.root :: ScreenGui, {
 	onCraft = function(id)
 		Remotes.Craft:FireServer(id)
@@ -173,9 +167,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	elseif input.KeyCode == Enum.KeyCode.C then
 		InventoryScreen.toggle()
 		UI.closePanels()
-	elseif input.KeyCode == Enum.KeyCode.L then
-		InventoryScreen.close()
-		LookScreen.toggle()
 	elseif input.KeyCode == Enum.KeyCode.F then
 		holdingPickup = true
 		tryPickup()
@@ -185,7 +176,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		BuildMode.rotate()
 	elseif input.KeyCode == Enum.KeyCode.Escape then
 		InventoryScreen.close()
-		LookScreen.close()
 		UI.closePanels()
 	end
 end)
