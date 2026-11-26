@@ -1,9 +1,8 @@
--- Overhead nameplates: a round level badge next to each player's name, in the same
--- parchment style as the HUD. Replaces Roblox's default name display.
+-- Overhead nameplates: a log-slice level badge next to each player's name, in the same
+-- castaway style as the HUD. Replaces Roblox's default name display.
 local Players = game:GetService("Players")
 local UIKit = require(script.Parent.UIKit)
 
-local C = UIKit.Colors
 local new = UIKit.new
 
 local Nameplates = {}
@@ -34,11 +33,10 @@ local function attach(plr: Player, character: Model)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
-	local badge = new("Frame", { Parent = gui, LayoutOrder = 1, Size = UDim2.fromOffset(28, 28), BackgroundColor3 = C.xp }, {
-		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
-		UIKit.stroke(C.edge, 2),
-	})
-	local level = UIKit.label({ Parent = badge, Size = UDim2.new(1, -6, 1, -6), Position = UDim2.fromOffset(3, 3), Text = "1", Font = UIKit.FontHeavy })
+	-- The level is carved into a little log slice, like the hotbar.
+	local badge = UIKit.slice({ Parent = gui, LayoutOrder = 1, Size = UDim2.fromOffset(30, 30) })
+	badge:FindFirstChildOfClass("UIStroke").Thickness = 3.5
+	local level = UIKit.label({ Parent = badge, Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, 1), Text = "1", TextScaled = false, TextSize = 15, ZIndex = 2 })
 	UIKit.hudText({ Parent = gui, LayoutOrder = 2, Size = UDim2.fromOffset(0, 22), AutomaticSize = Enum.AutomaticSize.X, Text = plr.DisplayName, TextScaled = false, TextSize = 20 })
 
 	local function refresh()
