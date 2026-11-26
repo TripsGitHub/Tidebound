@@ -6,6 +6,24 @@
 
 local ItemModels = {}
 
+local Meshes = require(script.Parent.Meshes)
+
+-- Items that have a Blender mesh. Tools keep their grip at the origin (the bottom
+-- of the mesh); everything else is centred.
+local ITEM_MESHES: { [string]: { mesh: string, tool: boolean? } } = {
+	wood_club = { mesh = "club", tool = true },
+	rock = { mesh = "rock" },
+	log = { mesh = "log" },
+	stick = { mesh = "stick" },
+	leaves = { mesh = "leaves" },
+	stone = { mesh = "stone" },
+	berries = { mesh = "berries" },
+	coconut = { mesh = "coconut" },
+	raw_meat = { mesh = "raw_meat" },
+	cooked_meat = { mesh = "cooked_meat" },
+	leather = { mesh = "leather" },
+}
+
 local C = {
 	wood = Color3.fromRGB(141, 101, 64),
 	woodDark = Color3.fromRGB(104, 72, 45),
@@ -308,6 +326,18 @@ end
 -- Returns a new Model for the item, with PrimaryPart set. Every part is anchored,
 -- non-colliding and massless; callers change that if they need physics.
 function ItemModels.build(itemId: string): Model
+	local spec = ITEM_MESHES[itemId]
+	local mesh = spec and Meshes.build(spec.mesh, { centre = not spec.tool, collide = false })
+	if mesh then
+		mesh.Name = itemId
+		for _, p in mesh:GetChildren() do
+			local part = p :: BasePart
+			part.CanQuery = false
+			part.Massless = true
+		end
+		return mesh
+	end
+
 	local model = Instance.new("Model")
 	model.Name = itemId
 	local builder = builders[itemId]

@@ -7,6 +7,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Items = require(Shared.Items)
 local Structures = require(Shared.Structures)
+local Meshes = require(Shared.Meshes)
 local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
 local Quests = require(script.Parent.Quests)
@@ -159,6 +160,35 @@ local function characterList(): { Instance }
 	return list
 end
 
+-- Structures that have a Blender mesh. The builder still makes the invisible core
+-- (collision, hits, fire, prompts); the mesh replaces the block decoration.
+local STRUCTURE_MESHES = {
+	WoodWall = { mesh = "woodwall", stretch = true },
+	WoodGate = { mesh = "woodgate", stretch = true },
+	WoodBase = { mesh = "woodfloor", stretch = true },
+	Campfire = { mesh = "campfire" },
+}
+
+local function dressWithMesh(model: Model, core: BasePart, structure: string, cf: CFrame, size: Vector3)
+	local spec = STRUCTURE_MESHES[structure]
+	local mesh = spec and Meshes.build(spec.mesh, if spec.stretch then { fit = size, collide = false } else { width = size.X, collide = false })
+	if not mesh then
+		return
+	end
+	for _, p in model:GetChildren() do
+		if p ~= core and p:IsA("BasePart") then
+			p:Destroy()
+		end
+	end
+	core.Transparency = 1
+	mesh:PivotTo(cf * CFrame.new(0, -size.Y / 2, 0))
+	for _, p in mesh:GetChildren() do
+		(p :: BasePart).CanQuery = false
+		p.Parent = model
+	end
+	mesh:Destroy()
+end
+
 function Building.onPlace(player: Player, itemId: unknown, position: unknown, rotation: unknown)
 	if type(itemId) ~= "string" or typeof(position) ~= "Vector3" or type(rotation) ~= "number" then
 		return
@@ -217,7 +247,9 @@ function Building.onPlace(player: Player, itemId: unknown, position: unknown, ro
 	end
 	local model = Instance.new("Model")
 	model.Name = item.structure
-	model.PrimaryPart = builder(model, cf, def.size, player)
+	local core = builder(model, cf, def.size, player)
+	model.PrimaryPart = core
+	dressWithMesh(model, core, item.structure, cf, def.size)
 	model:SetAttribute("StructureType", item.structure)
 	model:SetAttribute("DisplayName", item.name)
 	model:SetAttribute("HP", def.hp)
