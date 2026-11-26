@@ -66,7 +66,74 @@ function UIKit.stroke(color: Color3?, thickness: number?)
 	return UIKit.new("UIStroke", { Color = color or UIKit.Colors.rim, Thickness = thickness or 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
 end
 
--- White text with a dark outline. This is the only text style in the game.
+-- Soft drop shadow instead of an outline. Roblox has no text shadow, so the label
+-- you get back keeps its text invisible (it still sizes and lays out as normal),
+-- and two children draw the text: a faint dark copy 2px down-right, and the real
+-- text on top. Changes to Text, colour, size, font and transparency on the label
+-- are copied to both.
+local SHADOW = Color3.fromRGB(30, 22, 12)
+local SYNC = { "Text", "TextSize", "TextScaled", "FontFace", "TextXAlignment", "TextYAlignment", "TextWrapped", "TextTruncate", "RichText", "LineHeight", "ZIndex", "Visible" }
+function UIKit.shadowText(outer: TextLabel | TextButton)
+	local function copy(offset: Vector2, color: Color3): TextLabel
+		local t = Instance.new("TextLabel")
+		t.Name = if offset.Magnitude > 0 then "Shadow" else "Face"
+		t.BackgroundTransparency = 1
+		t.Size = UDim2.fromScale(1, 1)
+		t.Position = UDim2.fromOffset(offset.X, offset.Y)
+		t.TextColor3 = color
+		t.TextStrokeTransparency = 1
+		t.Active = false
+		for _, k in SYNC do
+			if k ~= "Visible" then
+				(t :: any)[k] = (outer :: any)[k]
+			end
+		end
+		t.Parent = outer
+		return t
+	end
+	local shadow = copy(Vector2.new(1, 2), SHADOW)
+	local face = copy(Vector2.zero, outer.TextColor3)
+	local guard = false
+	local function setAlpha()
+		if guard then
+			return
+		end
+		local a = outer.TextTransparency
+		face.TextTransparency = a
+		shadow.TextTransparency = 1 - (1 - a) * 0.6
+		guard = true
+		outer.TextTransparency = 1
+		guard = false
+	end
+	setAlpha()
+	outer.TextStrokeTransparency = 1
+	outer:GetPropertyChangedSignal("TextTransparency"):Connect(setAlpha)
+	outer:GetPropertyChangedSignal("TextColor3"):Connect(function()
+		face.TextColor3 = outer.TextColor3
+	end)
+	for _, k in SYNC do
+		if k ~= "Visible" then
+			outer:GetPropertyChangedSignal(k):Connect(function()
+				(shadow :: any)[k] = (outer :: any)[k];
+				(face :: any)[k] = (outer :: any)[k]
+			end)
+		end
+	end
+	-- Size limits added to the label apply to the visible copies too.
+	local function constrain(c: Instance)
+		if c:IsA("UITextSizeConstraint") then
+			c:Clone().Parent = shadow
+			c:Clone().Parent = face
+		end
+	end
+	for _, c in outer:GetChildren() do
+		constrain(c)
+	end
+	outer.ChildAdded:Connect(constrain)
+	return outer
+end
+
+-- White text with a soft shadow (see shadowText). The only text style in the game.
 function UIKit.label(props)
 	props.BackgroundTransparency = props.BackgroundTransparency or 1
 	if props.Font == nil and props.FontFace == nil then
@@ -78,7 +145,7 @@ function UIKit.label(props)
 	if props.TextScaled == nil and props.TextSize == nil then
 		props.TextScaled = true
 	end
-	return UIKit.new("TextLabel", props)
+	return UIKit.shadowText(UIKit.new("TextLabel", props))
 end
 
 UIKit.hudText = UIKit.label
@@ -96,7 +163,7 @@ function UIKit.textButton(props, onClick: () -> ())
 	if props.TextScaled == nil and props.TextSize == nil then
 		props.TextScaled = true
 	end
-	local b = UIKit.new("TextButton", props)
+	local b = UIKit.shadowText(UIKit.new("TextButton", props))
 	b.MouseEnter:Connect(function()
 		b.TextColor3 = UIKit.Colors.star
 	end)
@@ -120,7 +187,7 @@ function UIKit.button(props, onClick: () -> ())
 		props.TextScaled = true
 	end
 	props.AutoButtonColor = true
-	local b = UIKit.new("TextButton", props, { UIKit.corner(6) })
+	local b = UIKit.shadowText(UIKit.new("TextButton", props, { UIKit.corner(6) }))
 	b.MouseButton1Click:Connect(onClick)
 	return b
 end
