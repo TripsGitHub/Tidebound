@@ -16,6 +16,7 @@ local Effects = require(Client.Effects)
 local BuildMode = require(Client.BuildMode)
 local Pointer = require(Client.Pointer)
 local Hover = require(Client.Hover)
+local Anim = require(Client.Anim)
 
 local player = Players.LocalPlayer
 local equipped: string? = nil
@@ -60,12 +61,14 @@ InventoryScreen.init(UI.root :: ScreenGui, {
 	onHold = hold,
 	onEat = function(id)
 		Remotes.Eat:FireServer(id)
+		Anim.play(player.Character, "eat")
 	end,
 	onDrop = function(id)
 		Remotes.Drop:FireServer(id)
 	end,
 })
 Hover.start()
+Anim.start()
 Effects.startAmbient()
 
 -- Swinging -----------------------------------------------------------------------
@@ -99,6 +102,7 @@ local function primaryAction()
 		trySwing()
 	elseif item.kind == "food" then
 		Remotes.Eat:FireServer(equipped)
+		Anim.play(player.Character, "eat")
 	elseif item.kind == "placeable" then
 		BuildMode.tryPlace()
 	end
@@ -125,6 +129,7 @@ local function tryEatDrop()
 		local itemId = info.target:GetAttribute("ItemId")
 		if Items[itemId] and Items[itemId].kind == "food" then
 			Remotes.EatDrop:FireServer(info.target)
+			Anim.play(player.Character, "eat")
 		end
 	end
 end
@@ -205,6 +210,9 @@ Remotes.Notify.OnClientEvent:Connect(UI.notify)
 Remotes.PickedUp.OnClientEvent:Connect(function(itemId, amount)
 	UI.pickup(itemId, amount)
 	Effects.sound("Pickup")
+	if not Anim.isPlaying(player.Character) then
+		Anim.play(player.Character, "pickup")
+	end
 end)
 Remotes.HitFeedback.OnClientEvent:Connect(Effects.hit)
 Remotes.QuestState.OnClientEvent:Connect(UI.setQuests)
