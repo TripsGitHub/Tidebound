@@ -84,45 +84,60 @@ function Hover.get(): Info
 	return current
 end
 
-function Hover.start()
-	RunService.RenderStepped:Connect(function()
-		local exclude: { Instance } = { workspace.CurrentCamera }
-		if player.Character then
-			table.insert(exclude, player.Character)
-		end
-		local hit = Pointer.cast(exclude, 90)
-		local model, kind = classify(hit and hit.Instance)
-		if model and kind then
-			local info: Info = { target = model, kind = kind, inRange = false }
-			if kind == "drop" then
-				local itemId = model:GetAttribute("ItemId")
-				local amount = model:GetAttribute("Amount") or 1
-				info.name = Items[itemId].name .. (if amount > 1 then " x" .. amount else "")
-				info.inRange = distanceTo(model) <= Config.PickupRange
-			elseif kind == "player" then
-				local hum = model:FindFirstChildOfClass("Humanoid")
-				info.name = model.Name
-				info.hp = hum and hum.Health
-				info.maxHp = hum and hum.MaxHealth
-				info.inRange = distanceTo(model) <= Config.HitRange
-			else
-				info.name = model:GetAttribute("DisplayName") or model.Name
-				info.hp = model:GetAttribute("HP")
-				info.maxHp = model:GetAttribute("MaxHP")
-				info.inRange = distanceTo(model) <= Config.HitRange
-				if model:GetAttribute("Depleted") then
-					model, info = nil, { inRange = false }
-				end
-			end
-			current = info
-			highlight.Adornee = model
-			highlight.Parent = if model then workspace.CurrentCamera else nil
+-- Name and range for a drop, for the pickup prompt on a drop you clicked.
+function Hover.dropInfo(model: Model): (string, boolean, number)
+	local itemId = model:GetAttribute("ItemId")
+	local amount = model:GetAttribute("Amount") or 1
+	local item = Items[itemId]
+	local name = (if item then item.name else "Item") .. (if amount > 1 then " x" .. amount else "")
+	local d = distanceTo(model)
+	return name, d <= Config.PickupRange, d
+end
+
+local function update()
+	local exclude: { Instance } = { workspace.CurrentCamera }
+	if player.Character then
+		table.insert(exclude, player.Character)
+	end
+	local hit = Pointer.cast(exclude, 90)
+	local model, kind = classify(hit and hit.Instance)
+	if model and kind then
+		local info: Info = { target = model, kind = kind, inRange = false }
+		if kind == "drop" then
+			local itemId = model:GetAttribute("ItemId")
+			local amount = model:GetAttribute("Amount") or 1
+			info.name = Items[itemId].name .. (if amount > 1 then " x" .. amount else "")
+			info.inRange = distanceTo(model) <= Config.PickupRange
+		elseif kind == "player" then
+			local hum = model:FindFirstChildOfClass("Humanoid")
+			info.name = model.Name
+			info.hp = hum and hum.Health
+			info.maxHp = hum and hum.MaxHealth
+			info.inRange = distanceTo(model) <= Config.HitRange
 		else
-			current = { inRange = false }
-			highlight.Adornee = nil
-			highlight.Parent = nil
+			info.name = model:GetAttribute("DisplayName") or model.Name
+			info.hp = model:GetAttribute("HP")
+			info.maxHp = model:GetAttribute("MaxHP")
+			info.inRange = distanceTo(model) <= Config.HitRange
+			if model:GetAttribute("Depleted") then
+				model, info = nil, { inRange = false }
+			end
 		end
-	end)
+		current = info
+		highlight.Adornee = model
+		highlight.Parent = if model then workspace.CurrentCamera else nil
+	else
+		current = { inRange = false }
+		highlight.Adornee = nil
+		highlight.Parent = nil
+	end
+end
+
+-- Re-reads what's under the pointer right now (a tap moves the pointer between frames).
+Hover.refresh = update
+
+function Hover.start()
+	RunService.RenderStepped:Connect(update)
 end
 
 return Hover
