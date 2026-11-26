@@ -29,6 +29,17 @@ local ANIMS: { [string]: { Key } } = {
 		{ t = 0.24, pose = { RightShoulder = Vector3.new(22, 0, 6), RightElbow = Vector3.new(12, 0, 0), Waist = Vector3.new(-6, 5, 0), Neck = Vector3.new(-3, 0, 0) } },
 		{ t = 0.4 },
 	},
+	-- Weapon slash (clubs and swords): the arm winds out to the right with the
+	-- weapon pointing sideways, then twists across so it sweeps flat in front, and
+	-- the body turns with it. The swing trail is drawn during the sweep (see
+	-- Effects.swing). About 0.42s, the same rhythm as the chop.
+	slash = {
+		{ t = 0 },
+		{ t = 0.1, pose = { RightShoulder = Vector3.new(45, -70, 40), RightElbow = Vector3.new(20, 0, 0), Waist = Vector3.new(0, -24, 0), Neck = Vector3.new(0, 8, 0) } },
+		{ t = 0.18, pose = { RightShoulder = Vector3.new(55, 55, -30), RightElbow = Vector3.new(8, 0, 0), Waist = Vector3.new(-5, 24, 0), Neck = Vector3.new(-3, -8, 0) } },
+		{ t = 0.26, pose = { RightShoulder = Vector3.new(48, 62, -38), RightElbow = Vector3.new(16, 0, 0), Waist = Vector3.new(-3, 18, 0), Neck = Vector3.new(-2, -5, 0) } },
+		{ t = 0.42 },
+	},
 	-- Bring food to the mouth and chew twice.
 	eat = {
 		{ t = 0 },
@@ -125,6 +136,12 @@ function Anim.play(character: Model?, name: string)
 	if character and ANIMS[name] then
 		playing[character] = { name = name, start = os.clock() }
 	end
+end
+
+-- How long an animation lasts, in seconds.
+function Anim.length(name: string): number
+	local keys = ANIMS[name]
+	return if keys then keys[#keys].t else 0
 end
 
 function Anim.isPlaying(character: Model?): boolean

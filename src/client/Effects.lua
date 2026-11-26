@@ -7,9 +7,11 @@ local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
+local Items = require(ReplicatedStorage:WaitForChild("Shared").Items)
 local Anim = require(script.Parent.Anim)
 
 local Effects = {}
+local trail: (Model, Model, string) -> ()
 
 function Effects.sound(name: string, at: Instance?)
 	local id = Config.Sounds[name]
@@ -30,6 +32,64 @@ function Effects.sound(name: string, at: Instance?)
 end
 
 -- Swing --------------------------------------------------------------------------
+
+-- A crescent trail behind the tip of the held item, only while the arm is moving
+-- fast. Weapons get a bright cyan arc; tools a faint white one.
+local TRAIL = {
+	slash = { color = Color3.fromRGB(110, 236, 255), from = 0.08, to = 0.26, alpha = 0.15 },
+	swing = { color = Color3.fromRGB(255, 255, 255), from = 0.08, to = 0.2, alpha = 0.55 },
+}
+local trails: { [Model]: Trail } = setmetatable({}, { __mode = "k" }) :: any
+
+trail = function(character: Model, held: Model, style: string)
+	local spec = TRAIL[style]
+	local hand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+	if not spec or not hand or not hand:IsA("BasePart") then
+		return
+	end
+	local t = trails[held]
+	if not t or not t.Parent then
+		-- Grip is at the bottom of the fist; the tip is the far end of the item.
+		local grip = Vector3.new(0, -hand.Size.Y / 2 + 0.1, 0)
+		local cf, size = held:GetBoundingBox()
+		local centre = hand.CFrame:PointToObjectSpace(cf.Position)
+		local dir = centre - grip
+		if dir.Magnitude < 0.1 then
+			dir = Vector3.new(0, 0, -1) * size.Magnitude / 2
+		end
+		local a0 = Instance.new("Attachment")
+		a0.Name = "TrailBase"
+		a0.Position = grip + dir * 0.9
+		a0.Parent = hand
+		local a1 = Instance.new("Attachment")
+		a1.Name = "TrailTip"
+		a1.Position = grip + dir * 2
+		a1.Parent = hand
+		t = Instance.new("Trail")
+		t.Attachment0 = a0
+		t.Attachment1 = a1
+		t.FaceCamera = false
+		t.LightEmission = 0.8
+		t.Lifetime = 0.16
+		t.MinLength = 0.05
+		t.Enabled = false
+		t.Parent = hand
+		trails[held] = t
+		held.Destroying:Connect(function()
+			a0:Destroy()
+			a1:Destroy()
+			t:Destroy()
+		end)
+	end
+	t.Color = ColorSequence.new(spec.color)
+	t.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, spec.alpha), NumberSequenceKeypoint.new(1, 1) })
+	t.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
+	task.delay(spec.from, function()
+		t.Enabled = true
+		task.wait(spec.to - spec.from)
+		t.Enabled = false
+	end)
+end
 
 local loadedTracks: { [Humanoid]: AnimationTrack } = {}
 
@@ -52,8 +112,15 @@ function Effects.swing(character: Model)
 			return
 		end
 	end
-	-- Built-in overhead chop (see Anim.lua).
-	Anim.play(character, "swing")
+	-- Built-in animation (see Anim.lua): weapons slash sideways, everything else
+	-- chops overhead. Both leave a short trail behind the tip of what you hold.
+	local held = character:FindFirstChild("HeldItem")
+	local itemId = held and held:GetAttribute("ItemId")
+	local style = if itemId and Items[itemId] and Items[itemId].swing == "slash" then "slash" else "swing"
+	Anim.play(character, style)
+	if held and held:IsA("Model") then
+		trail(character, held, style)
+	end
 end
 
 -- Hits ---------------------------------------------------------------------------
@@ -101,9 +168,11 @@ local function chips(model: Model)
 	end
 end
 
-local function flashRed(model: Model)
+-- A short flash over whatever you hit: white on trees, rocks and walls, red on
+-- anything alive.
+local function flash(model: Model, color: Color3)
 	local h = Instance.new("Highlight")
-	h.FillColor = Color3.fromRGB(255, 60, 60)
+	h.FillColor = color
 	h.FillTransparency = 0.55
 	h.OutlineTransparency = 1
 	h.DepthMode = Enum.HighlightDepthMode.Occluded
@@ -120,14 +189,16 @@ function Effects.hit(target: Instance)
 	if model:GetAttribute("NodeType") then
 		shake(model)
 		chips(model)
+		flash(model, Color3.new(1, 1, 1))
 		local stony = model:GetAttribute("NodeType") == "Boulder"
 		Effects.sound(if stony then "HitStone" else "ChopWood", model.PrimaryPart)
 	elseif model:GetAttribute("StructureType") then
 		shake(model)
 		chips(model)
+		flash(model, Color3.new(1, 1, 1))
 		Effects.sound("ChopWood", model.PrimaryPart)
 	else
-		flashRed(model)
+		flash(model, Color3.fromRGB(255, 60, 60))
 		Effects.sound("HitFlesh", model.PrimaryPart)
 	end
 end
