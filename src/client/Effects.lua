@@ -5,9 +5,9 @@ local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
-local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
+local Anim = require(script.Parent.Anim)
 
 local Effects = {}
 
@@ -31,31 +31,7 @@ end
 
 -- Swing --------------------------------------------------------------------------
 
-local baseC0: { [Motor6D]: CFrame } = {}
-local busy: { [Motor6D]: boolean } = {}
 local loadedTracks: { [Humanoid]: AnimationTrack } = {}
-
-local function shoulderOf(character: Model): Motor6D?
-	local upper = character:FindFirstChild("RightUpperArm")
-	local motor = upper and upper:FindFirstChild("RightShoulder")
-	if not motor then
-		local torso = character:FindFirstChild("Torso")
-		motor = torso and torso:FindFirstChild("Right Shoulder")
-	end
-	return if motor and motor:IsA("Motor6D") then motor else nil
-end
-
-local function waistOf(character: Model): Motor6D?
-	local upper = character:FindFirstChild("UpperTorso")
-	local motor = upper and upper:FindFirstChild("Waist")
-	return if motor and motor:IsA("Motor6D") then motor else nil
-end
-
-local function tweenC0(motor: Motor6D, to: CFrame, t: number, style: Enum.EasingStyle, dir: Enum.EasingDirection)
-	local tw = TweenService:Create(motor, TweenInfo.new(t, style, dir), { C0 = to })
-	tw:Play()
-	return tw
-end
 
 function Effects.swing(character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -76,40 +52,8 @@ function Effects.swing(character: Model)
 			return
 		end
 	end
-
-	-- Built-in swing: an overhead chop with a little body twist.
-	local shoulder = shoulderOf(character)
-	if not shoulder or busy[shoulder] then
-		return
-	end
-	busy[shoulder] = true
-	local base = baseC0[shoulder] or shoulder.C0
-	baseC0[shoulder] = base
-	local waist = waistOf(character)
-	local waistBase = waist and (baseC0[waist] or waist.C0)
-	if waist then
-		baseC0[waist] = waistBase
-	end
-	local isR6 = shoulder.Name == "Right Shoulder"
-	local windUp = if isR6 then base * CFrame.Angles(0, 0, math.rad(160)) else base * CFrame.Angles(math.rad(165), 0, math.rad(-15))
-	local strike = if isR6 then base * CFrame.Angles(0, 0, math.rad(25)) else base * CFrame.Angles(math.rad(25), 0, math.rad(8))
-
-	tweenC0(shoulder, windUp, 0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	if waist and waistBase then
-		tweenC0(waist, waistBase * CFrame.Angles(math.rad(8), math.rad(-14), 0), 0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	end
-	task.wait(0.13)
-	tweenC0(shoulder, strike, 0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-	if waist and waistBase then
-		tweenC0(waist, waistBase * CFrame.Angles(math.rad(-10), math.rad(10), 0), 0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-	end
-	task.wait(0.1)
-	tweenC0(shoulder, base, 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-	if waist and waistBase then
-		tweenC0(waist, waistBase, 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-	end
-	task.wait(0.2)
-	busy[shoulder] = nil
+	-- Built-in overhead chop (see Anim.lua).
+	Anim.play(character, "swing")
 end
 
 -- Hits ---------------------------------------------------------------------------

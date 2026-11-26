@@ -13,7 +13,7 @@ The full design brief lives in Claude Docs. This repo holds the game code.
 - **Hover info:** point at anything to see its name, its health and what you can do with it.
 - **Hunting and cooking:** boars wander the island. Hit one and it runs, then turns and fights back. They drop Raw Meat and Leather. Cook meat at a Campfire (press **E** at the fire).
 - **Gear:** Wooden Club, Wooden Harvester, then Stone versions. Wood armour (helmet, body, legs, boots) shows on your character and cuts damage.
-- **Building:** Wood Base and Stone Base floors with log and boulder borders, palisade Wood Walls, Stone Walls, doors and campfires. Placement shows a green or red outline. Anyone can break structures.
+- **Building:** Wood Base and Stone Base floors with log and boulder borders, palisade Wood Walls, Stone Walls, Wood Gates (only their owner can walk through) and campfires. Placement shows a green or red outline. Anyone can break structures.
 - **Levels:** recipes unlock as you level up (to level 20).
 - **Death:** you drop a loot sack with everything but your Rock and the bag you're wearing.
 - **Quest Board and Trader:** quests pay Shells, and you spend them at the Trader.
@@ -57,7 +57,7 @@ Press **Play** (F5). You wash up on the south beach with a Rock. Hit a tree, pre
 - **1-8:** hold a hotbar item
 - **C:** inventory and crafting
 - **F** (hold for more): pick up items
-- **E:** eat food on the ground, or use the Campfire, doors, Quest Board, Trader and sacks
+- **E:** eat food on the ground, or use the Campfire, Quest Board, Trader and sacks
 - **R:** rotate a build
 - **Esc:** close menus
 

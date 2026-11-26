@@ -17,7 +17,7 @@ local Recipes = {
 	{ id = "campfire", tab = "Buildables", level = 1, cost = { log = 3, stick = 2, stone = 3 } },
 	{ id = "wood_base", tab = "Buildables", level = 3, cost = { log = 20 } },
 	{ id = "wood_wall", tab = "Buildables", level = 3, cost = { log = 8 } },
-	{ id = "wood_door", tab = "Buildables", level = 4, cost = { log = 8, sticky_slime = 1 } },
+	{ id = "wood_gate", tab = "Buildables", level = 4, cost = { log = 8, sticky_slime = 1 } },
 	{ id = "stone_base", tab = "Buildables", level = 8, cost = { stone = 30, sticky_slime = 3 } },
 	{ id = "stone_wall", tab = "Buildables", level = 8, cost = { stone = 14, sticky_slime = 2 } },
 }
