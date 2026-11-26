@@ -343,7 +343,7 @@ end
 local function buildTerrain()
 	local terrain = workspace.Terrain
 	terrain:Clear()
-	terrain.WaterColor = Color3.fromRGB(38, 140, 170)
+	terrain.WaterColor = Color3.fromRGB(30, 98, 112)
 	terrain.WaterTransparency = 0.6
 	terrain.WaterWaveSize = 0.12
 	terrain.WaterWaveSpeed = 8
@@ -352,16 +352,16 @@ local function buildTerrain()
 	pcall(function()
 		(terrain :: any).Decoration = true
 	end)
-	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(106, 158, 70))
-	terrain:SetMaterialColor(Enum.Material.LeafyGrass, lerpColor(Color3.fromRGB(106, 158, 70), Color3.fromRGB(70, 110, 60), 0.5))
-	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(218, 196, 140))
-	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(96, 92, 90))
-	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(52, 50, 56))
-	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(92, 78, 58))
-	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(150, 116, 80))
+	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(118, 126, 58))
+	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(92, 102, 50))
+	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(198, 178, 130))
+	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(84, 80, 74))
+	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(44, 42, 46))
+	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(74, 62, 46))
+	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(112, 88, 60))
 	terrain:SetMaterialColor(Enum.Material.Snow, Color3.fromRGB(236, 242, 246))
 	terrain:SetMaterialColor(Enum.Material.Glacier, Color3.fromRGB(176, 214, 232))
-	terrain:SetMaterialColor(Enum.Material.Slate, Color3.fromRGB(88, 88, 94))
+	terrain:SetMaterialColor(Enum.Material.Slate, Color3.fromRGB(74, 74, 78))
 	terrain:SetMaterialColor(Enum.Material.CrackedLava, Color3.fromRGB(240, 100, 36))
 
 	-- Ocean and sea floor
@@ -577,22 +577,46 @@ local function makeTrader(cf: CFrame)
 	m.Parent = workspace
 end
 
-local function setLighting()
-	Lighting.Brightness = 2.4
-	Lighting.Ambient = Color3.fromRGB(90, 90, 100)
-	Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 136)
-	Lighting.EnvironmentDiffuseScale = 0.5
-	Lighting.GlobalShadows = true
-	Lighting.ClockTime = 9
-	if not Lighting:FindFirstChildOfClass("Atmosphere") then
-		local a = Instance.new("Atmosphere")
-		a.Density = 0.3
-		a.Offset = 0.1
-		a.Color = Color3.fromRGB(198, 220, 236)
-		a.Decay = Color3.fromRGB(110, 150, 180)
-		a.Haze = 1.2
-		a.Parent = Lighting
+-- Island Tribes' look comes mostly from Roblox's own lighting: warm low sun, thick
+-- golden haze over the sea, bloom and sun rays, and slightly muted, contrasty
+-- colour. Lighting.Technology = Future is set in default.project.json (it can't be
+-- set from a script).
+local function lightingEffect(className: string, props: { [string]: any })
+	local e = Lighting:FindFirstChildOfClass(className) or Instance.new(className)
+	for k, v in props do
+		(e :: any)[k] = v
 	end
+	e.Parent = Lighting
+end
+
+local function setLighting()
+	Lighting.Brightness = 3
+	Lighting.Ambient = Color3.fromRGB(46, 42, 40)
+	Lighting.OutdoorAmbient = Color3.fromRGB(104, 96, 86)
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
+	Lighting.ExposureCompensation = -0.1
+	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = 0.25
+	Lighting.ClockTime = 15.5
+	Lighting.GeographicLatitude = 30
+	lightingEffect("Atmosphere", {
+		Density = 0.36,
+		Offset = 0.25,
+		Color = Color3.fromRGB(214, 200, 168),
+		Decay = Color3.fromRGB(120, 112, 98),
+		Glare = 0.4,
+		Haze = 1.8,
+	})
+	lightingEffect("BloomEffect", { Intensity = 0.6, Size = 30, Threshold = 1.6 })
+	lightingEffect("SunRaysEffect", { Intensity = 0.06, Spread = 0.7 })
+	lightingEffect("ColorCorrectionEffect", {
+		Brightness = -0.02,
+		Contrast = 0.12,
+		Saturation = -0.12,
+		TintColor = Color3.fromRGB(255, 244, 226),
+	})
+	lightingEffect("DepthOfFieldEffect", { FarIntensity = 0.12, FocusDistance = 120, InFocusRadius = 140, NearIntensity = 0 })
 end
 
 -- Day and night: a full cycle every Config.DayLengthSeconds.

@@ -4,7 +4,7 @@ from lib import mat, reset
 from fields import *
 import field as CL
 reset()
-MATS={'Sand':(226,204,150),'Grass':(108,162,72),'LeafyGrass':(92,142,62),'Rock':(120,116,112),'Slate':(90,90,96),'Ground':(150,118,82),'Snow':(238,242,246),'Glacier':(176,214,232),'Mud':(96,80,60),'Basalt':(60,58,64),'CrackedLava':(240,100,36),'Seabed':(200,184,140),'Water':(70,160,200)}
+MATS={'Sand':(198,178,130),'Grass':(118,126,58),'LeafyGrass':(92,102,50),'Rock':(84,80,74),'Slate':(74,74,78),'Ground':(112,88,60),'Snow':(238,242,246),'Glacier':(176,214,232),'Mud':(74,62,46),'Basalt':(44,42,46),'CrackedLava':(240,100,36),'Seabed':(150,138,104),'Water':(30,98,112)}
 M={k:mat('T'+k,v) for k,v in MATS.items()}
 lava=M['CrackedLava']; b=lava.node_tree.nodes['Principled BSDF']; b.inputs['Emission Color'].default_value=(1,0.3,0.05,1); b.inputs['Emission Strength'].default_value=2.0
 class Clover:
@@ -35,7 +35,25 @@ bp=nt.nodes.new('ShaderNodeBump'); bp.inputs['Strength'].default_value=0.25
 n2=nt.nodes.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value=2.5; n2.inputs['Detail'].default_value=8
 nt.links.new(tc.outputs['Object'],n2.inputs['Vector']); nt.links.new(n2.outputs['Fac'],bp.inputs['Height']); nt.links.new(bp.outputs['Normal'],bs.inputs['Normal'])
 grassmat=bpy.data.materials.new('GrassHair'); grassmat.use_nodes=True
-gb=grassmat.node_tree.nodes['Principled BSDF']; gb.inputs['Base Color'].default_value=(*lin((92,150,58)),1); gb.inputs['Roughness'].default_value=0.8
+gb=grassmat.node_tree.nodes['Principled BSDF']; gb.inputs['Base Color'].default_value=(*lin((150,146,62)),1); gb.inputs['Roughness'].default_value=0.8
+import bmesh as _bm
+def _clump(seed):
+    L=float(os.environ.get('GRASSLEN','2.6')); bm=_bm.new(); r=random.Random(seed)
+    for k in range(r.randint(5,9)):
+        a=r.uniform(0,6.28); lean=r.uniform(0.05,0.45); w=r.uniform(0.08,0.16); h=L*r.uniform(0.5,1.0)
+        ox,oy=r.uniform(-0.5,0.5),r.uniform(-0.5,0.5)
+        dx,dy=math.cos(a),math.sin(a)
+        v1=bm.verts.new((0,ox-dy*w,oy+dx*w)); v2=bm.verts.new((0,ox+dy*w,oy-dx*w))
+        v3=bm.verts.new((h,ox+dx*lean*h,oy+dy*lean*h))
+        bm.faces.new((v1,v2,v3))
+    me=bpy.data.meshes.new('clump'); bm.to_mesh(me); bm.free()
+    o=bpy.data.objects.new('clump',me)
+    for p in me.polygons: p.use_smooth=True
+    shade=r.uniform(0.75,1.15); m=grassmat.copy(); b=m.node_tree.nodes['Principled BSDF']
+    c=b.inputs['Base Color'].default_value; b.inputs['Base Color'].default_value=(c[0]*shade,c[1]*shade*r.uniform(0.95,1.08),c[2]*shade,1)
+    me.materials.append(m); return o
+CLUMPS=bpy.data.collections.new('clumps')
+for k in range(10): CLUMPS.objects.link(_clump(k))
 for isl,cx,cz in ISL:
     x0,x1,z0,z1=isl.bounds
     nx,nz_=int((x1-x0)/STEP)+1,int((z1-z0)/STEP)+1
@@ -103,18 +121,17 @@ for isl,cx,cz in ISL:
                 if w>0.05: vg.add([j*nx+i],w,'REPLACE')
         me.materials.append(grassmat)
         mod=ob.modifiers.new('hair','PARTICLE_SYSTEM'); ps=mod.particle_system; st=ps.settings
-        st.type='HAIR'; st.count=int(float(os.environ.get('GRASSN','120000'))); st.hair_length=1.5; st.material=2
-        st.use_advanced_hair=True; st.use_rotations=True; st.rotation_mode='NOR'; st.child_type='SIMPLE'; st.rendered_child_count=10; st.child_radius=0.9; st.child_length_threshold=0; st.roughness_endpoint=0.25; st.roughness_1=0.15; st.display_step=2; st.render_step=2
-        st.brownian_factor=0.2; st.length_random=0.6
-        ps.vertex_group_density='grass'; ps.vertex_group_length='grass'
-        st.root_radius=0.2; st.tip_radius=0.0; st.radius_scale=1
+        st.type='HAIR'; st.count=int(float(os.environ.get('GRASSN','60000'))); st.hair_length=1
+        st.render_type='COLLECTION'; st.instance_collection=CLUMPS; st.use_collection_pick_random=True; st.particle_size=1; st.size_random=0.5
+        st.use_advanced_hair=True; st.use_rotations=True; st.rotation_mode='VEL'; st.phase_factor_random=2.0; st.rotation_factor_random=0.12
+        ps.vertex_group_density='grass'
 # sea + pools
 bpy.ops.mesh.primitive_plane_add(size=3000,location=(0,0,-26.02)); fl=bpy.context.object.data; fl.materials.append(tm)
 fa=fl.color_attributes.new('Col','FLOAT_COLOR','CORNER')
 for d in fa.data: d.color=(*lin(MATS['Seabed']),1)
 bpy.ops.mesh.primitive_plane_add(size=3000,location=(0,0,0.2)); sea=bpy.context.object
 sm=bpy.data.materials.new('Sea'); sm.use_nodes=True; bb=sm.node_tree.nodes['Principled BSDF']
-bb.inputs['Base Color'].default_value=(0.06,0.32,0.42,1); bb.inputs['Alpha'].default_value=0.72; bb.inputs['Roughness'].default_value=0.15
+bb.inputs['Base Color'].default_value=(0.02,0.1,0.13,1); bb.inputs['Alpha'].default_value=0.72; bb.inputs['Roughness'].default_value=0.15
 sea.data.materials.append(sm)
 def disc(x,z,r,y,m):
     bpy.ops.mesh.primitive_cylinder_add(radius=r,depth=0.2,location=(x,-z,y),vertices=48); bpy.context.object.data.materials.append(m)
@@ -133,6 +150,16 @@ for n in ['pine','palm','boulder','bush','boar','slimepool']:
     for o in objs:
         for c in o.users_collection: c.objects.unlink(o)
         col.objects.link(o)
+# darker, olive foliage to sit with the golden grass
+for cn in ('pine','palm','bush'):
+    for o in bpy.data.collections[cn].objects:
+        for ms in o.data.materials:
+            if not ms or not ms.use_nodes: continue
+            b=ms.node_tree.nodes.get('Principled BSDF')
+            if not b: continue
+            c=b.inputs['Base Color'].default_value
+            if c[1]>c[0]*1.2 and c[1]>c[2]:   # greens only
+                b.inputs['Base Color'].default_value=(c[1]*0.42,c[1]*0.5,c[1]*0.16,1)
 snowpine=bpy.data.collections.new('snowpine')
 for o in bpy.data.collections['pine'].objects:
     c=o.copy(); c.data=o.data.copy(); snowpine.objects.link(c)
@@ -183,12 +210,26 @@ for k in range(9):
     bpy.ops.mesh.primitive_cone_add(vertices=5,radius1=1.6,radius2=0.2,depth=7+3*(k%2),location=(300+fx,-(90+fz),ss.height(fx,fz)+2.5))
     o=bpy.context.object; o.data.materials.append(white); o.rotation_euler=(math.radians(-15),0,a)
 sc=bpy.context.scene
-sun=bpy.data.objects.new('Sun',bpy.data.lights.new('Sun','SUN')); sun.data.energy=3.4; sun.data.angle=0.15
-sun.rotation_euler=(math.radians(50),math.radians(8),math.radians(30)); sc.collection.objects.link(sun)
-sc.world=bpy.data.worlds.new('W'); sc.world.use_nodes=True
-bg=sc.world.node_tree.nodes['Background']; bg.inputs[0].default_value=(0.55,0.7,0.88,1); bg.inputs[1].default_value=0.9
+sun=bpy.data.objects.new('Sun',bpy.data.lights.new('Sun','SUN')); sun.data.energy=5.0; sun.data.angle=0.05
+sun.data.color=(1.0,0.86,0.66)
+from mathutils import Vector as _V
+LDIR=_V((0.45,0.75,-0.55)).normalized()   # direction sunlight travels (from behind-left of the cameras)
+sun.rotation_euler=LDIR.to_track_quat('-Z','Y').to_euler(); sc.collection.objects.link(sun)
+sc.world=bpy.data.worlds.new('W'); sc.world.use_nodes=True; wn=sc.world.node_tree
+bg=wn.nodes['Background']; sky=wn.nodes.new('ShaderNodeTexSky'); sky.sky_type='HOSEK_WILKIE'; sky.turbidity=3.0; sky.ground_albedo=0.3
+sky.sun_direction=tuple(-LDIR)
+wn.links.new(sky.outputs['Color'],bg.inputs['Color']); bg.inputs[1].default_value=float(os.environ.get('SKY','1.0'))
+if os.environ.get('HAZE','1')=='1':
+    # haze in a big box over the map (a world volume would block the sun entirely)
+    bpy.ops.mesh.primitive_cube_add(size=1,location=(0,-40,150)); hb=bpy.context.object; hb.scale=(2400,2400,300)
+    vm=bpy.data.materials.new('Haze'); vm.use_nodes=True; vn=vm.node_tree; vn.nodes.remove(vn.nodes['Principled BSDF'])
+    vol=vn.nodes.new('ShaderNodeVolumePrincipled'); vol.inputs['Density'].default_value=float(os.environ.get('HAZED','0.00025'))
+    vol.inputs['Color'].default_value=(0.95,0.85,0.68,1); vol.inputs['Anisotropy'].default_value=0.6
+    vn.links.new(vol.outputs['Volume'],vn.nodes['Material Output'].inputs['Volume']); hb.data.materials.append(vm)
 sc.render.engine='CYCLES'; sc.cycles.device='CPU'; sc.cycles.samples=int(os.environ.get('SAMPLES','16'))
-sc.view_settings.view_transform='Standard'
+sc.cycles.volume_step_rate=8; sc.cycles.volume_max_steps=64
+try: sc.view_settings.view_transform='AgX'; sc.view_settings.look='AgX - Punchy'; sc.view_settings.exposure=0.1
+except Exception: sc.view_settings.view_transform='Filmic'; sc.view_settings.look='Medium High Contrast'
 def shot(path,loc,target,lens=32,res=(1600,1000),ortho=0):
     cam=bpy.data.objects.new('Cam',bpy.data.cameras.new('Cam')); sc.collection.objects.link(cam); cam.data.lens=lens; cam.data.clip_end=5000
     cam.location=loc
@@ -208,8 +249,8 @@ for spec in os.environ.get('SHOTS','overview').split(','):
     if spec=='ember': shot('/tmp/arch/ember3d.png',(10,-170,70),(0,0,22),lens=28)
     if spec=='cloverground':
         gx,gz=54,58; gh=CL.height(gx,gz)
-        shot('/tmp/arch/clover-ground.png',(gx,-(320+gz),gh+12),(-6,-(320+4),CL.height(-6,4)+2),lens=24,res=(1600,1000))
+        shot('/tmp/arch/clover-ground.png',(gx,-(320+gz),gh+7),(-6,-(320+4),CL.height(-6,4)+2),lens=24,res=(1600,1000))
     if spec=='pineground':
         gx,gz=-20,60; gh=ISL[1][0].height(gx,gz)
-        shot('/tmp/arch/pine-ground.png',(-300+gx,-(90+gz),gh+14),(-300+gx+10,-(90+gz-70),gh+3),lens=24,res=(1600,1000))
+        shot('/tmp/arch/pine-ground.png',(-300+gx,-(90+gz),gh+10),(-300+gx+10,-(90+gz-70),gh+3),lens=24,res=(1600,1000))
 print('DONE')
