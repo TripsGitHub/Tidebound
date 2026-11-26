@@ -15,7 +15,7 @@ local Items = {
 	rock = { name = "Rock", kind = "tool", order = 1, gather = { wood = 1, stone = 1, plant = 1, slime = 1 }, cooldown = 0.55, damage = 6 },
 	wood_club = { name = "Wooden Club", kind = "tool", order = 2, gather = { wood = 1, plant = 1 }, cooldown = 0.6, damage = 14 },
 	wood_harvester = { name = "Wooden Harvester", kind = "tool", order = 3, gather = { wood = 2, stone = 2, plant = 2, slime = 1 }, cooldown = 0.55, damage = 8 },
-	stone_club = { name = "Stone Club", kind = "tool", order = 4, gather = { wood = 1, plant = 1 }, cooldown = 0.65, damage = 22 },
+	stone_sword = { name = "Stone Sword", kind = "tool", order = 4, gather = { wood = 1, plant = 1 }, cooldown = 0.65, damage = 22 },
 	stone_harvester = { name = "Stone Harvester", kind = "tool", order = 5, gather = { wood = 3, stone = 3, plant = 2, slime = 2 }, cooldown = 0.55, damage = 11 },
 
 	-- Armour -----------------------------------------------------------
