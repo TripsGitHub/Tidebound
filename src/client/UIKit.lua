@@ -27,11 +27,13 @@ UIKit.Colors = {
 	star = Color3.fromRGB(250, 214, 90),
 }
 
--- Denk One everywhere: chunky, slightly hand-cut letters that suit a tribal island
--- without the bubbly cartoon fonts most simulator games use. Still plain white with
--- a dark outline, like the footage.
-UIKit.Font = Enum.Font.DenkOne
-UIKit.FontHeavy = Enum.Font.DenkOne
+-- Merriweather everywhere: a sturdy serif that reads like an old adventure game
+-- and suits the wooden-sign logo style, without the bubbly cartoon fonts most
+-- simulator games use. Still white with a dark outline, like the footage.
+-- Enum.Font only has the regular weight, so text uses FontFace for bold.
+UIKit.FontFace = Font.new("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold)
+UIKit.Font = Enum.Font.Merriweather
+UIKit.FontHeavy = Enum.Font.Merriweather
 
 UIKit.PANEL_ALPHA = 0.12 -- how see-through panels are
 
@@ -66,7 +68,9 @@ end
 -- White text with a dark outline. This is the only text style in the game.
 function UIKit.label(props)
 	props.BackgroundTransparency = props.BackgroundTransparency or 1
-	props.Font = props.Font or UIKit.Font
+	if props.Font == nil and props.FontFace == nil then
+		props.FontFace = UIKit.FontFace
+	end
 	props.TextColor3 = props.TextColor3 or UIKit.Colors.text
 	props.TextStrokeColor3 = props.TextStrokeColor3 or UIKit.Colors.edge
 	props.TextStrokeTransparency = props.TextStrokeTransparency or 0
@@ -81,7 +85,9 @@ UIKit.hudText = UIKit.label
 -- A word you can click, with no box around it ("Equip", "Drop", "Craft").
 function UIKit.textButton(props, onClick: () -> ())
 	props.BackgroundTransparency = props.BackgroundTransparency or 1
-	props.Font = props.Font or UIKit.Font
+	if props.Font == nil and props.FontFace == nil then
+		props.FontFace = UIKit.FontFace
+	end
 	props.TextColor3 = props.TextColor3 or UIKit.Colors.text
 	props.TextStrokeColor3 = props.TextStrokeColor3 or UIKit.Colors.edge
 	props.TextStrokeTransparency = 0
@@ -102,7 +108,9 @@ end
 
 -- A small rounded coloured pill with white text: green "Trade", red "X".
 function UIKit.button(props, onClick: () -> ())
-	props.Font = props.Font or UIKit.Font
+	if props.Font == nil and props.FontFace == nil then
+		props.FontFace = UIKit.FontFace
+	end
 	props.TextColor3 = props.TextColor3 or UIKit.Colors.text
 	props.TextStrokeColor3 = UIKit.Colors.edge
 	props.TextStrokeTransparency = 0

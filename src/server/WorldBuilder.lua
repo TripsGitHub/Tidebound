@@ -311,7 +311,7 @@ local function sign(text: string, adornee: BasePart, height: number)
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.DenkOne
+	label.FontFace = Font.new("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold)
 	label.TextScaled = true
 	label.TextColor3 = Color3.fromRGB(255, 244, 214)
 	label.TextStrokeTransparency = 0.3

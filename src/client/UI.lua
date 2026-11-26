@@ -255,7 +255,7 @@ function UI.heart(amount: number)
 	end
 	local heart = label({ Parent = popupLayer, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(150, 130), Text = "♥", TextColor3 = C.xp, TextStrokeTransparency = 1, TextScaled = true })
 	local pill = new("Frame", { Parent = heart, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(64, 26), BackgroundColor3 = C.text }, { UIKit.round() })
-	local num = UIKit.new("TextLabel", { Parent = pill, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Font = UIKit.Font, TextSize = 20, TextColor3 = Color3.fromRGB(70, 140, 60), Text = "+" .. amount })
+	local num = UIKit.new("TextLabel", { Parent = pill, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, FontFace = UIKit.FontFace, TextSize = 20, TextColor3 = Color3.fromRGB(70, 140, 60), Text = "+" .. amount })
 	task.delay(0.6, function()
 		local info = TweenInfo.new(0.35)
 		TweenService:Create(heart, info, { TextTransparency = 1 }):Play()
