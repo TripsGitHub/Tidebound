@@ -1,21 +1,25 @@
 -- The messages the client and server send each other.
--- The server creates them; the client waits for them.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local NAMES = {
 	-- server -> client
-	"Inventory", -- (items, equippedId)
-	"Notify", -- (text)
-	"HitFeedback", -- (model, text)
+	"Inventory", -- (items, equippedTool, armour, bagSize)
+	"Notify", -- (text, style?) style: "warn" | "good" | nil
+	"PickedUp", -- (itemId, amount) shows in the pickup feed
 	"QuestState", -- (progress, claimed)
-	"OpenPanel", -- (panelName) "quests" or "shop"
-	"Swing", -- (character) play a swing on every client
+	"OpenPanel", -- (panelName) "quests" | "shop"
+	"Swing", -- (character)
+	"HitFeedback", -- (target)
 	-- client -> server
-	"Hit", -- (targetModel)
-	"Equip", -- (itemId or nil)
+	"Hit", -- (target)
+	"Equip", -- (itemId or nil) hold a tool/food/placeable
+	"Wear", -- (itemId) put on / take off armour
 	"Craft", -- (recipeId)
 	"Eat", -- (itemId)
+	"Drop", -- (itemId)
+	"PickUp", -- (dropModel)
+	"EatDrop", -- (dropModel)
 	"Place", -- (itemId, position, rotation)
 	"ClaimQuest", -- (questId)
 	"Buy", -- (shopEntryId)

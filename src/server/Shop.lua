@@ -16,12 +16,16 @@ function Shop.onBuy(player: Player, entryId: unknown)
 	end
 	for _, entry in ShopList do
 		if entry.id == entryId then
+			if Inventory.space(player) < entry.amount then
+				Remotes.Notify:FireClient(player, "Bag too full!", "warn")
+				return
+			end
 			if not Progression.spendShells(player, entry.price) then
-				Remotes.Notify:FireClient(player, "Not enough Shells.")
+				Remotes.Notify:FireClient(player, "Not enough Shells", "warn")
 				return
 			end
 			Inventory.add(player, entry.item, entry.amount)
-			Remotes.Notify:FireClient(player, "Bought " .. entry.amount .. " " .. Items[entry.item].name)
+			Remotes.Notify:FireClient(player, "Bought " .. entry.amount .. " " .. Items[entry.item].name, "good")
 			return
 		end
 	end

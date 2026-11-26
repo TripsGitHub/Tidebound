@@ -5,16 +5,18 @@ gather, level up, craft, build, and (later) fight rival clans across a chain of 
 
 The full design brief lives in Claude Docs. This repo holds the game code.
 
-## What's in Milestone 1 (test baseplate)
+## What's in Milestone 1 (survival-feel rework)
 
-- **Gathering:** hit palms, boulders, bushes and slime pools to collect Wood, Stone, Fiber, Sticky Slime, Berries and Coconuts. Hold the mouse button to keep swinging.
-- **Levels:** every hit gives XP, and new recipes unlock as you level up (levels 1 to 10).
-- **Crafting:** press **C**. Wood Axe and Wood Pick, then walls, floors, campfires, Stone tools, doors and Stone Walls.
-- **Hunger:** it drains over time, berries and coconuts refill it, and starving hurts.
-- **Building:** hold a wall, floor, door or campfire to see a green preview, press **R** to rotate, and click to place. Anyone can break structures by hitting them. Only the builder can open their own door.
-- **Death:** everything you carry (except your Rock) drops in a loot sack that anyone can pick up.
-- **Quest Board and Trader:** finish quests for **Shells**, then spend them at the Trader.
-- **Our own animations:** chop swings, hit shakes, flying chips, floating "+2 Wood" text, and bobbing slime. No uploaded animation assets.
+- **A real island:** Smooth Terrain beaches, grass hills, rock cliffs, a snowy peak, a small islet to swim to, and a day/night cycle (12 minutes).
+- **Gathering you can see:** hits knock Small Logs, Sticks, Leaves and Small Rocks onto the ground. Trees tip over and break into logs. Walk up and press **F** (hold it to grab everything nearby).
+- **Bag space:** you can carry 30 items until you craft a Leather Bag (80). When it's full you'll see "Bag too full!".
+- **Hover info:** point at anything to see its name, its health and what you can do with it.
+- **Hunting and cooking:** boars wander the island. Hit one and it runs, then turns and fights back. They drop Raw Meat and Leather. Cook meat at a Campfire (press **E** at the fire).
+- **Gear:** Wooden Club, Wooden Harvester, then Stone versions. Wood armour (helmet, body, legs, boots) shows on your character and cuts damage.
+- **Building:** Wood Base and Stone Base floors with log and boulder borders, palisade Wood Walls, Stone Walls, doors and campfires. Placement shows a green or red outline. Anyone can break structures.
+- **Levels:** recipes unlock as you level up (to level 20).
+- **Death:** you drop a loot sack with everything but your Rock and the bag you're wearing.
+- **Quest Board and Trader:** quests pay Shells, and you spend them at the Trader.
 
 ## Setting up (first time, about 15 minutes)
 
@@ -48,9 +50,16 @@ You only do this once. After that, it's just steps 6 and 7.
 4. Save the place (**File > Save to File**) somewhere outside the Tidebound folder.
 
 ### 6. Play
-Press **Play** (F5). You spawn on a sandy pad with a Rock in your hand. Walk to a tree and click it.
+Press **Play** (F5). You wash up on the south beach with a Rock. Hit a tree, press F to pick up what falls, then press C to craft a Wooden Harvester.
 
-**Controls:** click to use your held item · **1-9** to pick a hotbar item · **C** to craft · **R** to rotate a build · walk up to the Quest Board, Trader, doors and sacks and press **E**.
+**Controls:**
+- **Click** (hold to keep swinging): harvest, attack, or place a build
+- **1-8:** hold a hotbar item
+- **C:** inventory and crafting
+- **F** (hold for more): pick up items
+- **E:** eat food on the ground, or use the Campfire, doors, Quest Board, Trader and sacks
+- **R:** rotate a build
+- **Esc:** close menus
 
 To test with more than one player, go to the **Test** tab, set **Clients** to 2, and click **Start**.
 
@@ -70,3 +79,12 @@ If Rojo is connected, Studio updates by itself.
 | `src/client` | UI, input, build preview and animations |
 
 Want to tweak balance? Most numbers are in `src/shared/Config.lua`, `Items.lua`, `Recipes.lua` and `Nodes.lua`.
+
+## Optional: animations and sounds
+
+The game ships with a built-in swing made in code. For a real keyframed swing:
+1. In Studio, open **Avatar > Animation Editor**, select a rig, and animate an overhead chop.
+2. Click **...** > **Publish to Roblox** and copy the id.
+3. Paste it into `Config.Animations.Swing` in `src/shared/Config.lua`, as `"rbxassetid://123..."`.
+
+Sounds work the same way: put Creator Store sound ids in `Config.Sounds`.

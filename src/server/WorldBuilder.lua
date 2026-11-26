@@ -1,383 +1,437 @@
--- Builds the test world when the server starts: a flat sandy-green test ground,
--- palms, boulders, bushes, slime pools, a quest board and a trader.
--- (The real hand-built islands replace this in a later milestone.)
+-- Builds the test island when the server starts: Smooth Terrain island with beaches,
+-- grass hills, rock cliffs and a snowy peak in an ocean, plus low-poly trees, rocks,
+-- bushes, slime pools, boars, a quest board and a trader.
+-- (The hand-built v2 map replaces this in a later milestone.)
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Nodes = require(Shared.Nodes)
 local Remotes = require(Shared.Remotes)
+local Animals = require(script.Parent.Animals)
 
 local WorldBuilder = {}
-
-local rng = Random.new(2026)
+local rng = Random.new(1911)
 
 local COLORS = {
-	grass = Color3.fromRGB(111, 176, 82),
-	sand = Color3.fromRGB(232, 214, 160),
-	trunk = Color3.fromRGB(140, 104, 70),
-	leaf = Color3.fromRGB(76, 160, 70),
-	leafDark = Color3.fromRGB(58, 130, 58),
+	trunk = Color3.fromRGB(122, 88, 58),
+	trunkDark = Color3.fromRGB(96, 68, 44),
+	pine = Color3.fromRGB(52, 112, 64),
+	pineDark = Color3.fromRGB(40, 92, 54),
+	palmLeaf = Color3.fromRGB(86, 158, 66),
 	coconut = Color3.fromRGB(105, 72, 45),
-	rock = Color3.fromRGB(135, 135, 140),
-	rockDark = Color3.fromRGB(108, 108, 115),
-	bush = Color3.fromRGB(64, 140, 62),
-	berry = Color3.fromRGB(200, 40, 70),
-	slime = Color3.fromRGB(110, 220, 90),
+	rock = Color3.fromRGB(132, 132, 138),
+	rockDark = Color3.fromRGB(104, 104, 112),
+	bush = Color3.fromRGB(70, 132, 58),
+	berry = Color3.fromRGB(196, 40, 66),
+	slime = Color3.fromRGB(122, 214, 84),
 }
 
-local function part(props): Part
+local function part(model: Model, props): Part
 	local p = Instance.new("Part")
 	p.Anchored = true
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Material = Enum.Material.SmoothPlastic
 	for key, value in props do
 		(p :: any)[key] = value
 	end
 	p:SetAttribute("BaseTransparency", p.Transparency)
 	p:SetAttribute("BaseCollide", p.CanCollide)
+	p.Parent = model
 	return p
 end
 
 local function folder(name: string): Folder
-	local f = workspace:FindFirstChild(name)
-	if f then
-		f:Destroy()
+	local old = workspace:FindFirstChild(name)
+	if old then
+		old:Destroy()
 	end
-	local new = Instance.new("Folder")
-	new.Name = name
-	new.Parent = workspace
-	return new
+	local f = Instance.new("Folder")
+	f.Name = name
+	f.Parent = workspace
+	return f
 end
 
--- Node models --------------------------------------------------------------
+-- Low-poly node models (each stands on the origin) ----------------------------------
 
-local function makePalm(pos: Vector3): Model
-	local model = Instance.new("Model")
-	local lean = CFrame.Angles(math.rad(rng:NextNumber(-8, 8)), rng:NextNumber(0, math.pi * 2), math.rad(rng:NextNumber(4, 10)))
-	local cf = CFrame.new(pos) * lean
-	local segments = 4
-	local segHeight = 3.4
+local function makePine(cf: CFrame): Model
+	local m = Instance.new("Model")
+	local scale = rng:NextNumber(0.85, 1.25)
+	local trunkH = 7 * scale
+	local trunk = part(m, { Name = "Trunk", Size = Vector3.new(1.4, trunkH, 1.4) * Vector3.new(scale, 1, scale), CFrame = cf * CFrame.new(0, trunkH / 2, 0), Color = COLORS.trunk, Material = Enum.Material.Wood })
+	-- Stacked, alternately-rotated tiers read as a faceted low-poly pine.
+	local y = trunkH * 0.55
+	local width = 7.5 * scale
+	for tier = 1, 4 do
+		local h = 3.2 * scale
+		local color = if tier % 2 == 0 then COLORS.pine else COLORS.pineDark
+		for k = 0, 1 do
+			part(m, { Name = "Needles", Size = Vector3.new(width, h, width), CFrame = cf * CFrame.new(0, y + h / 2, 0) * CFrame.Angles(0, math.rad(k * 45 + tier * 20), 0), Color = color })
+		end
+		y += h * 0.8
+		width *= 0.68
+	end
+	part(m, { Name = "Top", Size = Vector3.new(1.2, 1.8, 1.2) * scale, CFrame = cf * CFrame.new(0, y + 0.6, 0) * CFrame.Angles(0, math.rad(45), 0), Color = COLORS.pine })
+	m.PrimaryPart = trunk
+	trunk.PivotOffset = trunk.CFrame:Inverse() * cf
+	return m
+end
+
+local function makePalm(cf: CFrame): Model
+	local m = Instance.new("Model")
+	local lean = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0) * CFrame.Angles(0, 0, math.rad(rng:NextNumber(5, 12)))
+	local c = cf * lean
 	local trunk
-	for i = 0, segments - 1 do
-		local seg = part({
-			Name = if i == 0 then "Trunk" else "TrunkSegment",
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(segHeight + 0.2, 1.5 - i * 0.12, 1.5 - i * 0.12),
-			CFrame = cf * CFrame.new(0, segHeight * (i + 0.5), 0) * CFrame.Angles(0, 0, math.rad(90)),
-			Color = if i % 2 == 0 then COLORS.trunk else COLORS.trunk:Lerp(Color3.new(0, 0, 0), 0.12),
-			Material = Enum.Material.Wood,
-		})
-		seg.Parent = model
+	local segH = 2.6
+	for i = 0, 5 do
+		local w = 1.5 - i * 0.12
+		local seg = part(m, { Name = if i == 0 then "Trunk" else "Segment", Size = Vector3.new(w, segH + 0.15, w), CFrame = c * CFrame.new(0, segH * (i + 0.5), 0) * CFrame.Angles(0, math.rad(i * 25), 0), Color = if i % 2 == 0 then COLORS.trunk else COLORS.trunkDark, Material = Enum.Material.Wood })
 		if i == 0 then
 			trunk = seg
 		end
-		cf = cf * CFrame.Angles(0, 0, math.rad(3))
+		c = c * CFrame.Angles(0, 0, math.rad(2.5))
 	end
-	local top = cf * CFrame.new(0, segHeight * segments, 0)
-	local fronds = 6
-	for i = 0, fronds - 1 do
-		local yaw = i / fronds * math.pi * 2 + rng:NextNumber(-0.2, 0.2)
-		local frond = part({
-			Name = "Frond",
-			Size = Vector3.new(1.8, 0.25, 6.5),
-			CFrame = top * CFrame.Angles(0, yaw, 0) * CFrame.Angles(math.rad(-22), 0, 0) * CFrame.new(0, 0, -3),
-			Color = if i % 2 == 0 then COLORS.leaf else COLORS.leafDark,
-			Material = Enum.Material.Grass,
-			CanCollide = false,
-		})
-		frond.Parent = model
+	local top = c * CFrame.new(0, segH * 6, 0)
+	for i = 0, 6 do
+		local yaw = i / 7 * math.pi * 2
+		-- Each frond is two drooping planks.
+		local base = top * CFrame.Angles(0, yaw, 0) * CFrame.Angles(math.rad(-12), 0, 0)
+		part(m, { Name = "Frond", Size = Vector3.new(1.9, 0.2, 3.6), CFrame = base * CFrame.new(0, 0, -1.8), Color = COLORS.palmLeaf, CanCollide = false })
+		part(m, { Name = "Frond", Size = Vector3.new(1.5, 0.2, 3.2), CFrame = base * CFrame.new(0, 0, -3.4) * CFrame.Angles(math.rad(-28), 0, 0) * CFrame.new(0, 0, -1.4), Color = COLORS.palmLeaf:Lerp(Color3.new(0, 0, 0), 0.12), CanCollide = false })
 	end
 	for i = 0, 2 do
-		local yaw = i / 3 * math.pi * 2
-		local nut = part({
-			Name = "Coconut",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(0.9, 0.9, 0.9),
-			CFrame = top * CFrame.Angles(0, yaw, 0) * CFrame.new(0, -0.6, -0.7),
-			Color = COLORS.coconut,
-			Material = Enum.Material.SmoothPlastic,
-			CanCollide = false,
-		})
-		nut.Parent = model
+		part(m, { Name = "Coconut", Shape = Enum.PartType.Ball, Size = Vector3.new(0.9, 0.9, 0.9), CFrame = top * CFrame.Angles(0, i * 2.1, 0) * CFrame.new(0, -0.6, -0.65), Color = COLORS.coconut, CanCollide = false })
 	end
-	model.PrimaryPart = trunk
-	return model
+	m.PrimaryPart = trunk
+	trunk.PivotOffset = trunk.CFrame:Inverse() * cf
+	return m
 end
 
-local function makeBoulder(pos: Vector3): Model
-	local model = Instance.new("Model")
-	local main = part({
-		Name = "Rock",
-		Size = Vector3.new(6, 4.2, 5.2),
-		CFrame = CFrame.new(pos + Vector3.new(0, 1.6, 0)) * CFrame.Angles(rng:NextNumber(-0.3, 0.3), rng:NextNumber(0, 6.28), rng:NextNumber(-0.3, 0.3)),
-		Color = COLORS.rock,
-		Material = Enum.Material.Slate,
-	})
-	main.Parent = model
-	local side = part({
-		Name = "RockSide",
-		Size = Vector3.new(3.2, 2.6, 3),
-		CFrame = main.CFrame * CFrame.new(2.6, -0.8, 1) * CFrame.Angles(0.4, 0.7, 0.2),
-		Color = COLORS.rockDark,
-		Material = Enum.Material.Slate,
-	})
-	side.Parent = model
-	model.PrimaryPart = main
-	return model
+local function lump(m: Model, size: Vector3, cf: CFrame, color: Color3, name: string): Part
+	local main = part(m, { Name = name, Size = size, CFrame = cf * CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(0, 6), rng:NextNumber(-0.4, 0.4)), Color = color, Material = Enum.Material.Slate })
+	part(m, { Name = name, Size = size * Vector3.new(0.8, 0.75, 0.8), CFrame = cf * CFrame.new(0, size.Y * 0.2, 0) * CFrame.Angles(rng:NextNumber(0, 6), rng:NextNumber(0, 6), rng:NextNumber(0, 6)), Color = color:Lerp(Color3.new(1, 1, 1), 0.06), Material = Enum.Material.Slate })
+	return main
 end
 
-local function makeBush(pos: Vector3): Model
-	local model = Instance.new("Model")
+local function makeBoulder(cf: CFrame): Model
+	local m = Instance.new("Model")
+	local s = rng:NextNumber(0.9, 1.3)
+	local main = lump(m, Vector3.new(6, 4.5, 5.5) * s, cf * CFrame.new(0, 1.8 * s, 0), COLORS.rock, "Rock")
+	lump(m, Vector3.new(3.4, 2.6, 3.2) * s, cf * CFrame.new(2.8 * s, 0.9 * s, 1.2 * s), COLORS.rockDark, "Rock")
+	m.PrimaryPart = main
+	main.PivotOffset = main.CFrame:Inverse() * cf
+	return m
+end
+
+local function makeBush(cf: CFrame): Model
+	local m = Instance.new("Model")
 	local main
-	for i = 0, 2 do
-		local offset = Vector3.new(rng:NextNumber(-1.2, 1.2), 0, rng:NextNumber(-1.2, 1.2))
-		local d = rng:NextNumber(2.6, 3.4)
-		local ball = part({
-			Name = "Leaves",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(d, d, d),
-			Position = pos + offset + Vector3.new(0, d / 2 - 0.3, 0),
-			Color = COLORS.bush:Lerp(COLORS.leafDark, i * 0.25),
-			Material = Enum.Material.Grass,
-		})
-		ball.Parent = model
-		main = main or ball
-	end
-	for _ = 1, 5 do
-		local dir = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(0.2, 1), rng:NextNumber(-1, 1)).Unit
-		local berry = part({
-			Name = "Berry",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(0.45, 0.45, 0.45),
-			Position = pos + Vector3.new(0, 1.3, 0) + dir * 1.6,
-			Color = COLORS.berry,
-			Material = Enum.Material.SmoothPlastic,
-			CanCollide = false,
-		})
-		berry.Parent = model
-	end
-	model.PrimaryPart = main
-	return model
-end
-
-local function makeSlimePool(pos: Vector3): Model
-	local model = Instance.new("Model")
-	local pool = part({
-		Name = "Pool",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(0.4, 6, 6),
-		CFrame = CFrame.new(pos + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
-		Color = COLORS.slime,
-		Material = Enum.Material.Glass,
-		Transparency = 0.15,
-	})
-	pool.Parent = model
 	for i = 1, 3 do
-		local d = rng:NextNumber(1, 1.6)
-		local blob = part({
-			Name = "Blob",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(d, d, d),
-			Position = pos + Vector3.new(rng:NextNumber(-1.8, 1.8), 0.4 + d / 3, rng:NextNumber(-1.8, 1.8)),
-			Color = COLORS.slime:Lerp(Color3.new(1, 1, 1), 0.1 * i),
-			Material = Enum.Material.Glass,
-			Transparency = 0.1,
-			CanCollide = false,
-		})
-		blob:SetAttribute("Bob", true)
-		blob.Parent = model
+		local s = rng:NextNumber(2.4, 3.2)
+		local p = part(m, { Name = "Leaves", Size = Vector3.new(s, s * 0.8, s), CFrame = cf * CFrame.new(rng:NextNumber(-1.1, 1.1), s * 0.35, rng:NextNumber(-1.1, 1.1)) * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 6), rng:NextNumber(0, 1)), Color = COLORS.bush:Lerp(COLORS.pineDark, i * 0.2), Material = Enum.Material.Grass })
+		main = main or p
 	end
-	model.PrimaryPart = pool
-	return model
+	for _ = 1, 6 do
+		local dir = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(0.3, 1), rng:NextNumber(-1, 1)).Unit
+		part(m, { Name = "Berry", Size = Vector3.new(0.45, 0.45, 0.45), CFrame = cf * CFrame.new(Vector3.new(0, 1.1, 0) + dir * 1.6) * CFrame.Angles(0.5, 0.5, 0), Color = COLORS.berry, CanCollide = false })
+	end
+	m.PrimaryPart = main
+	main.PivotOffset = main.CFrame:Inverse() * cf
+	return m
 end
 
-local makers = {
-	Palm = makePalm,
-	Boulder = makeBoulder,
-	Bush = makeBush,
-	SlimePool = makeSlimePool,
+local function makeSlimePool(cf: CFrame): Model
+	local m = Instance.new("Model")
+	local pool = part(m, { Name = "Pool", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 6.5, 6.5), CFrame = cf * CFrame.new(0, 0.2, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = COLORS.slime, Material = Enum.Material.Glass, Transparency = 0.15 })
+	for _ = 1, 3 do
+		local d = rng:NextNumber(1, 1.7)
+		local blob = part(m, { Name = "Blob", Shape = Enum.PartType.Ball, Size = Vector3.new(d, d, d), CFrame = cf * CFrame.new(rng:NextNumber(-1.8, 1.8), 0.4 + d / 3, rng:NextNumber(-1.8, 1.8)), Color = COLORS.slime:Lerp(Color3.new(1, 1, 1), rng:NextNumber(0, 0.25)), Material = Enum.Material.Glass, Transparency = 0.1, CanCollide = false })
+		blob:SetAttribute("Bob", true)
+	end
+	-- A ring of rocks so it reads as a pool, not a decal.
+	for i = 0, 6 do
+		local a = i / 7 * math.pi * 2
+		part(m, { Name = "Rim", Size = Vector3.new(1.4, 0.9, 1.2), CFrame = cf * CFrame.new(math.cos(a) * 3.4, 0.3, math.sin(a) * 3.4) * CFrame.Angles(0.3, a, 0.2), Color = COLORS.rockDark, Material = Enum.Material.Slate })
+	end
+	m.PrimaryPart = pool
+	pool.PivotOffset = pool.CFrame:Inverse() * cf
+	return m
+end
+
+local makers = { Pine = makePine, Palm = makePalm, Boulder = makeBoulder, Bush = makeBush, SlimePool = makeSlimePool }
+
+-- Terrain ------------------------------------------------------------------------
+
+local ISLAND_BLOBS = {
+	-- x, z, radius of grass
+	{ 0, 0, 105 },
+	{ 95, 55, 70 },
+	{ -85, -45, 80 },
+	{ 35, -105, 60 },
+	{ -55, 85, 55 },
+}
+local ISLET = { 250, -130, 34 }
+
+local function buildTerrain()
+	local terrain = workspace.Terrain
+	terrain:Clear()
+	terrain.WaterColor = Color3.fromRGB(38, 140, 170)
+	terrain.WaterTransparency = 0.6
+	terrain.WaterWaveSize = 0.12
+	terrain.WaterWaveSpeed = 8
+	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(106, 158, 70))
+	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(218, 196, 140))
+	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(110, 110, 116))
+
+	-- Ocean and sea floor
+	terrain:FillBlock(CFrame.new(0, -18, 0), Vector3.new(1200, 36, 1200), Enum.Material.Water)
+	terrain:FillBlock(CFrame.new(0, -40, 0), Vector3.new(1200, 8, 1200), Enum.Material.Sand)
+
+	local blobs = table.clone(ISLAND_BLOBS)
+	table.insert(blobs, ISLET)
+	-- Sand shelves stepping down into the water, then the beach, then grass.
+	for _, b in blobs do
+		local x, z, r = b[1], b[2], b[3]
+		for k = 4, 1, -1 do
+			local top = 1.5 - k * 7
+			terrain:FillCylinder(CFrame.new(x, top - 20, z), 40, r + 18 + k * 12, Enum.Material.Sand)
+		end
+		terrain:FillCylinder(CFrame.new(x, 1.5 - 20, z), 40, r + 18, Enum.Material.Sand)
+	end
+	for _, b in blobs do
+		terrain:FillCylinder(CFrame.new(b[1], 3 - 20, b[2]), 40, b[3], Enum.Material.Grass)
+	end
+
+	-- Rolling grass hills
+	for _ = 1, 14 do
+		local b = ISLAND_BLOBS[rng:NextInteger(1, #ISLAND_BLOBS)]
+		local a = rng:NextNumber(0, math.pi * 2)
+		local d = rng:NextNumber(0, b[3] * 0.6)
+		local radius = rng:NextNumber(16, 34)
+		terrain:FillBall(Vector3.new(b[1] + math.cos(a) * d, -radius * 0.62, b[2] + math.sin(a) * d), radius, Enum.Material.Grass)
+	end
+
+	-- Rocky cliffs along the coast
+	for _ = 1, 10 do
+		local b = ISLAND_BLOBS[rng:NextInteger(1, #ISLAND_BLOBS)]
+		local a = rng:NextNumber(0, math.pi * 2)
+		local radius = rng:NextNumber(10, 18)
+		local d = b[3] - radius * 0.3
+		terrain:FillBall(Vector3.new(b[1] + math.cos(a) * d, -radius * 0.25, b[2] + math.sin(a) * d), radius, Enum.Material.Rock)
+	end
+
+	-- Snowy peak in the north-west
+	terrain:FillBall(Vector3.new(-95, -12, -60), 46, Enum.Material.Grass)
+	terrain:FillBall(Vector3.new(-95, 0, -60), 34, Enum.Material.Rock)
+	terrain:FillBall(Vector3.new(-95, 14, -60), 22, Enum.Material.Snow)
+end
+
+local function groundAt(x: number, z: number): RaycastResult?
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	params.IgnoreWater = false
+	return workspace:Raycast(Vector3.new(x, 300, z), Vector3.new(0, -600, 0), params)
+end
+
+local ALLOWED = {
+	Pine = { [Enum.Material.Grass] = true, [Enum.Material.Snow] = true },
+	Palm = { [Enum.Material.Sand] = true },
+	Boulder = { [Enum.Material.Grass] = true, [Enum.Material.Rock] = true, [Enum.Material.Snow] = true },
+	Bush = { [Enum.Material.Grass] = true },
+	SlimePool = { [Enum.Material.Grass] = true },
 }
 
--- Landmarks ----------------------------------------------------------------
-
-local function makeQuestBoard(pos: Vector3): Model
-	local model = Instance.new("Model")
-	model.Name = "QuestBoard"
-	for _, x in { -2.6, 2.6 } do
-		part({ Name = "Post", Size = Vector3.new(0.6, 7, 0.6), Position = pos + Vector3.new(x, 3.5, 0), Color = COLORS.trunk, Material = Enum.Material.Wood }).Parent = model
-	end
-	local board = part({ Name = "Board", Size = Vector3.new(6, 3.6, 0.4), Position = pos + Vector3.new(0, 4.6, 0), Color = Color3.fromRGB(170, 128, 84), Material = Enum.Material.WoodPlanks })
-	board.Parent = model
-	part({ Name = "Roof", Size = Vector3.new(7, 0.4, 1.6), Position = pos + Vector3.new(0, 7.1, 0), Color = COLORS.trunk, Material = Enum.Material.Wood }).Parent = model
-	for i, x in { -1.6, 0.1, 1.7 } do
-		part({
-			Name = "Note",
-			Size = Vector3.new(1.3, 1.6, 0.05),
-			CFrame = CFrame.new(pos + Vector3.new(x, 4.6 + (i % 2) * 0.3, -0.23)) * CFrame.Angles(0, 0, math.rad((i - 2) * 6)),
-			Color = Color3.fromRGB(245, 235, 205),
-			Material = Enum.Material.SmoothPlastic,
-		}).Parent = model
-	end
-	local sign = Instance.new("BillboardGui")
-	sign.Size = UDim2.fromOffset(160, 30)
-	sign.StudsOffset = Vector3.new(0, 3, 0)
-	sign.MaxDistance = 60
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
-	label.TextScaled = true
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.4
-	label.Text = "Quest Board"
-	label.Parent = sign
-	sign.Parent = board
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "View quests"
-	prompt.ObjectText = "Quest Board"
-	prompt.MaxActivationDistance = 10
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = board
-	prompt.Triggered:Connect(function(player)
-		Remotes.OpenPanel:FireClient(player, "quests")
-	end)
-	model.Parent = workspace
-	return model
-end
-
-local function makeTrader(pos: Vector3): Model
-	local model = Instance.new("Model")
-	model.Name = "Trader"
-	local skin = Color3.fromRGB(204, 160, 120)
-	part({ Name = "Legs", Size = Vector3.new(2, 2, 1), Position = pos + Vector3.new(0, 1, 0), Color = Color3.fromRGB(120, 90, 60), Material = Enum.Material.Fabric }).Parent = model
-	part({ Name = "Body", Size = Vector3.new(2.2, 2.2, 1.1), Position = pos + Vector3.new(0, 3.1, 0), Color = Color3.fromRGB(60, 120, 150), Material = Enum.Material.Fabric }).Parent = model
-	local head = part({ Name = "Head", Size = Vector3.new(1.4, 1.4, 1.4), Position = pos + Vector3.new(0, 4.9, 0), Color = skin, Material = Enum.Material.SmoothPlastic })
-	head.Parent = model
-	part({ Name = "Hat", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 3, 3), CFrame = CFrame.new(pos + Vector3.new(0, 5.7, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(220, 190, 110), Material = Enum.Material.Fabric }).Parent = model
-	-- Stall
-	part({ Name = "Counter", Size = Vector3.new(6, 2.6, 1.6), Position = pos + Vector3.new(0, 1.3, -2.2), Color = COLORS.trunk, Material = Enum.Material.WoodPlanks }).Parent = model
-	part({ Name = "Awning", Size = Vector3.new(7, 0.3, 4), CFrame = CFrame.new(pos + Vector3.new(0, 7, -1)) * CFrame.Angles(math.rad(-12), 0, 0), Color = Color3.fromRGB(230, 120, 80), Material = Enum.Material.Fabric }).Parent = model
-	for _, x in { -3.2, 3.2 } do
-		part({ Name = "Pole", Size = Vector3.new(0.4, 7, 0.4), Position = pos + Vector3.new(x, 3.5, -2.8), Color = COLORS.trunk, Material = Enum.Material.Wood }).Parent = model
-	end
-
-	local sign = Instance.new("BillboardGui")
-	sign.Size = UDim2.fromOffset(160, 30)
-	sign.StudsOffset = Vector3.new(0, 2.6, 0)
-	sign.MaxDistance = 60
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.FredokaOne
-	label.TextScaled = true
-	label.TextColor3 = Color3.new(1, 1, 1)
-	label.TextStrokeTransparency = 0.4
-	label.Text = "Trader"
-	label.Parent = sign
-	sign.Parent = head
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Trade"
-	prompt.ObjectText = "Trader"
-	prompt.MaxActivationDistance = 10
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = head
-	prompt.Triggered:Connect(function(player)
-		Remotes.OpenPanel:FireClient(player, "shop")
-	end)
-	model.Parent = workspace
-	return model
-end
-
--- World --------------------------------------------------------------------
-
-local function setLighting()
-	Lighting.ClockTime = 13.5
-	Lighting.Brightness = 2.5
-	Lighting.Ambient = Color3.fromRGB(110, 110, 120)
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 150, 150)
-	if not Lighting:FindFirstChildOfClass("Atmosphere") then
-		local atmosphere = Instance.new("Atmosphere")
-		atmosphere.Density = 0.25
-		atmosphere.Color = Color3.fromRGB(200, 225, 240)
-		atmosphere.Decay = Color3.fromRGB(120, 170, 200)
-		atmosphere.Parent = Lighting
-	end
-end
-
-local function scatter(nodeFolder: Folder, nodeType: string, count: number, minR: number, maxR: number, taken: { Vector3 })
-	local made = 0
-	local tries = 0
-	while made < count and tries < count * 30 do
+local function scatter(nodeFolder: Folder, nodeType: string, count: number, taken: { Vector3 })
+	local made, tries = 0, 0
+	local blobs = table.clone(ISLAND_BLOBS)
+	table.insert(blobs, ISLET)
+	while made < count and tries < count * 40 do
 		tries += 1
-		local angle = rng:NextNumber(0, math.pi * 2)
-		local r = math.sqrt(rng:NextNumber((minR / maxR) ^ 2, 1)) * maxR
-		local pos = Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r)
-		local clear = true
-		for _, other in taken do
-			if (other - pos).Magnitude < 9 then
-				clear = false
-				break
+		local b = blobs[rng:NextInteger(1, #blobs)]
+		local a = rng:NextNumber(0, math.pi * 2)
+		local d = math.sqrt(rng:NextNumber()) * (b[3] + 16)
+		local hit = groundAt(b[1] + math.cos(a) * d, b[2] + math.sin(a) * d)
+		if hit and ALLOWED[nodeType][hit.Material] and hit.Position.Y > 0.5 and hit.Normal.Y > 0.8 then
+			local pos = hit.Position
+			local clear = true
+			for _, other in taken do
+				if (other - pos).Magnitude < 10 then
+					clear = false
+					break
+				end
+			end
+			if clear then
+				table.insert(taken, pos)
+				local model = makers[nodeType](CFrame.new(pos - Vector3.new(0, 0.3, 0)))
+				model.Name = nodeType
+				model:SetAttribute("NodeType", nodeType)
+				model:SetAttribute("DisplayName", Nodes[nodeType].name)
+				model:SetAttribute("HP", Nodes[nodeType].hp)
+				model:SetAttribute("MaxHP", Nodes[nodeType].hp)
+				model:SetAttribute("Depleted", false)
+				model.Parent = nodeFolder
+				made += 1
 			end
 		end
-		if clear then
-			table.insert(taken, pos)
-			local model = makers[nodeType](pos)
-			model.Name = nodeType
-			model:SetAttribute("NodeType", nodeType)
-			model:SetAttribute("HP", Nodes[nodeType].hp)
-			model:SetAttribute("Depleted", false)
-			model.Parent = nodeFolder
-			made += 1
-		end
 	end
+end
+
+-- Landmarks ----------------------------------------------------------------------
+
+local function sign(text: string, adornee: BasePart, height: number)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(170, 32)
+	gui.StudsOffset = Vector3.new(0, height, 0)
+	gui.MaxDistance = 70
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(255, 244, 214)
+	label.TextStrokeTransparency = 0.3
+	label.Text = text
+	label.Parent = gui
+	gui.Parent = adornee
+end
+
+local function prompt(parent: BasePart, action: string, object: string, panel: string)
+	local p = Instance.new("ProximityPrompt")
+	p.ActionText = action
+	p.ObjectText = object
+	p.MaxActivationDistance = 10
+	p.RequiresLineOfSight = false
+	p.Parent = parent
+	p.Triggered:Connect(function(player)
+		Remotes.OpenPanel:FireClient(player, panel)
+	end)
+end
+
+local function makeQuestBoard(cf: CFrame)
+	local m = Instance.new("Model")
+	m.Name = "QuestBoard"
+	for _, x in { -2.8, 2.8 } do
+		part(m, { Size = Vector3.new(0.7, 7.5, 0.7), CFrame = cf * CFrame.new(x, 3.75, 0), Color = COLORS.trunk, Material = Enum.Material.Wood })
+	end
+	local board = part(m, { Name = "Board", Size = Vector3.new(6.4, 3.8, 0.4), CFrame = cf * CFrame.new(0, 4.8, 0), Color = Color3.fromRGB(168, 126, 82), Material = Enum.Material.WoodPlanks })
+	part(m, { Size = Vector3.new(7.4, 0.5, 1.8), CFrame = cf * CFrame.new(0, 7.4, 0), Color = COLORS.trunkDark, Material = Enum.Material.Wood })
+	for i, x in { -1.7, 0.1, 1.8 } do
+		part(m, { Size = Vector3.new(1.3, 1.6, 0.05), CFrame = cf * CFrame.new(x, 4.8 + (i % 2) * 0.3, -0.23) * CFrame.Angles(0, 0, math.rad((i - 2) * 6)), Color = Color3.fromRGB(240, 228, 196) })
+	end
+	sign("Quest Board", board, 3.2)
+	prompt(board, "View quests", "Quest Board", "quests")
+	m.Parent = workspace
+end
+
+local function makeTrader(cf: CFrame)
+	local m = Instance.new("Model")
+	m.Name = "Trader"
+	part(m, { Size = Vector3.new(2, 2, 1), CFrame = cf * CFrame.new(0, 1, 1.5), Color = Color3.fromRGB(96, 72, 50) })
+	part(m, { Size = Vector3.new(2.2, 2.2, 1.1), CFrame = cf * CFrame.new(0, 3.1, 1.5), Color = Color3.fromRGB(70, 110, 130) })
+	local head = part(m, { Name = "Head", Size = Vector3.new(1.3, 1.3, 1.3), CFrame = cf * CFrame.new(0, 4.85, 1.5), Color = Color3.fromRGB(200, 156, 118) })
+	part(m, { Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.35, 3, 3), CFrame = cf * CFrame.new(0, 5.65, 1.5) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(214, 186, 112), Material = Enum.Material.Fabric })
+	part(m, { Size = Vector3.new(7, 2.8, 1.6), CFrame = cf * CFrame.new(0, 1.4, -0.6), Color = COLORS.trunk, Material = Enum.Material.WoodPlanks })
+	part(m, { Size = Vector3.new(7.6, 0.3, 4.2), CFrame = cf * CFrame.new(0, 7.2, 0.4) * CFrame.Angles(math.rad(-12), 0, 0), Color = Color3.fromRGB(196, 92, 62), Material = Enum.Material.Fabric })
+	for _, x in { -3.4, 3.4 } do
+		part(m, { Size = Vector3.new(0.45, 7.3, 0.45), CFrame = cf * CFrame.new(x, 3.65, -1.2), Color = COLORS.trunkDark, Material = Enum.Material.Wood })
+	end
+	sign("Trader", head, 2.4)
+	prompt(head, "Trade", "Trader", "shop")
+	m.Parent = workspace
+end
+
+local function setLighting()
+	Lighting.Brightness = 2.4
+	Lighting.Ambient = Color3.fromRGB(90, 90, 100)
+	Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 136)
+	Lighting.EnvironmentDiffuseScale = 0.5
+	Lighting.GlobalShadows = true
+	Lighting.ClockTime = 9
+	if not Lighting:FindFirstChildOfClass("Atmosphere") then
+		local a = Instance.new("Atmosphere")
+		a.Density = 0.3
+		a.Offset = 0.1
+		a.Color = Color3.fromRGB(198, 220, 236)
+		a.Decay = Color3.fromRGB(110, 150, 180)
+		a.Haze = 1.2
+		a.Parent = Lighting
+	end
+end
+
+-- Day and night: a full cycle every Config.DayLengthSeconds.
+local function startDayNight()
+	local pending = 0
+	RunService.Heartbeat:Connect(function(dt)
+		pending += dt
+		if pending >= 0.5 then
+			Lighting.ClockTime = (Lighting.ClockTime + pending * 24 / Config.DayLengthSeconds) % 24
+			pending = 0
+		end
+	end)
 end
 
 function WorldBuilder.build()
-	-- Replace Studio's default baseplate and spawn with ours.
 	for _, child in workspace:GetChildren() do
-		if child.Name == "Baseplate" or child:IsA("SpawnLocation") then
+		if child.Name == "Baseplate" or child:IsA("SpawnLocation") or child.Name == "TestGround" then
 			child:Destroy()
 		end
 	end
 	setLighting()
+	buildTerrain()
 
-	local old = workspace:FindFirstChild("TestGround")
-	if old then
-		old:Destroy()
-	end
-	local ground = Instance.new("Model")
-	ground.Name = "TestGround"
-	part({ Name = "Grass", Size = Vector3.new(320, 2, 320), Position = Vector3.new(0, -1, 0), Color = COLORS.grass, Material = Enum.Material.Grass }).Parent = ground
-	part({ Name = "Beach", Size = Vector3.new(380, 1.8, 380), Position = Vector3.new(0, -1.2, 0), Color = COLORS.sand, Material = Enum.Material.Sand }).Parent = ground
-	ground.Parent = workspace
-
+	-- Spawn on the south beach.
+	local spawnHit = groundAt(0, 116)
+	local spawnPos = if spawnHit then spawnHit.Position else Vector3.new(0, 3, 116)
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "TideboundSpawn"
 	spawn.Anchored = true
-	spawn.Size = Vector3.new(10, 0.4, 10)
-	spawn.Position = Vector3.new(0, 0.2, 0)
-	spawn.Color = COLORS.sand
-	spawn.Material = Enum.Material.Sand
+	spawn.Size = Vector3.new(8, 1, 8)
+	spawn.CFrame = CFrame.new(spawnPos + Vector3.new(0, 0.2, 0))
+	spawn.Transparency = 1
+	spawn.CanCollide = false
 	spawn.Duration = 3
 	spawn.Neutral = true
 	spawn.Parent = workspace
 
 	local nodes = folder("Nodes")
 	folder("Structures")
+	folder("Drops")
+	folder("Animals")
 	folder("LootSacks")
 
-	-- Keep the middle clear around spawn, the board and the trader.
-	local taken = { Vector3.zero, Vector3.new(14, 0, 14), Vector3.new(-14, 0, 14) }
-	scatter(nodes, "Bush", 16, 22, 90, taken)
-	scatter(nodes, "Palm", 26, 26, 140, taken)
-	scatter(nodes, "Boulder", 16, 30, 130, taken)
-	scatter(nodes, "SlimePool", 6, 60, 140, taken)
+	-- Quest board and trader just inland from the spawn, facing it.
+	local boardHit = groundAt(-12, 96)
+	local traderHit = groundAt(12, 96)
+	local taken = { spawnPos }
+	if boardHit then
+		makeQuestBoard(CFrame.lookAt(boardHit.Position, Vector3.new(spawnPos.X, boardHit.Position.Y, spawnPos.Z)))
+		table.insert(taken, boardHit.Position)
+	end
+	if traderHit then
+		makeTrader(CFrame.lookAt(traderHit.Position, Vector3.new(spawnPos.X, traderHit.Position.Y, spawnPos.Z)))
+		table.insert(taken, traderHit.Position)
+	end
+	-- Keep a clearing around the spawn.
+	for i = 0, 7 do
+		local a = i / 8 * math.pi * 2
+		table.insert(taken, spawnPos + Vector3.new(math.cos(a) * 8, 0, math.sin(a) * 8))
+	end
 
-	makeQuestBoard(Vector3.new(14, 0, 14))
-	makeTrader(Vector3.new(-14, 0, 14))
+	scatter(nodes, "Pine", 55, taken)
+	scatter(nodes, "Palm", 26, taken)
+	scatter(nodes, "Boulder", 30, taken)
+	scatter(nodes, "Bush", 26, taken)
+	scatter(nodes, "SlimePool", 6, taken)
+
+	Animals.spawnHerd("Boar", Vector3.new(60, 0, 30), 3)
+	Animals.spawnHerd("Boar", Vector3.new(-40, 0, 40), 3)
+	Animals.start()
+
+	startDayNight()
 end
 
 return WorldBuilder

@@ -1,71 +1,74 @@
--- Client entry point: input, and wiring the UI, effects and build preview to the server.
+-- Client entry point: input, and wiring the HUD, inventory screen, hover info,
+-- effects and build preview to the server.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
 local Items = require(Shared.Items)
 local Remotes = require(Shared.Remotes)
 
 local Client = script.Parent
 local UI = require(Client.UI)
+local InventoryScreen = require(Client.InventoryScreen)
 local Effects = require(Client.Effects)
 local BuildMode = require(Client.BuildMode)
 local Pointer = require(Client.Pointer)
+local Hover = require(Client.Hover)
 
 local player = Players.LocalPlayer
 local equipped: string? = nil
-local holding = false
+local holdingClick = false
+local holdingPickup = false
 local nextSwing = 0
+local nextPickup = 0
+
+local function hold(itemId: string?)
+	Remotes.Equip:FireServer(itemId)
+end
 
 local function equipSlot(index: number)
 	local id = UI.hotbarIds()[index]
-	if not id then
-		return
-	end
-	if id == equipped then
-		Remotes.Equip:FireServer(nil)
-	else
-		Remotes.Equip:FireServer(id)
+	if id then
+		hold(if id == equipped then nil else id)
 	end
 end
 
 UI.init({
 	onSlot = equipSlot,
-	onCraft = function(recipeId)
-		Remotes.Craft:FireServer(recipeId)
+	onClaim = function(id)
+		Remotes.ClaimQuest:FireServer(id)
 	end,
-	onClaim = function(questId)
-		Remotes.ClaimQuest:FireServer(questId)
+	onBuy = function(id)
+		Remotes.Buy:FireServer(id)
 	end,
-	onBuy = function(entryId)
-		Remotes.Buy:FireServer(entryId)
+	onInventory = function()
+		InventoryScreen.toggle()
+	end,
+	onCancelBuild = function()
+		hold(nil)
 	end,
 })
+InventoryScreen.init(UI.root :: ScreenGui, {
+	onCraft = function(id)
+		Remotes.Craft:FireServer(id)
+	end,
+	onWear = function(id)
+		Remotes.Wear:FireServer(id)
+	end,
+	onHold = hold,
+	onEat = function(id)
+		Remotes.Eat:FireServer(id)
+	end,
+	onDrop = function(id)
+		Remotes.Drop:FireServer(id)
+	end,
+})
+Hover.start()
 Effects.startAmbient()
 
--- Find the gatherable node or structure under the pointer.
-local function targetUnderPointer(): Model?
-	local character = player.Character
-	local exclude: { Instance } = { workspace.CurrentCamera }
-	if character then
-		table.insert(exclude, character)
-	end
-	local hit = Pointer.cast(exclude, 120)
-	if not hit then
-		return nil
-	end
-	local inst: Instance? = hit.Instance
-	while inst and inst ~= workspace do
-		if inst:IsA("Model") and (inst:GetAttribute("NodeType") or inst:GetAttribute("StructureType")) then
-			return inst
-		end
-		inst = inst.Parent
-	end
-	return nil
-end
+-- Swinging -----------------------------------------------------------------------
 
 local function trySwing()
 	local item = equipped and Items[equipped]
@@ -77,22 +80,11 @@ local function trySwing()
 		return
 	end
 	nextSwing = now + item.cooldown
-	local target = targetUnderPointer()
-	if target then
-		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local cf, size = target:GetBoundingBox()
-		if root then
-			local offset = cf:PointToObjectSpace(root.Position)
-			local half = size / 2
-			local closest = Vector3.new(math.clamp(offset.X, -half.X, half.X), math.clamp(offset.Y, -half.Y, half.Y), math.clamp(offset.Z, -half.Z, half.Z))
-			if (offset - closest).Magnitude > Config.HitRange then
-				UI.toast("Get closer")
-				return
-			end
-		end
-		Remotes.Hit:FireServer(target)
+	local info = Hover.get()
+	if info.target and info.kind ~= "drop" and info.inRange then
+		Remotes.Hit:FireServer(info.target)
 	elseif player.Character then
-		-- Swinging at the air still swings, it just doesn't hit anything.
+		-- Swinging at nothing still swings.
 		task.spawn(Effects.swing, player.Character)
 	end
 end
@@ -100,11 +92,10 @@ end
 local function primaryAction()
 	local item = equipped and Items[equipped]
 	if not item then
-		UI.toast("Pick an item from your hotbar (press 1)")
 		return
 	end
 	if item.kind == "tool" then
-		holding = true
+		holdingClick = true
 		trySwing()
 	elseif item.kind == "food" then
 		Remotes.Eat:FireServer(equipped)
@@ -112,6 +103,33 @@ local function primaryAction()
 		BuildMode.tryPlace()
 	end
 end
+
+-- Picking up ------------------------------------------------------------------------
+
+local function tryPickup()
+	local now = os.clock()
+	if now < nextPickup then
+		return
+	end
+	nextPickup = now + 0.15
+	local info = Hover.get()
+	local target = if info.kind == "drop" and info.inRange then info.target else Hover.nearestDrop()
+	if target then
+		Remotes.PickUp:FireServer(target)
+	end
+end
+
+local function tryEatDrop()
+	local info = Hover.get()
+	if info.kind == "drop" and info.inRange and info.target then
+		local itemId = info.target:GetAttribute("ItemId")
+		if Items[itemId] and Items[itemId].kind == "food" then
+			Remotes.EatDrop:FireServer(info.target)
+		end
+	end
+end
+
+-- Input -----------------------------------------------------------------------------
 
 local KEYS = {
 	[Enum.KeyCode.One] = 1,
@@ -122,7 +140,6 @@ local KEYS = {
 	[Enum.KeyCode.Six] = 6,
 	[Enum.KeyCode.Seven] = 7,
 	[Enum.KeyCode.Eight] = 8,
-	[Enum.KeyCode.Nine] = 9,
 }
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -138,17 +155,26 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	elseif KEYS[input.KeyCode] then
 		equipSlot(KEYS[input.KeyCode])
 	elseif input.KeyCode == Enum.KeyCode.C then
-		UI.toggle("crafting")
+		InventoryScreen.toggle()
+		UI.closePanels()
+	elseif input.KeyCode == Enum.KeyCode.F then
+		holdingPickup = true
+		tryPickup()
+	elseif input.KeyCode == Enum.KeyCode.E then
+		tryEatDrop()
 	elseif input.KeyCode == Enum.KeyCode.R then
 		BuildMode.rotate()
 	elseif input.KeyCode == Enum.KeyCode.Escape then
-		UI.close()
+		InventoryScreen.close()
+		UI.closePanels()
 	end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		holding = false
+		holdingClick = false
+	elseif input.KeyCode == Enum.KeyCode.F then
+		holdingPickup = false
 	end
 end)
 
@@ -156,25 +182,39 @@ UserInputService.TouchMoved:Connect(function(input)
 	Pointer.setTouch(input.Position)
 end)
 
--- Hold the mouse to keep chopping.
+-- Hold the mouse to keep swinging; hold F to vacuum up nearby drops.
 RunService.Heartbeat:Connect(function()
-	if holding then
+	if holdingClick then
 		trySwing()
+	end
+	if holdingPickup then
+		tryPickup()
 	end
 end)
 
--- From the server
-Remotes.Inventory.OnClientEvent:Connect(function(items, newEquipped)
+-- From the server -------------------------------------------------------------------
+
+Remotes.Inventory.OnClientEvent:Connect(function(items, newEquipped, armour, bagSize)
 	equipped = newEquipped
-	UI.setInventory(items, newEquipped)
+	UI.setInventory(items, newEquipped, armour, bagSize)
+	InventoryScreen.set(items, newEquipped, armour)
 	BuildMode.setItem(newEquipped)
+	UI.setBuild(BuildMode.current())
 end)
-Remotes.Notify.OnClientEvent:Connect(UI.toast)
+Remotes.Notify.OnClientEvent:Connect(UI.notify)
+Remotes.PickedUp.OnClientEvent:Connect(function(itemId, amount)
+	UI.pickup(itemId, amount)
+	Effects.sound("Pickup")
+end)
 Remotes.HitFeedback.OnClientEvent:Connect(Effects.hit)
 Remotes.QuestState.OnClientEvent:Connect(UI.setQuests)
-Remotes.OpenPanel.OnClientEvent:Connect(UI.open)
+Remotes.OpenPanel.OnClientEvent:Connect(function(name)
+	InventoryScreen.close()
+	UI.openPanel(name)
+end)
 Remotes.Swing.OnClientEvent:Connect(function(character)
 	if character then
 		task.spawn(Effects.swing, character)
 	end
 end)
+

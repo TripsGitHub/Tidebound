@@ -26,8 +26,7 @@ function Quests.sync(player: Player)
 	end
 end
 
--- Call when something quest-worthy happens.
--- kind is "gather", "craft" or "build"; itemId can be nil for "build".
+-- kind is "gather", "craft", "build" or "hunt".
 function Quests.record(player: Player, kind: string, itemId: string?, amount: number)
 	local d = data[player]
 	if not d then
@@ -41,7 +40,7 @@ function Quests.record(player: Player, kind: string, itemId: string?, amount: nu
 				d.progress[quest.id] = math.min(quest.amount, current + amount)
 				changed = true
 				if d.progress[quest.id] >= quest.amount then
-					Remotes.Notify:FireClient(player, "Quest complete: " .. quest.title .. ". Claim it at the Quest Board!")
+					Remotes.Notify:FireClient(player, "Quest done: " .. quest.title .. ". Claim it at the Quest Board", "good")
 				end
 			end
 		end
@@ -63,7 +62,7 @@ function Quests.claim(player: Player, questId: unknown)
 			end
 			d.claimed[questId] = true
 			Progression.addShells(player, quest.reward)
-			Remotes.Notify:FireClient(player, "+" .. quest.reward .. " Shells")
+			Remotes.Notify:FireClient(player, "+" .. quest.reward .. " Shells", "good")
 			Quests.sync(player)
 			return
 		end
