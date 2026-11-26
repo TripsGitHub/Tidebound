@@ -92,6 +92,8 @@ def campfire():
     wood = join(logs, "Logs")
     ember = rock(0.55, "Embers", mat("Ember", (255, 120, 40)), seed=70, squash=(1.3, 1.3, 0.4), subdiv=1, noise=0.15)
     ember.location = (0, 0, 0.12)
+    for o in (ring, wood, ember):
+        o.location = o.location * 2.25; o.scale = (2.25, 2.25, 2.25)
     objs = [ring, wood, ember]; apply(objs); return objs
 
 # ---------- Slime pool ----------
@@ -126,18 +128,17 @@ def woodwall():
         b = logmesh(8.4, 0.28, "Brace", mat("BarkDark", (88, 58, 38)), seed=int(z*10), end=WOODEND); b.location = (0, -0.7, z); braces.append(b)
     objs = [posts, join(braces, "Braces")]; apply(objs); return objs
 
-def wooddoor():
-    planks = []
-    for i in range(4):
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(-1.65 + i*1.1, 0, 3.75)); p = bpy.context.object
-        p.scale = (1.04, 0.5, 7.4 - (i % 2)*0.15); p.data.materials.append(PLANK if i % 2 else PLANK2); planks.append(p)
-    door = join(planks, "Planks")
+def woodgate():
+    # Same palisade as the wall, with light braces and an X across the front so it reads as a gate.
+    posts, braces = woodwall()
+    LIGHT = mat("GateBrace", (176, 132, 86))
     bars = []
-    for z in (1.5, 6.0):
-        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, -0.4, z)); b = bpy.context.object; b.scale = (4.4, 0.3, 0.55); b.data.materials.append(mat("BarkDark", (88, 58, 38))); bars.append(b)
-    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, -0.42, 3.75)); d = bpy.context.object; d.scale = (0.5, 0.28, 5.4); d.rotation_euler = (0, math.radians(38), 0); d.data.materials.append(mat("BarkDark", (88, 58, 38))); bars.append(d)
-    handle = rock(0.18, "Handle", mat("Iron", (60, 60, 64)), seed=120, subdiv=0, noise=0, flat_bottom=False); handle.location = (1.5, -0.6, 3.7); bars.append(handle)
-    objs = [door, join(bars, "Bars")]; apply(objs); return objs
+    for z in (2.3, 6.3):
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, -0.95, z)); b = bpy.context.object; b.scale = (8.0, 0.4, 0.7); b.data.materials.append(LIGHT); bars.append(b)
+    for ang, yy in ((38, -1.05), (-38, -1.18)):
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, yy, 4.3)); d = bpy.context.object; d.scale = (0.6, 0.35, 5.6); d.rotation_euler = (0, math.radians(ang), 0); d.data.materials.append(LIGHT); bars.append(d)
+    bpy.data.objects.remove(braces)
+    objs = [posts, join(bars, "Braces")]; apply(objs); return objs
 
 def woodfloor():
     planks = []
@@ -201,7 +202,7 @@ def item_coconut():
 
 models = {
     'boar': boar(), 'campfire': campfire(), 'slimepool': slimepool(),
-    'woodwall': woodwall(), 'wooddoor': wooddoor(), 'woodfloor': woodfloor(),
+    'woodwall': woodwall(), 'woodgate': woodgate(), 'woodfloor': woodfloor(),
     'log': item_log(), 'stick': item_stick(), 'leaves': item_leaves(), 'stone': item_stone(),
     'berries': item_berries(), 'raw_meat': meat((205, 92, 92), "MeatRaw"), 'cooked_meat': meat((150, 82, 44), "MeatCooked"),
     'leather': item_leather(), 'coconut': item_coconut(),
@@ -222,18 +223,18 @@ MODE = sys.argv[-1] if len(sys.argv) > 1 else 'world'
 if MODE == 'world':
     shift(models['woodfloor'], -6, 8)
     shift(models['woodwall'], -6, 16.5)
-    shift(models['wooddoor'], 3.5, 15.9)
-    shift(models['campfire'], 6, 2)
+    shift(models['woodgate'], 2.6, 16.5)
+    shift(models['campfire'], 5, 0)
     shift(models['boar'], 10, 4, math.radians(-120))
     shift(models['slimepool'], 18, 10)
-    dummy(-1, 4); dummy(15.5, 1)
+    dummy(-1, 4); dummy(15.5, 1); dummy(9.5, -2)
     for n in ['log','stick','leaves','stone','berries','raw_meat','cooked_meat','leather','coconut']:
         for o in models[n]: o.hide_render = True
     ground(200)
     setup_render((5, 9, 3.5), 44, OUT + 'set2-world.png', res=1600, height=900, elev=0.42)
 else:
     for n, objs in models.items():
-        if n in ['boar','campfire','slimepool','woodwall','wooddoor','woodfloor']:
+        if n in ['boar','campfire','slimepool','woodwall','woodgate','woodfloor']:
             for o in objs: o.hide_render = True
     items = ['log','stick','leaves','stone','berries','raw_meat','cooked_meat','leather','coconut']
     for i, n in enumerate(items):

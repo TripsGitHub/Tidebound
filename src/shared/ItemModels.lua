@@ -299,9 +299,11 @@ function builders.stone_wall(m)
 	return core
 end
 
-function builders.wood_door(m)
-	local core = part(m, Vector3.new(1.3, 2.2, 0.25), CFrame.new(), C.woodDark, Enum.Material.Wood)
-	part(m, Vector3.new(0.15, 0.15, 0.35), CFrame.new(0.45, 0, 0), Color3.fromRGB(60, 45, 30))
+function builders.wood_gate(m)
+	local core = part(m, Vector3.new(2, 2.2, 0.25), CFrame.new(), C.woodDark, Enum.Material.Wood)
+	part(m, Vector3.new(1.9, 0.25, 0.35), CFrame.new(0, 0.5, 0), C.woodLight, Enum.Material.Wood)
+	part(m, Vector3.new(1.9, 0.25, 0.35), CFrame.new(0, -0.5, 0), C.woodLight, Enum.Material.Wood)
+	part(m, Vector3.new(2.2, 0.22, 0.33), CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, math.rad(27)), C.woodLight, Enum.Material.Wood)
 	return core
 end
 
