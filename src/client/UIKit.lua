@@ -19,8 +19,10 @@ UIKit.Colors = {
 	xp = Color3.fromRGB(236, 196, 84),
 }
 
-UIKit.Font = Enum.Font.GothamBold
-UIKit.FontHeavy = Enum.Font.GothamBlack
+-- One chunky, rounded font everywhere (like hand-painted signs), instead of a
+-- generic UI font.
+UIKit.Font = Enum.Font.FredokaOne
+UIKit.FontHeavy = Enum.Font.FredokaOne
 
 function UIKit.new(className: string, props, children: { Instance }?): any
 	local inst = Instance.new(className)
@@ -54,6 +56,29 @@ function UIKit.label(props)
 		props.TextScaled = true
 	end
 	return UIKit.new("TextLabel", props)
+end
+
+-- White text with a dark outline, for text drawn straight over the world.
+function UIKit.hudText(props)
+	props.TextColor3 = props.TextColor3 or UIKit.Colors.textLight
+	props.TextStrokeColor3 = props.TextStrokeColor3 or Color3.fromRGB(40, 26, 14)
+	props.TextStrokeTransparency = props.TextStrokeTransparency or 0
+	props.Font = props.Font or UIKit.FontHeavy
+	return UIKit.label(props)
+end
+
+-- A small key cap like [F], for prompts.
+function UIKit.keyCap(parent: Instance, key: string, action: string, order: number)
+	local row = UIKit.new("Frame", { Parent = parent, LayoutOrder = order, Size = UDim2.fromOffset(0, 30), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = UIKit.Colors.panel }, {
+		UIKit.corner(8),
+		UIKit.stroke(UIKit.Colors.edge, 2),
+		UIKit.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6) }),
+		UIKit.new("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 10) }),
+	})
+	local cap = UIKit.new("Frame", { Parent = row, LayoutOrder = 1, Size = UDim2.fromOffset(22, 22), BackgroundColor3 = UIKit.Colors.edge }, { UIKit.corner(5) })
+	UIKit.label({ Parent = cap, Size = UDim2.fromScale(1, 1), Text = key, TextColor3 = UIKit.Colors.textLight, Font = UIKit.FontHeavy })
+	UIKit.label({ Parent = row, LayoutOrder = 2, Size = UDim2.fromOffset(0, 22), AutomaticSize = Enum.AutomaticSize.X, Text = action, TextScaled = false, TextSize = 18, Font = UIKit.FontHeavy })
+	return row
 end
 
 function UIKit.button(props, onClick: () -> ())

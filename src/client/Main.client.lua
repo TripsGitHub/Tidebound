@@ -88,6 +88,7 @@ local function trySwing()
 	local info = Hover.get()
 	if info.target and info.kind ~= "drop" and info.inRange then
 		Remotes.Hit:FireServer(info.target)
+		UI.targetHit(info.target)
 	elseif player.Character then
 		-- Swinging at nothing still swings.
 		task.spawn(Effects.swing, player.Character)

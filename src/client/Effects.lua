@@ -120,8 +120,8 @@ function Effects.hit(target: Instance)
 	if model:GetAttribute("NodeType") then
 		shake(model)
 		chips(model)
-		local mat = model.PrimaryPart and model.PrimaryPart.Material
-		Effects.sound(if mat == Enum.Material.Slate then "HitStone" else "ChopWood", model.PrimaryPart)
+		local stony = model:GetAttribute("NodeType") == "Boulder"
+		Effects.sound(if stony then "HitStone" else "ChopWood", model.PrimaryPart)
 	elseif model:GetAttribute("StructureType") then
 		shake(model)
 		chips(model)

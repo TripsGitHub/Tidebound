@@ -1,5 +1,6 @@
--- The HUD: XP bar, menu buttons, hotbar, Health/Bag/Hunger, hover panel,
--- notices, pickup feed, build bar, and the Quest Board / Trader panels.
+-- The HUD: XP bar and compass (top), target bar (what you're hitting and its HP),
+-- menu buttons, hotbar, Health/Bag/Hunger, pickup prompt, notices, pickup feed,
+-- "+XP" popups, build bar, and the Quest Board / Trader panels.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -26,11 +27,20 @@ local questProgress, questClaimed = {}, {}
 local callbacks: any = {}
 
 local hotbar: Frame
-local hoverPanel: Frame
-local hoverName: TextLabel
-local hoverHpBack: Frame
-local hoverHpFill: Frame
-local hoverKeys: TextLabel
+local compass: Frame
+local compassMarks: { { label: TextLabel, deg: number } } = {}
+local targetFrame: Frame
+local targetName: TextLabel
+local targetFill: Frame
+local targetHp: TextLabel
+local promptFrame: Frame
+local promptName: TextLabel
+local promptKeys: Frame
+local promptKeyFor = ""
+local popupLayer: Frame
+local popup: (string, Color3) -> ()
+local lastHit: Model? = nil
+local lastHitAt = 0
 local noticeList: Frame
 local feedList: Frame
 local buildBar: Frame
@@ -90,7 +100,7 @@ local function rebuildHotbar()
 		label({ Parent = slot, Size = UDim2.fromOffset(16, 16), Position = UDim2.fromOffset(2, 0), Text = tostring(i), TextColor3 = C.edge, ZIndex = 3 })
 		if id then
 			Icons.make(id, slot, UDim2.fromScale(0.8, 0.8), UDim2.fromScale(0.1, 0.1))
-			label({ Parent = holder, Size = UDim2.new(1, 30, 0, 16), Position = UDim2.new(0, -15, 0, 0), Text = if selected then Items[id].name else "", TextColor3 = C.textLight, TextStrokeTransparency = 0.4, Font = UIKit.FontHeavy })
+			UIKit.hudText({ Parent = holder, Size = UDim2.new(1, 30, 0, 16), Position = UDim2.new(0, -15, 0, 0), Text = Items[id].name, TextColor3 = if selected then C.xp else C.textLight })
 			if (state.items[id] or 0) > 1 then
 				label({ Parent = slot, AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1), Size = UDim2.fromOffset(28, 16), Text = "x" .. state.items[id], TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3 })
 			end
@@ -131,13 +141,46 @@ local function hookCharacter(character: Model)
 	update()
 end
 
+local lastLevel, lastXp, lastHunger = nil, nil, nil
+local xpCheckQueued = false
+
+-- Level and XP arrive as two attribute changes; wait a moment so both have landed
+-- before working out how much XP was gained.
+local function queueXpCheck()
+	if xpCheckQueued then
+		return
+	end
+	xpCheckQueued = true
+	task.delay(0.05, function()
+		xpCheckQueued = false
+		local level = player:GetAttribute("Level") or 1
+		local xp = player:GetAttribute("XP") or 0
+		if lastLevel and lastXp then
+			local gained = if level > lastLevel then Config.XpForLevel(lastLevel) - lastXp + xp else xp - lastXp
+			if gained > 0 then
+				popup("+" .. gained .. " XP", Color3.fromRGB(150, 236, 110))
+			end
+			if level > lastLevel then
+				UI.notify("Level " .. level .. "!", "good")
+			end
+		end
+		lastLevel, lastXp = level, xp
+	end)
+end
+
 local function updateStats()
-	setBar("Hunger", player:GetAttribute("Hunger") or Config.MaxHunger, Config.MaxHunger)
+	local hunger = player:GetAttribute("Hunger") or Config.MaxHunger
+	if lastHunger and hunger > lastHunger + 0.5 then
+		popup("+" .. math.floor(hunger - lastHunger + 0.5) .. " Hunger", C.hunger)
+	end
+	lastHunger = hunger
+	setBar("Hunger", hunger, Config.MaxHunger)
 	local used, size = player:GetAttribute("BagUsed") or 0, player:GetAttribute("BagSize") or Config.BaseBagSize
 	setBar("Bag", used, size, if used >= size then "FULL!" else used .. "/" .. size)
 	local level = player:GetAttribute("Level") or 1
 	local xp = player:GetAttribute("XP") or 0
 	local need = Config.XpForLevel(level)
+	queueXpCheck()
 	levelLeft.Text = "Lv. " .. level
 	levelRight.Text = if level >= Config.MaxLevel then "MAX" else "Lv. " .. (level + 1)
 	xpText.Text = if level >= Config.MaxLevel then "" else xp .. " / " .. need .. " XP"
@@ -195,41 +238,95 @@ function UI.pickup(itemId: string, amount: number)
 	row.Text = "+" .. row:GetAttribute("Amount") .. " " .. Items[itemId].name
 end
 
--- Hover panel --------------------------------------------------------------------
+-- Target bar and pickup prompt ----------------------------------------------------
+
+-- Call when you hit something, so its bar stays up for a moment after you look away.
+function UI.targetHit(model: Instance)
+	if model and model:IsA("Model") then
+		lastHit = model
+		lastHitAt = os.clock()
+	end
+end
+
+local function showTarget(name: string?, hp: number?, maxHp: number?)
+	if not name or not hp or not maxHp or maxHp <= 0 then
+		targetFrame.Visible = false
+		return
+	end
+	targetFrame.Visible = true
+	targetName.Text = name
+	targetHp.Text = tostring(math.max(0, math.ceil(hp)))
+	targetFill.Size = UDim2.fromScale(math.clamp(hp / maxHp, 0, 1), 1)
+end
 
 local function updateHover()
 	local info = Hover.get()
-	if not info.target or not info.name then
-		hoverPanel.Visible = false
+	-- Target bar: whatever you're pointing at that has health, else what you last hit.
+	if info.target and info.kind ~= "drop" and info.hp then
+		showTarget(info.name, info.hp, info.maxHp)
+	elseif lastHit and lastHit.Parent and os.clock() - lastHitAt < 3 and not lastHit:GetAttribute("Depleted") then
+		local hum = lastHit:FindFirstChildOfClass("Humanoid")
+		local hp = if hum then hum.Health else lastHit:GetAttribute("HP")
+		local maxHp = if hum then hum.MaxHealth else lastHit:GetAttribute("MaxHP")
+		showTarget(lastHit:GetAttribute("DisplayName") or lastHit.Name, hp, maxHp)
+	else
+		showTarget(nil)
+	end
+
+	-- Pickup prompt: the item's name in big letters, with its keys under it.
+	if info.target and info.kind == "drop" and info.inRange then
+		promptFrame.Visible = true
+		promptName.Text = info.name or ""
+		local itemId = info.target:GetAttribute("ItemId")
+		local food = Items[itemId] and Items[itemId].kind == "food"
+		local want = if food then "FE" else "F"
+		if promptKeyFor ~= want then
+			promptKeyFor = want
+			for _, c in promptKeys:GetChildren() do
+				if c:IsA("GuiObject") then
+					c:Destroy()
+				end
+			end
+			UIKit.keyCap(promptKeys, "F", "Pick up", 1)
+			if food then
+				UIKit.keyCap(promptKeys, "E", "Eat", 2)
+			end
+		end
+	else
+		promptFrame.Visible = false
+	end
+end
+
+-- Compass ------------------------------------------------------------------------
+
+local COMPASS_PX_PER_DEG = 3.2
+local function updateCompass()
+	local cam = workspace.CurrentCamera
+	if not cam then
 		return
 	end
-	hoverPanel.Visible = true
-	hoverName.Text = info.name
-	if info.hp and info.maxHp and info.maxHp > 0 then
-		hoverHpBack.Visible = true
-		hoverHpFill.Size = UDim2.fromScale(math.clamp(info.hp / info.maxHp, 0, 1), 1)
-	else
-		hoverHpBack.Visible = false
+	local look = cam.CFrame.LookVector
+	local heading = math.deg(math.atan2(look.X, -look.Z)) % 360 -- 0 = north (-Z)
+	local half = compass.AbsoluteSize.X / 2
+	for _, m in compassMarks do
+		local diff = (m.deg - heading + 540) % 360 - 180
+		local x = half + diff * COMPASS_PX_PER_DEG
+		m.label.Visible = math.abs(diff) * COMPASS_PX_PER_DEG < half - 8
+		m.label.Position = UDim2.fromOffset(x, 0)
 	end
-	local keys = ""
-	if info.kind == "drop" then
-		local itemId = info.target:GetAttribute("ItemId")
-		keys = "[F] Pick up"
-		if Items[itemId] and Items[itemId].kind == "food" then
-			keys ..= "    [E] Eat"
-		end
-	elseif info.kind == "node" then
-		keys = "Click to harvest"
-	elseif info.kind == "animal" or info.kind == "player" then
-		keys = "Click to attack"
-	elseif info.kind == "structure" then
-		keys = "Click to damage"
-	end
-	if not info.inRange then
-		keys = "Too far"
-	end
-	hoverKeys.Text = keys
 end
+
+-- "+XP" popups -----------------------------------------------------------------------
+
+popup = function(text: string, color: Color3)
+	local badge = UIKit.hudText({ Parent = popupLayer, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5 + (math.random() - 0.5) * 0.3, 0.8), Size = UDim2.fromOffset(140, 30), Text = text, TextColor3 = color, TextScaled = false, TextSize = 26 })
+	local rise = TweenService:Create(badge, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = badge.Position - UDim2.fromOffset(0, 60), TextTransparency = 1, TextStrokeTransparency = 1 })
+	rise:Play()
+	rise.Completed:Connect(function()
+		badge:Destroy()
+	end)
+end
+UI.popup = popup
 
 -- Build bar ------------------------------------------------------------------------
 
@@ -363,6 +460,23 @@ function UI.init(cb)
 	xpFill = new("Frame", { Parent = xpBack, Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.xp }, { corner(6) })
 	xpText = label({ Parent = xpBack, Size = UDim2.fromScale(1, 1), Text = "", ZIndex = 2, TextScaled = false, TextSize = 14 })
 
+	-- Compass strip under the XP bar
+	compass = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 36), Size = UDim2.fromOffset(300, 18), BackgroundTransparency = 1, ClipsDescendants = true })
+	for deg = 0, 345, 15 do
+		local names = { [0] = "N", [90] = "E", [180] = "S", [270] = "W" }
+		local cardinal = names[deg]
+		local l = UIKit.hudText({ Parent = compass, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(30, if cardinal then 18 else 13), Text = cardinal or tostring(deg), TextColor3 = if cardinal then C.xp else C.textLight })
+		table.insert(compassMarks, { label = l, deg = deg })
+	end
+	new("Frame", { Parent = compass, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.fromOffset(2, 4), BackgroundColor3 = C.textLight, BorderSizePixel = 0 })
+
+	-- Target bar: the name and HP of whatever you're hitting
+	targetFrame = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 58), Size = UDim2.fromOffset(300, 44), BackgroundTransparency = 1, Visible = false })
+	local targetBack = new("Frame", { Parent = targetFrame, Size = UDim2.new(1, 0, 0, 24), BackgroundColor3 = C.panel }, { corner(6), stroke(C.edge, 2) })
+	targetFill = new("Frame", { Parent = targetBack, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(122, 196, 104) }, { corner(6) })
+	targetHp = UIKit.hudText({ Parent = targetBack, Size = UDim2.fromScale(1, 1), Text = "", ZIndex = 2, TextScaled = false, TextSize = 18 })
+	targetName = UIKit.hudText({ Parent = targetFrame, Position = UDim2.fromOffset(0, 25), Size = UDim2.new(1, 0, 0, 18), Text = "", TextScaled = false, TextSize = 16 })
+
 	-- Menu buttons (left)
 	local menu = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.42, 0), Size = UDim2.fromOffset(64, 230), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -386,15 +500,18 @@ function UI.init(cb)
 	statBar(stats, 2, "Bag", C.bag)
 	statBar(stats, 3, "Hunger", C.hunger)
 
-	-- Hover panel (just above the hotbar)
-	hoverPanel = UIKit.panel({ Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -104), Size = UDim2.fromOffset(260, 62), Visible = false })
-	hoverName = label({ Parent = hoverPanel, Position = UDim2.fromOffset(10, 4), Size = UDim2.new(1, -20, 0, 22), Text = "", Font = UIKit.FontHeavy })
-	hoverHpBack = new("Frame", { Parent = hoverPanel, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -28, 0, 8), BackgroundColor3 = C.panelDark }, { corner(4) })
-	hoverHpFill = new("Frame", { Parent = hoverHpBack, Size = UDim2.fromScale(1, 1), BackgroundColor3 = C.health }, { corner(4) })
-	hoverKeys = label({ Parent = hoverPanel, Position = UDim2.fromOffset(10, 39), Size = UDim2.new(1, -20, 0, 18), Text = "", TextScaled = false, TextSize = 14 })
+	-- Pickup prompt (just above the hotbar): big item name, then its keys
+	promptFrame = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -104), Size = UDim2.fromOffset(360, 70), BackgroundTransparency = 1, Visible = false })
+	promptName = UIKit.hudText({ Parent = promptFrame, Size = UDim2.new(1, 0, 0, 34), Text = "", TextScaled = false, TextSize = 30 })
+	promptKeys = new("Frame", { Parent = promptFrame, Position = UDim2.fromOffset(0, 38), Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1 }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+
+	-- Floating "+XP" / "+Hunger" popups
+	popupLayer = new("Frame", { Parent = gui, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 })
 
 	-- Notices (top centre, below the XP bar)
-	noticeList = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 44), Size = UDim2.fromOffset(600, 150), BackgroundTransparency = 1 }, {
+	noticeList = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(600, 150), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center }),
 	})
 
@@ -404,7 +521,7 @@ function UI.init(cb)
 	})
 
 	-- Build bar (top centre while holding a buildable)
-	buildBar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 44), Size = UDim2.fromOffset(300, 70), BackgroundTransparency = 1, Visible = false })
+	buildBar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(300, 70), BackgroundTransparency = 1, Visible = false })
 	local nameBox = UIKit.panel({ Parent = buildBar, Size = UDim2.new(1, 0, 0, 34) })
 	buildName = label({ Parent = nameBox, Size = UDim2.new(1, -16, 1, -6), Position = UDim2.fromOffset(8, 3), Text = "", Font = UIKit.FontHeavy })
 	button({ Parent = buildBar, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 38), Size = UDim2.fromOffset(56, 26), BackgroundColor3 = C.bad, Text = "X" }, function()
@@ -427,7 +544,10 @@ function UI.init(cb)
 		task.spawn(hookCharacter, player.Character)
 	end
 	player.CharacterAdded:Connect(hookCharacter)
-	RunService.RenderStepped:Connect(updateHover)
+	RunService.RenderStepped:Connect(function()
+		updateHover()
+		updateCompass()
+	end)
 	rebuildHotbar()
 end
 

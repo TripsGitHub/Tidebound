@@ -23,7 +23,7 @@ local wornRow: Frame
 local craftTabButtons: { [string]: TextButton } = {}
 local bagTabButtons: { [string]: TextButton } = {}
 local craftTab = "All"
-local bagTab = "All"
+local bagTab = "All" -- always open on everything
 local state = { items = {}, equipped = nil, armour = {} }
 local callbacks: any = {}
 
