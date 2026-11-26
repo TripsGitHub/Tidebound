@@ -176,9 +176,29 @@ local function material(x: number, z: number, h: number, slope: number): Enum.Ma
 end
 
 -- True where a resource node may grow: on land, off the trails, away from the pond.
-function CloverIsland.canGrow(x: number, z: number): boolean
+local function canGrow(x: number, z: number): boolean
 	return land(x, z) > 0.1 and pathDist(x, z) > 5 and hypot(x - POND_X, z - POND_Z) > POND_R + 3
 end
+
+-- Rock outcrops in the grass and rocky stretches of coast (see Rugged.lua). Kept
+-- off the spawn spit, the central hub and the palm beach.
+do
+	local Rugged = require(script.Parent.Rugged)
+	local f = Rugged.apply({ bounds = { X0, X1, Z0, Z1 }, land = land, height = height, material = material, canGrow = canGrow }, {
+		seed = 11,
+		count = 6,
+		rock = M.Rock,
+		coast = true,
+		avoid = { { 0, 0, 36 }, { 0, 100, 30 } },
+		coastMask = function(x, z)
+			local zone = zoneAt(x, z)
+			return if zone == "palms" or zone == "stem" then 0 else 1
+		end,
+	})
+	height, material, canGrow = f.height, f.material, f.canGrow
+end
+CloverIsland.height = height
+CloverIsland.canGrow = canGrow
 
 -- Writes the island into terrain, centred on (cx, cz). Overwrites the ocean there.
 function CloverIsland.fill(terrain: Terrain, cx: number, cz: number)

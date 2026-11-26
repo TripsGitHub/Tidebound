@@ -422,6 +422,18 @@ function EI.canGrow(x, z)
 	return EI.land(x, z) > 0.1 and eiStream(x, z) <= 0 and hypot(x, z) > 26
 end
 
+-- Rock outcrops in the grass and rocky stretches of coast (see Rugged.lua).
+local Rugged = require(script.Parent.Rugged)
+Rugged.apply(PH, { seed = 23, count = 7, rock = M.Rock, coast = true })
+Rugged.apply(SS, { seed = 37, count = 8, rock = M.Rock, coast = true, avoid = { { 12, -86, 20 } }, coastMask = function(x, z)
+	return smooth((hypot(x - 12, z + 86) - 28) / 16) -- keep the cave mouth clear
+end })
+Rugged.apply(FI, { seed = 41, count = 5, rock = M.Rock, coast = true, avoid = { { POND[1], POND[2], POND[3] + 8 } } })
+Rugged.apply(SM, { seed = 53, count = 3, size = 0.6, rock = M.Slate, coast = false })
+Rugged.apply(EI, { seed = 67, count = 6, rock = M.Slate, coast = true, coastMask = function(x, z)
+	return 1 - eiLanding(x, z)
+end })
+
 IslandFields.hills = PH :: Field
 IslandFields.rock = SS :: Field
 IslandFields.snow = FI :: Field

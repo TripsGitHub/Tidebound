@@ -14,7 +14,14 @@ class Clover:
     def land(s,x,z): return CL.land(x,z)
     def zone(s,x,z): return CL.lobe_of(x,z)
     def can_grow(s,x,z): return CL.land(x,z)>0.1 and CL.path_dist(x,z)>5 and math.hypot(x+6,z-4)>14
-ISL=[(Clover(),0,320),(PineHills(),-300,90),(StoneShelf(),300,90),(FrostIsle(),-190,-265),(SlimeMarsh(),195,-265),(EmberIsle(),0,0)]
+from rugged import Rugged
+_ei=EmberIsle(); _fi=FrostIsle()
+ISL=[(Rugged(Clover(),11,6,'Rock',True,avoid=[(0,0,36),(0,100,30)],coast_mask=lambda x,z: 0 if CL.lobe_of(x,z) in ('palms','stem') else 1),0,320),
+     (Rugged(PineHills(),23,7,'Rock',True),-300,90),
+     (Rugged(StoneShelf(),37,8,'Rock',True,avoid=[(12,-86,20)],coast_mask=lambda x,z: smooth((math.hypot(x-12,z+86)-28)/16)),300,90),
+     (Rugged(_fi,41,5,'Rock',True,avoid=[(_fi.pond[0],_fi.pond[1],_fi.pond[2]+8)]),-190,-265),
+     (Rugged(SlimeMarsh(),53,3,'Slate',False,size=0.6),195,-265),
+     (Rugged(_ei,67,6,'Slate',True,coast_mask=lambda x,z: 1-_ei.landing(x,z)),0,0)]
 STEP=float(os.environ.get('STEP','2'))
 GRASS=os.environ.get('GRASS','').split(',')
 def lin(c): return tuple((((v/255)+0.055)/1.055)**2.4 for v in c)
@@ -30,10 +37,40 @@ nt.links.new(nz.outputs['Fac'],mr.inputs['Value'])
 mx=nt.nodes.new('ShaderNodeMix'); mx.data_type='RGBA'; mx.blend_type='MULTIPLY'; mx.inputs['Factor'].default_value=1
 nt.links.new(ca.outputs['Color'],mx.inputs['A'])
 cm=nt.nodes.new('ShaderNodeCombineColor'); nt.links.new(mr.outputs['Result'],cm.inputs[0]); nt.links.new(mr.outputs['Result'],cm.inputs[1]); nt.links.new(mr.outputs['Result'],cm.inputs[2])
-nt.links.new(cm.outputs['Color'],mx.inputs['B']); nt.links.new(mx.outputs['Result'],bs.inputs['Base Color'])
-bp=nt.nodes.new('ShaderNodeBump'); bp.inputs['Strength'].default_value=0.25
-n2=nt.nodes.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value=2.5; n2.inputs['Detail'].default_value=8
-nt.links.new(tc.outputs['Object'],n2.inputs['Vector']); nt.links.new(n2.outputs['Fac'],bp.inputs['Height']); nt.links.new(bp.outputs['Normal'],bs.inputs['Normal'])
+nt.links.new(cm.outputs['Color'],mx.inputs['B'])
+# Surface texture, standing in for Roblox's material textures: speckle, large
+# patchy variation, and on steep ground faceted rock with horizontal strata.
+def N(t,**kw):
+    n=nt.nodes.new(t)
+    for k,v in kw.items(): n.inputs[k].default_value=v
+    return n
+def mulc(col,fac_socket,lo,hi):
+    r=N('ShaderNodeMapRange'); r.inputs['To Min'].default_value=lo; r.inputs['To Max'].default_value=hi
+    nt.links.new(fac_socket,r.inputs['Value'])
+    m=nt.nodes.new('ShaderNodeMix'); m.data_type='RGBA'; m.blend_type='MULTIPLY'; m.inputs['Factor'].default_value=1
+    nt.links.new(col,m.inputs['A']); c=nt.nodes.new('ShaderNodeCombineColor')
+    for i in range(3): nt.links.new(r.outputs['Result'],c.inputs[i])
+    nt.links.new(c.outputs['Color'],m.inputs['B']); return m.outputs['Result']
+speck=N('ShaderNodeTexNoise',Scale=7.0,Detail=2.0); nt.links.new(tc.outputs['Object'],speck.inputs['Vector'])
+patch=N('ShaderNodeTexNoise',Scale=0.06,Detail=3.0); nt.links.new(tc.outputs['Object'],patch.inputs['Vector'])
+col=mulc(mx.outputs['Result'],speck.outputs['Fac'],0.8,1.12)
+col=mulc(col,patch.outputs['Fac'],0.8,1.12)
+mid=N('ShaderNodeTexNoise',Scale=0.45,Detail=4.0); nt.links.new(tc.outputs['Object'],mid.inputs['Vector']); col=mulc(col,mid.outputs['Fac'],0.82,1.1)
+geo=nt.nodes.new('ShaderNodeNewGeometry'); sep=nt.nodes.new('ShaderNodeSeparateXYZ'); nt.links.new(geo.outputs['Normal'],sep.inputs[0])
+steep=N('ShaderNodeMapRange'); steep.inputs['From Min'].default_value=0.92; steep.inputs['From Max'].default_value=0.7
+nt.links.new(sep.outputs['Z'],steep.inputs['Value'])
+vor=nt.nodes.new('ShaderNodeTexVoronoi'); vor.inputs['Scale'].default_value=0.35; nt.links.new(tc.outputs['Object'],vor.inputs['Vector'])
+wave=nt.nodes.new('ShaderNodeTexWave'); wave.wave_type='BANDS'; wave.bands_direction='Z'; wave.inputs['Scale'].default_value=0.12; wave.inputs['Distortion'].default_value=6
+nt.links.new(tc.outputs['Object'],wave.inputs['Vector'])
+rockcol=mulc(col,vor.outputs['Distance'],0.7,1.15); rockcol=mulc(rockcol,wave.outputs['Fac'],0.8,1.08)
+fin=nt.nodes.new('ShaderNodeMix'); fin.data_type='RGBA'; nt.links.new(steep.outputs['Result'],fin.inputs['Factor'])
+nt.links.new(col,fin.inputs['A']); nt.links.new(rockcol,fin.inputs['B']); nt.links.new(fin.outputs['Result'],bs.inputs['Base Color'])
+bp=nt.nodes.new('ShaderNodeBump'); bp.inputs['Strength'].default_value=0.5; bp.inputs['Distance'].default_value=0.6
+n2=N('ShaderNodeTexNoise',Scale=2.5,Detail=8.0); nt.links.new(tc.outputs['Object'],n2.inputs['Vector'])
+hmix=nt.nodes.new('ShaderNodeMix'); hmix.data_type='FLOAT'; nt.links.new(steep.outputs['Result'],hmix.inputs['Factor'])
+nt.links.new(n2.outputs['Fac'],hmix.inputs['A']); vb=N('ShaderNodeMath'); vb.operation='ADD'
+nt.links.new(vor.outputs['Distance'],vb.inputs[0]); nt.links.new(wave.outputs['Fac'],vb.inputs[1]); nt.links.new(vb.outputs['Value'],hmix.inputs['B'])
+nt.links.new(hmix.outputs['Result'],bp.inputs['Height']); nt.links.new(bp.outputs['Normal'],bs.inputs['Normal'])
 grassmat=bpy.data.materials.new('GrassHair'); grassmat.use_nodes=True
 gb=grassmat.node_tree.nodes['Principled BSDF']; gb.inputs['Base Color'].default_value=(*lin((150,146,62)),1); gb.inputs['Roughness'].default_value=0.8
 import bmesh as _bm
@@ -111,7 +148,7 @@ for isl,cx,cz in ISL:
     im.pixels.foreach_set(px)
     mi=tm.copy(); me.materials[0]=mi
     it=mi.node_tree.nodes.new('ShaderNodeTexImage'); it.image=im; it.interpolation='Linear'; it.extension='EXTEND'
-    mix=[n for n in mi.node_tree.nodes if n.type=='MIX'][0]
+    mix=mi.node_tree.nodes[mx.name]
     mi.node_tree.links.new(it.outputs['Color'],mix.inputs['A'])
     if isl.name in GRASS:
         vg=ob.vertex_groups.new(name='grass')
