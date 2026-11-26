@@ -66,6 +66,45 @@ function builders.rock(m)
 	return lump(m, 0.9, CFrame.new(0, 0.3, 0), C.stone, Enum.Material.Slate, 3)
 end
 
+-- A real club: thin at the grip, swelling to a heavy rounded end.
+-- Built from a stack of cylinders that get wider, capped with a ball.
+local CLUB_WOOD = Color3.fromRGB(122, 64, 40)
+
+local function club(m: Model, stoneHead: boolean): BasePart
+	local up = CFrame.Angles(0, 0, math.rad(90)) -- cylinders run along X; turn them to run along Y
+	local grip
+	local segments = 7
+	local length = 3.2
+	for i = 0, segments - 1 do
+		local t = i / (segments - 1)
+		local d = 0.24 + 0.36 * t ^ 1.6
+		local y = -0.2 + length * (i + 0.5) / segments
+		local lean = CFrame.Angles(math.rad(3 * t), 0, 0) -- a slight bend so it isn't a perfect rod
+		local p = part(m, Vector3.new(length / segments + 0.06, d, d), CFrame.new(0, y, 0) * lean * up, CLUB_WOOD:Lerp(Color3.new(0, 0, 0), (i % 2) * 0.06), Enum.Material.Wood, Enum.PartType.Cylinder)
+		if i == 0 then
+			grip = p
+		end
+	end
+	part(m, Vector3.new(0.62, 0.62, 0.62), CFrame.new(0, length - 0.25, 0.05), CLUB_WOOD, Enum.Material.Wood, Enum.PartType.Ball)
+	-- Grip wrap
+	part(m, Vector3.new(0.75, 0.29, 0.29), CFrame.new(0, 0.25, 0) * up, Color3.fromRGB(86, 58, 38), Enum.Material.Fabric, Enum.PartType.Cylinder)
+	if stoneHead then
+		for i = 0, 2 do
+			local a = i * math.pi * 2 / 3
+			lump(m, 0.38, CFrame.new(math.cos(a) * 0.28, length - 0.55, math.sin(a) * 0.28), C.stone, Enum.Material.Slate, 11 + i)
+		end
+	end
+	return grip
+end
+
+function builders.wood_club(m)
+	return club(m, false)
+end
+
+function builders.stone_club(m)
+	return club(m, true)
+end
+
 -- Swords share one shape; only the colour changes by tier.
 -- Faceted tapered blade, short crossguard, leather grip, tier-coloured pommel.
 local SWORD_TIERS: { [string]: Color3 } = {
@@ -287,7 +326,7 @@ function ItemModels.build(itemId: string): Model
 end
 
 function ItemModels.isTool(itemId: string): boolean
-	return builders[itemId] ~= nil and (itemId == "rock" or itemId:find("_sword") ~= nil or itemId:find("_harvester") ~= nil)
+	return builders[itemId] ~= nil and (itemId == "rock" or itemId:find("_sword") ~= nil or itemId:find("_club") ~= nil or itemId:find("_harvester") ~= nil)
 end
 
 return ItemModels
