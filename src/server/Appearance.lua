@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Items = require(Shared.Items)
 local ItemModels = require(Shared.ItemModels)
+local Config = require(Shared.Config)
 
 local Appearance = {}
 
@@ -49,6 +50,7 @@ function Appearance.setTool(player: Player, itemId: string?)
 		return
 	end
 	local model = ItemModels.build(itemId)
+	model:ScaleTo(Config.HeldScale) -- scales around the grip
 	model.Name = "HeldItem"
 	-- Grip at the bottom of the fist, tool pointing forward and slightly up.
 	model:PivotTo(hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 + 0.1, 0) * CFrame.Angles(math.rad(-90), 0, 0))
