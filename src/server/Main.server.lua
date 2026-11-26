@@ -17,19 +17,26 @@ local Crafting = require(Systems.Crafting)
 local Building = require(Systems.Building)
 local Death = require(Systems.Death)
 local Shop = require(Systems.Shop)
+local Drops = require(Systems.Drops)
 
 WorldBuilder.build()
 Survival.start()
 
+Drops.setPickupCallback(function(player, itemId, amount)
+	Quests.record(player, "gather", itemId, amount)
+end)
+
 local function onCharacterAdded(player: Player, character: Model)
 	Survival.reset(player)
 	if Inventory.count(player, "rock") == 0 then
-		Inventory.add(player, "rock", 1)
+		Inventory.add(player, "rock", 1, true)
 	end
-	-- Wait until the hand exists so the held tool can attach to it.
 	character:WaitForChild("RightHand", 5)
-	Inventory.setEquipped(player, "rock")
-
+	character:WaitForChild("UpperTorso", 2)
+	Inventory.reapplyAppearance(player)
+	if not Inventory.getEquipped(player) then
+		Inventory.setEquipped(player, "rock")
+	end
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.Died:Connect(function()
 		Death.onDied(player, character)
@@ -46,7 +53,6 @@ local function onPlayerAdded(player: Player)
 	if player.Character then
 		task.spawn(onCharacterAdded, player, player.Character)
 	end
-	-- Give the client a moment to load its UI, then send the starting state.
 	task.delay(1, function()
 		Inventory.sync(player)
 		Quests.sync(player)
@@ -72,10 +78,20 @@ Remotes.Eat.OnServerEvent:Connect(Survival.eat)
 Remotes.Place.OnServerEvent:Connect(Building.onPlace)
 Remotes.ClaimQuest.OnServerEvent:Connect(Quests.claim)
 Remotes.Buy.OnServerEvent:Connect(Shop.onBuy)
+Remotes.PickUp.OnServerEvent:Connect(Drops.pickUp)
+Remotes.Drop.OnServerEvent:Connect(Drops.dropFromBag)
+Remotes.EatDrop.OnServerEvent:Connect(function(player, drop)
+	Drops.eat(player, drop, Survival.consume)
+end)
+Remotes.Wear.OnServerEvent:Connect(function(player, itemId)
+	if type(itemId) == "string" then
+		Inventory.toggleWear(player, itemId)
+	end
+end)
 Remotes.Equip.OnServerEvent:Connect(function(player, itemId)
 	if itemId == nil then
 		Inventory.setEquipped(player, nil)
-	elseif type(itemId) == "string" and Items[itemId] and Items[itemId].kind ~= "resource" then
+	elseif type(itemId) == "string" and Items[itemId] then
 		Inventory.setEquipped(player, itemId)
 	end
 end)

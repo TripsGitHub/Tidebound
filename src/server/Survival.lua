@@ -14,28 +14,40 @@ function Survival.reset(player: Player)
 	player:SetAttribute("Hunger", Config.MaxHunger)
 end
 
-function Survival.eat(player: Player, itemId: unknown)
-	if type(itemId) ~= "string" then
-		return
-	end
+-- Applies a food's effect. Returns true if the player could eat.
+function Survival.consume(player: Player, itemId: string): boolean
 	local item = Items[itemId]
 	if not item or item.kind ~= "food" then
-		return
+		return false
 	end
 	local now = os.clock()
-	if (lastEat[player] or 0) + 0.4 > now then
-		return
+	if (lastEat[player] or 0) + 0.5 > now then
+		return false
 	end
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if not humanoid or humanoid.Health <= 0 then
-		return
-	end
-	if not Inventory.take(player, itemId, 1) then
-		return
+		return false
 	end
 	lastEat[player] = now
 	local hunger = player:GetAttribute("Hunger") or 0
-	player:SetAttribute("Hunger", math.min(Config.MaxHunger, hunger + item.hunger))
+	player:SetAttribute("Hunger", math.min(Config.MaxHunger, hunger + (item.hunger or 0)))
+	if item.heal then
+		humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + item.heal)
+	end
+	if item.hurt then
+		humanoid:TakeDamage(item.hurt)
+	end
+	return true
+end
+
+-- Eat from the bag.
+function Survival.eat(player: Player, itemId: unknown)
+	if type(itemId) ~= "string" or Inventory.count(player, itemId) <= 0 then
+		return
+	end
+	if Survival.consume(player, itemId) then
+		Inventory.take(player, itemId, 1)
+	end
 end
 
 function Survival.removePlayer(player: Player)

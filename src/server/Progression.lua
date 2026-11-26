@@ -34,11 +34,11 @@ function Progression.addXp(player: Player, amount: number)
 				table.insert(unlocked, Items[recipe.id].name)
 			end
 		end
-		local text = "Level up! You are now level " .. level .. "."
+		local text = "Level " .. level .. "!"
 		if #unlocked > 0 then
-			text ..= " Unlocked: " .. table.concat(unlocked, ", ")
+			text ..= "  Unlocked: " .. table.concat(unlocked, ", ")
 		end
-		Remotes.Notify:FireClient(player, text)
+		Remotes.Notify:FireClient(player, text, "good")
 	end
 	if level >= Config.MaxLevel then
 		xp = 0
