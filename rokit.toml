@@ -1,0 +1,4 @@
+# Tools this project uses. The Rojo extension for VS Code reads this file
+# and installs the right version of Rojo for you.
+[tools]
+rojo = "rojo-rbx/rojo@7.4.4"
