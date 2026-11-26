@@ -27,9 +27,11 @@ UIKit.Colors = {
 	star = Color3.fromRGB(250, 214, 90),
 }
 
--- Plain bold sans everywhere. The outline does the work, not the typeface.
-UIKit.Font = Enum.Font.SourceSansBold
-UIKit.FontHeavy = Enum.Font.SourceSansBold
+-- Denk One everywhere: chunky, slightly hand-cut letters that suit a tribal island
+-- without the bubbly cartoon fonts most simulator games use. Still plain white with
+-- a dark outline, like the footage.
+UIKit.Font = Enum.Font.DenkOne
+UIKit.FontHeavy = Enum.Font.DenkOne
 
 UIKit.PANEL_ALPHA = 0.12 -- how see-through panels are
 

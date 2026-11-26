@@ -521,7 +521,16 @@ local function menuButton(parent: Instance, order: number, text: string, key: st
 		corner(8),
 		stroke(C.rim, 2),
 	})
-	Icons.make(icon, b, UDim2.fromScale(0.84, 0.84), UDim2.fromScale(0.08, 0.08))
+	if icon == "look" then
+		-- a little castaway face: skin square, hair strip, two eyes
+		local face = new("Frame", { Parent = b, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = Color3.fromRGB(214, 160, 118), BorderSizePixel = 0 }, { corner(3), stroke(C.edge, 1.5) })
+		new("Frame", { Parent = face, Position = UDim2.fromOffset(-2, -5), Size = UDim2.new(1, 4, 0, 10), BackgroundColor3 = Color3.fromRGB(92, 60, 36), BorderSizePixel = 0 }, { corner(3) })
+		for _, x in { 8, 18 } do
+			new("Frame", { Parent = face, Position = UDim2.fromOffset(x, 12), Size = UDim2.fromOffset(4, 7), BackgroundColor3 = Color3.fromRGB(30, 26, 24), BorderSizePixel = 0 })
+		end
+	else
+		Icons.make(icon, b, UDim2.fromScale(0.84, 0.84), UDim2.fromScale(0.08, 0.08))
+	end
 	local cap = new("Frame", { Parent = b, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 4, 1, 4), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = C.cardDark, ZIndex = 3 }, { corner(4), stroke(C.rim, 1) })
 	label({ Parent = cap, Size = UDim2.fromScale(1, 1), Text = key, TextScaled = false, TextSize = 14, ZIndex = 3 })
 	b.MouseButton1Click:Connect(onClick)
@@ -558,13 +567,16 @@ function UI.init(cb)
 	targetName = UIKit.hudText({ Parent = targetFrame, Position = UDim2.fromOffset(0, 25), Size = UDim2.new(1, 0, 0, 18), Text = "", TextScaled = false, TextSize = 16 })
 
 	-- Menu (top left): icon buttons in a row, then the Shells counter
-	local menu = new("Frame", { Parent = gui, Position = UDim2.fromOffset(10, 8), Size = UDim2.fromOffset(240, 80), BackgroundTransparency = 1 }, {
+	local menu = new("Frame", { Parent = gui, Position = UDim2.fromOffset(10, 8), Size = UDim2.fromOffset(310, 80), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	menuButton(menu, 1, "Inventory", "C", "leather_bag", function()
 		callbacks.onInventory()
 	end)
-	local shellsHolder = new("Frame", { Parent = menu, LayoutOrder = 2, Size = UDim2.fromOffset(66, 74), BackgroundTransparency = 1 })
+	menuButton(menu, 2, "Look", "L", "look", function()
+		callbacks.onLook()
+	end)
+	local shellsHolder = new("Frame", { Parent = menu, LayoutOrder = 3, Size = UDim2.fromOffset(66, 74), BackgroundTransparency = 1 })
 	label({ Parent = shellsHolder, Size = UDim2.new(1, 0, 0, 16), Text = "Shells", TextScaled = false, TextSize = 16 })
 	local coin = new("Frame", { Parent = shellsHolder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 20), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = C.gold }, { UIKit.round(), stroke(C.edge, 2) })
 	label({ Parent = coin, Size = UDim2.fromScale(1, 1), Text = "S", TextScaled = false, TextSize = 22 })
