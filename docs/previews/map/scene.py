@@ -23,9 +23,9 @@ def lin(c): return tuple((((v/255)+0.055)/1.055)**2.4 for v in c)
 tm=bpy.data.materials.new('Terrain'); tm.use_nodes=True; nt=tm.node_tree
 bs=nt.nodes['Principled BSDF']; bs.inputs['Roughness'].default_value=0.9
 ca=nt.nodes.new('ShaderNodeVertexColor'); ca.layer_name='Col'
-nz=nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value=0.35; nz.inputs['Detail'].default_value=6
+nz=nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value=1.6; nz.inputs['Detail'].default_value=4
 tc=nt.nodes.new('ShaderNodeTexCoord'); nt.links.new(tc.outputs['Object'],nz.inputs['Vector'])
-mr=nt.nodes.new('ShaderNodeMapRange'); mr.inputs['To Min'].default_value=0.82; mr.inputs['To Max'].default_value=1.12
+mr=nt.nodes.new('ShaderNodeMapRange'); mr.inputs['To Min'].default_value=0.9; mr.inputs['To Max'].default_value=1.07
 nt.links.new(nz.outputs['Fac'],mr.inputs['Value'])
 mx=nt.nodes.new('ShaderNodeMix'); mx.data_type='RGBA'; mx.blend_type='MULTIPLY'; mx.inputs['Factor'].default_value=1
 nt.links.new(ca.outputs['Color'],mx.inputs['A'])
@@ -48,7 +48,7 @@ for isl,cx,cz in ISL:
             m='Seabed' if h<0 else isl.material(x0+i*STEP,z0+j*STEP,h,sl)
             C[j][i]=lin(MATS[m]); G[j][i]=1.0 if m in ('Grass','LeafyGrass') else 0.0
     # blend: two passes of a 3x3 average, roughly the width Roblox blends over
-    for _ in range(2):
+    for _ in range(int(os.environ.get('BLUR','0'))):
         N=[[None]*nx for _ in range(nz_)]; NG=[[0]*nx for _ in range(nz_)]
         for j in range(nz_):
             for i in range(nx):
@@ -70,7 +70,31 @@ for isl,cx,cz in ISL:
             f=bm.faces.new((V[j][i],V[j][i+1],V[j+1][i+1],V[j+1][i])); f.smooth=True
             for lp,(jj,ii) in zip(f.loops,((j,i),(j,i+1),(j+1,i+1),(j+1,i))):
                 lp[col]=(*C[jj][ii],1)
+    uvl=bm.loops.layers.uv.new('UV')
+    for f in bm.faces:
+        for lp in f.loops:
+            co=lp.vert.co; lp[uvl].uv=((co.x-cx-x0)/(x1-x0),((-co.y)-cz-z0)/(z1-z0))
     bm.to_mesh(me); bm.free()
+    # Material colour map at sub-voxel resolution, so borders follow the noisy
+    # edges in the material function instead of the mesh grid.
+    RES=float(os.environ.get('TEXRES','0.6'))
+    iw,ih=int((x1-x0)/RES)+1,int((z1-z0)/RES)+1
+    px=[0.0]*(iw*ih*4)
+    for j in range(ih):
+        z=z0+j*RES
+        for i in range(iw):
+            x=x0+i*RES; h=isl.height(x,z)
+            if h<-25.5: c=lin(MATS['Seabed'])
+            else:
+                sl=max(abs(isl.height(x+1,z)-isl.height(x-1,z)),abs(isl.height(x,z+1)-isl.height(x,z-1)))/2
+                c=lin(MATS['Seabed' if h<0 else isl.material(x,z,h,sl)])
+            k=(j*iw+i)*4; px[k]=c[0]; px[k+1]=c[1]; px[k+2]=c[2]; px[k+3]=1
+    im=bpy.data.images.new(isl.name+'Mat',iw,ih,float_buffer=True); im.colorspace_settings.name='Non-Color'
+    im.pixels.foreach_set(px)
+    mi=tm.copy(); me.materials[0]=mi
+    it=mi.node_tree.nodes.new('ShaderNodeTexImage'); it.image=im; it.interpolation='Linear'; it.extension='EXTEND'
+    mix=[n for n in mi.node_tree.nodes if n.type=='MIX'][0]
+    mi.node_tree.links.new(it.outputs['Color'],mix.inputs['A'])
     if isl.name in GRASS:
         vg=ob.vertex_groups.new(name='grass')
         for j in range(nz_):
