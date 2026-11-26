@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local AnimalDefs = require(Shared.Animals)
+local Meshes = require(Shared.Meshes)
 local Inventory = require(script.Parent.Inventory)
 local Drops = require(script.Parent.Drops)
 local Progression = require(script.Parent.Progression)
@@ -85,7 +86,19 @@ local function buildBoar(): Model
 	return m
 end
 
-local builders = { Boar = buildBoar }
+-- The Blender boar faces -Z like the block one, so either works.
+local function boar(): Model
+	local model = Meshes.build("boar", { collide = false })
+	if not model then
+		return buildBoar()
+	end
+	for _, p in model:GetChildren() do
+		(p :: BasePart).CanQuery = true
+	end
+	return model
+end
+
+local builders = { Boar = boar }
 
 local function pickWanderTarget(s: State): Vector3?
 	for _ = 1, 8 do

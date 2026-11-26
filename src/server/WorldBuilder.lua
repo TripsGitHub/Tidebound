@@ -9,6 +9,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Nodes = require(Shared.Nodes)
+local Meshes = require(Shared.Meshes)
 local Remotes = require(Shared.Remotes)
 local Animals = require(script.Parent.Animals)
 
@@ -163,6 +164,26 @@ end
 
 local makers = { Pine = makePine, Palm = makePalm, Boulder = makeBoulder, Bush = makeBush, SlimePool = makeSlimePool }
 
+-- The Blender mesh for each node, and how much its size varies.
+local NODE_MESHES = {
+	Pine = { mesh = "pine", scale = { 0.9, 1.2 } },
+	Palm = { mesh = "palm", scale = { 0.9, 1.15 } },
+	Boulder = { mesh = "boulder", scale = { 0.85, 1.2 } },
+	Bush = { mesh = "bush", scale = { 0.9, 1.15 } },
+	SlimePool = { mesh = "slimepool", scale = { 1, 1 } },
+}
+
+-- Uses the imported mesh when the place has it, otherwise the block model.
+local function makeNode(nodeType: string, cf: CFrame): Model
+	local spec = NODE_MESHES[nodeType]
+	local model = spec and Meshes.build(spec.mesh, { scale = rng:NextNumber(spec.scale[1], spec.scale[2]) })
+	if model then
+		model:PivotTo(cf * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+		return model
+	end
+	return makers[nodeType](cf)
+end
+
 -- Terrain ------------------------------------------------------------------------
 
 local ISLAND_BLOBS = {
@@ -266,7 +287,7 @@ local function scatter(nodeFolder: Folder, nodeType: string, count: number, take
 			end
 			if clear then
 				table.insert(taken, pos)
-				local model = makers[nodeType](CFrame.new(pos - Vector3.new(0, 0.3, 0)))
+				local model = makeNode(nodeType, CFrame.new(pos - Vector3.new(0, 0.3, 0)))
 				model.Name = nodeType
 				model:SetAttribute("NodeType", nodeType)
 				model:SetAttribute("DisplayName", Nodes[nodeType].name)

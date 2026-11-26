@@ -5,9 +5,17 @@ Sizes are in studs, scaled against a 5.5-stud Roblox player. Each model is split
 into one object per colour (e.g. `Trunk`, `Leaves1`) so the game can colour and tint them.
 
 ## Importing into Studio
-1. Avatar tab > Import 3D, pick the `.obj`.
-2. Keep the scale at 1 (the files are already in studs).
-3. Note the asset id of each imported mesh; the game code will reference them by id.
+1. Home tab > Import, pick `tidebound_models.obj`. Each part comes in as its own MeshPart
+   named `<model>__<Part>` (the OBJ has one group per part).
+2. Scale Unit: Stud. Tick Anchored.
+3. Rename the imported model to `Models` and move it to ReplicatedStorage (next to Shared,
+   not inside it, since Rojo manages Shared). Save the place.
+
+The game builds every model from those parts (`src/shared/Meshes.lua`) and colours them
+from `src/shared/MeshColors.lua`. If the folder is missing it falls back to block models.
+
+After changing a model: re-run `blender/combine.py`, then `python3 assets/models/blender/colors.py`
+from the repo root, and re-import.
 
 ## Rebuilding
 `pip install bpy`, then `python3 blender/set1.py` (trees, rocks, club) or
