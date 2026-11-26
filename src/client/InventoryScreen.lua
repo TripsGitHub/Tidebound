@@ -145,7 +145,7 @@ local function rebuildBag()
 				callbacks.onWear(id)
 			end)
 		elseif item.kind == "tool" or item.kind == "placeable" then
-			act(if held then "Put away" else "Hold", function()
+			act(if held then "Stow" else "Hold", function()
 				callbacks.onHold(if held then nil else id)
 			end)
 		elseif item.kind == "food" then
