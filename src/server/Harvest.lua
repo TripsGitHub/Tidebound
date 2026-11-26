@@ -45,7 +45,7 @@ local function respawnLater(model: Model, def, home: CFrame)
 end
 
 -- Trees tip over away from the player, then break into logs.
-local function fellTree(model: Model, def, awayFrom: Vector3)
+local function fellTree(model: Model, def, awayFrom: Vector3, loot: { { item: string, amount: number } })
 	local home = model:GetPivot()
 	local base = home.Position
 	local away = (base - awayFrom) * Vector3.new(1, 0, 1)
@@ -69,25 +69,50 @@ local function fellTree(model: Model, def, awayFrom: Vector3)
 	setVisible(model, false)
 	local _, size = model:GetBoundingBox()
 	local length = math.max(size.X, size.Y, size.Z)
-	for _, drop in def.onDeplete or {} do
-		for i = 1, drop.amount do
-			local along = base + away * (length * i / (drop.amount + 1)) + Vector3.new(0, 2, 0)
-			Drops.spawn(drop.item, 1, along, axis * (if i % 2 == 0 then 1 else -1))
+	-- Spread the loot along where the trunk landed.
+	local total = 0
+	for _, drop in loot do
+		total += drop.amount
+	end
+	local n = 0
+	for _, drop in loot do
+		for _ = 1, drop.amount do
+			n += 1
+			local along = base + away * (length * n / (total + 1)) + Vector3.new(0, 2, 0)
+			Drops.spawn(drop.item, 1, along, axis * (if n % 2 == 0 then 1 else -1))
 		end
 	end
 	respawnLater(model, def, home)
 end
 
-local function deplete(model: Model, def, awayFrom: Vector3)
+-- Rolls what a broken node gives: { { item, amount } }.
+local function rollLoot(def): { { item: string, amount: number } }
+	local loot = {}
+	for _, drop in def.drops do
+		local amount = math.random(drop.min, drop.max)
+		if amount > 0 then
+			table.insert(loot, { item = drop.item, amount = amount })
+		end
+	end
+	return loot
+end
+
+local function deplete(player: Player, model: Model, def, awayFrom: Vector3)
 	model:SetAttribute("Depleted", true)
+	Progression.addXp(player, def.xp)
+	local loot = rollLoot(def)
 	if def.falls then
-		task.spawn(fellTree, model, def, awayFrom)
+		task.spawn(fellTree, model, def, awayFrom, loot)
 		return
 	end
 	local home = model:GetPivot()
 	setVisible(model, false)
-	for _, drop in def.onDeplete or {} do
-		Drops.spawn(drop.item, drop.amount, home.Position + Vector3.new(0, 2, 0))
+	local center = home.Position + Vector3.new(0, 2, 0)
+	for _, drop in loot do
+		for _ = 1, drop.amount do
+			local a = math.random() * math.pi * 2
+			Drops.spawn(drop.item, 1, center, Vector3.new(math.cos(a), 0.6, math.sin(a)))
+		end
 	end
 	respawnLater(model, def, home)
 end
@@ -102,26 +127,12 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 		Remotes.Notify:FireClient(player, "Your tool can't harvest that", "warn")
 		return
 	end
-	-- Knock drops off toward the player.
-	local cf, size = model:GetBoundingBox()
-	local hitPoint = Vector3.new(cf.X, cf.Y - size.Y / 2 + 2.5, cf.Z)
-	local toward = rootPos - hitPoint
-	local flat = toward * Vector3.new(1, 0, 1)
-	local spawnAt = hitPoint + (if flat.Magnitude > 0 then flat.Unit else Vector3.xAxis) * math.min(math.min(size.X, size.Z) * 0.5, 2.5)
-	for _, drop in def.drops do
-		if math.random() <= drop.chance then
-			local amount = if drop.scales then drop.amount * power else drop.amount
-			for _ = 1, amount do
-				Drops.spawn(drop.item, 1, spawnAt, toward)
-			end
-		end
-	end
-	Progression.addXp(player, def.xp)
-	local hp = (model:GetAttribute("HP") or def.hp) - power
+	-- Hits only wear it down; the loot and XP come out when it breaks.
+	local hp = math.max((model:GetAttribute("HP") or def.hp) - power, 0)
 	model:SetAttribute("HP", hp)
 	Remotes.HitFeedback:FireAllClients(model)
 	if hp <= 0 then
-		deplete(model, def, rootPos)
+		deplete(player, model, def, rootPos)
 	end
 end
 

@@ -383,6 +383,14 @@ function WorldBuilder.build()
 	setLighting()
 	buildTerrain()
 
+	-- Right after the server starts, raycasts can't see freshly filled terrain yet.
+	-- Wait (up to 10s) until the main island answers, or nothing gets placed.
+	local waited = 0
+	while not groundAt(0, 0) and waited < 10 do
+		waited += task.wait(0.1)
+	end
+	task.wait(0.2)
+
 	-- Spawn on the south beach.
 	local spawnHit = groundAt(0, 116)
 	local spawnPos = if spawnHit then spawnHit.Position else Vector3.new(0, 3, 116)

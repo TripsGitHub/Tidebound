@@ -4,7 +4,7 @@ local Recipes = {
 	{ id = "wood_club", tab = "Tools", level = 1, cost = { log = 3, stick = 1 } },
 	{ id = "wood_harvester", tab = "Tools", level = 1, cost = { log = 2, stick = 2, stone = 2 } },
 	{ id = "stone_harvester", tab = "Tools", level = 6, cost = { stick = 3, stone = 12, sticky_slime = 2 } },
-	{ id = "stone_club", tab = "Tools", level = 7, cost = { log = 4, stone = 10, sticky_slime = 2 } },
+	{ id = "stone_sword", tab = "Tools", level = 7, cost = { log = 4, stone = 10, sticky_slime = 2 } },
 
 	-- Armour
 	{ id = "leather_bag", tab = "Armour", level = 2, cost = { leather = 4, leaves = 6 } },

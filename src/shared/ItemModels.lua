@@ -101,10 +101,6 @@ function builders.wood_club(m)
 	return club(m, false)
 end
 
-function builders.stone_club(m)
-	return club(m, true)
-end
-
 -- Swords share one shape; only the colour changes by tier.
 -- Faceted tapered blade, short crossguard, leather grip, tier-coloured pommel.
 local SWORD_TIERS: { [string]: Color3 } = {
