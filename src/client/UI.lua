@@ -86,7 +86,7 @@ local function rebuildHotbar()
 	for i = 1, math.max(5, #ids) do
 		local id = ids[i]
 		local selected = id ~= nil and id == state.equipped
-		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(62, 84), BackgroundTransparency = 1 })
+		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(76, 84), BackgroundTransparency = 1 })
 		local slot = new("TextButton", {
 			Parent = holder,
 			AnchorPoint = Vector2.new(0.5, 1),
@@ -100,7 +100,7 @@ local function rebuildHotbar()
 		label({ Parent = slot, Size = UDim2.fromOffset(16, 16), Position = UDim2.fromOffset(2, 0), Text = tostring(i), TextColor3 = C.edge, ZIndex = 3 })
 		if id then
 			Icons.make(id, slot, UDim2.fromScale(0.8, 0.8), UDim2.fromScale(0.1, 0.1))
-			UIKit.hudText({ Parent = holder, Size = UDim2.new(1, 30, 0, 16), Position = UDim2.new(0, -15, 0, 0), Text = Items[id].name, TextColor3 = if selected then C.xp else C.textLight })
+			UIKit.hudText({ Parent = holder, Size = UDim2.new(1, -2, 0, 15), Position = UDim2.fromOffset(1, 0), Text = Items[id].name, TextColor3 = if selected then C.xp else C.textLight })
 			if (state.items[id] or 0) > 1 then
 				label({ Parent = slot, AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1), Size = UDim2.fromOffset(28, 16), Text = "x" .. state.items[id], TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3 })
 			end
@@ -488,8 +488,8 @@ function UI.init(cb)
 	local shellsLabel = label({ Parent = menu, LayoutOrder = 3, Size = UDim2.fromOffset(64, 40), Text = "0\nShells", TextColor3 = C.xp, TextStrokeTransparency = 0.3, Font = UIKit.FontHeavy })
 
 	-- Hotbar (bottom centre)
-	hotbar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(8 * 68, 84), BackgroundTransparency = 1 }, {
-		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+	hotbar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(8 * 82, 84), BackgroundTransparency = 1 }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 
 	-- Stats (bottom right)

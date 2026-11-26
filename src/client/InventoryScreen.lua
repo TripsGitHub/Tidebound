@@ -223,7 +223,7 @@ function Screen.init(parent: ScreenGui, cb)
 	})
 
 	-- Crafting (left)
-	local craftPanel = UIKit.panel({ Parent = root, Position = UDim2.fromOffset(0, 68), Size = UDim2.new(0.5, -8, 1, -110) })
+	local craftPanel = UIKit.panel({ Parent = root, Position = UDim2.fromOffset(0, 68), Size = UDim2.new(0.5, -8, 1, -122) })
 	tabRow(craftPanel, CRAFT_TAB_ORDER, craftTabButtons, function(name)
 		craftTab = name
 		rebuildCrafting()
@@ -231,7 +231,7 @@ function Screen.init(parent: ScreenGui, cb)
 	craftGrid = grid(craftPanel, UDim2.fromOffset(128, 112))
 
 	-- Bag (right)
-	local bagPanel = UIKit.panel({ Parent = root, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 68), Size = UDim2.new(0.5, -8, 1, -110) })
+	local bagPanel = UIKit.panel({ Parent = root, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 68), Size = UDim2.new(0.5, -8, 1, -122) })
 	tabRow(bagPanel, BAG_TAB_ORDER, bagTabButtons, function(name)
 		bagTab = name
 		rebuildBag()

@@ -38,6 +38,13 @@ local ANIMS: { [string]: { Key } } = {
 		{ t = 0.6, pose = { RightShoulder = Vector3.new(68, 0, -28), RightElbow = Vector3.new(105, 0, 0), Neck = Vector3.new(-14, 0, 0) } },
 		{ t = 0.85 },
 	},
+	-- Set a wall or campfire down: reach forward and press it into place.
+	place = {
+		{ t = 0 },
+		{ t = 0.12, pose = { RightShoulder = Vector3.new(70, 0, 4), RightElbow = Vector3.new(20, 0, 0), Waist = Vector3.new(-12, 0, 0), Neck = Vector3.new(-8, 0, 0) } },
+		{ t = 0.22, pose = { RightShoulder = Vector3.new(40, 0, 4), RightElbow = Vector3.new(6, 0, 0), Waist = Vector3.new(-20, 0, 0), Neck = Vector3.new(-12, 0, 0) } },
+		{ t = 0.42 },
+	},
 	-- Bend down and grab something off the ground.
 	pickup = {
 		{ t = 0 },
