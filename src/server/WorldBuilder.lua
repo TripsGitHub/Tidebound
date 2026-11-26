@@ -1,5 +1,5 @@
 -- Builds the world when the server starts: a ring of five outer islands (one biome
--- each) around a late-game middle island, in Smooth Terrain, plus trees, rocks,
+-- each, Clover Island as the spawn) around a late-game middle island, in Smooth Terrain, plus trees, rocks,
 -- bushes, slime pools, boars, a quest board and a trader.
 -- (The hand-built v2 map replaces this in a later milestone.)
 local Lighting = game:GetService("Lighting")
@@ -12,6 +12,7 @@ local Nodes = require(Shared.Nodes)
 local Meshes = require(Shared.Meshes)
 local Remotes = require(Shared.Remotes)
 local Animals = require(script.Parent.Animals)
+local CloverIsland = require(script.Parent.CloverIsland)
 
 local WorldBuilder = {}
 local rng = Random.new(1911)
@@ -198,7 +199,7 @@ export type Island = {
 }
 
 local ISLANDS: { Island } = {
-	{ name = "Palm Beach", x = 0, z = 320, r = 85, biome = "beach" }, -- spawn, south
+	{ name = "Clover Island", x = 0, z = 320, r = 110, biome = "clover" }, -- spawn, south
 	{ name = "Pine Hills", x = -300, z = 90, r = 100, biome = "hills" },
 	{ name = "Stone Shelf", x = 300, z = 90, r = 90, biome = "rock" },
 	{ name = "Frost Isle", x = -190, z = -265, r = 85, biome = "snow" },
@@ -209,7 +210,21 @@ WorldBuilder.Islands = ISLANDS
 
 -- What grows where. `cluster` = trees per clump (min, max).
 local BIOME_NODES = {
-	beach = { { "Palm", 13, { 1, 2 } }, { "Bush", 7 }, { "Boulder", 3 } },
+	-- Clover Island is zoned per leaf: { node, count, clump?, zone }.
+	clover = {
+		{ "Pine", 24, { 2, 4 }, zone = "pines" },
+		{ "Bush", 3, zone = "pines" },
+		{ "Boulder", 2, zone = "pines" },
+		{ "Boulder", 13, zone = "rocks" },
+		{ "Pine", 2, { 1, 1 }, zone = "rocks" },
+		{ "Palm", 14, { 1, 3 }, zone = "palms" },
+		{ "Bush", 3, zone = "palms" },
+		{ "Bush", 8, zone = "meadow" },
+		{ "Pine", 3, { 1, 2 }, zone = "meadow" },
+		{ "Boulder", 2, zone = "meadow" },
+		{ "Pine", 3, { 1, 2 }, zone = "centre" },
+		{ "Bush", 2, zone = "centre" },
+	},
 	hills = { { "Pine", 20, { 1, 3 } }, { "Bush", 9 }, { "Boulder", 6 } },
 	rock = { { "Boulder", 14 }, { "Pine", 5, { 1, 2 } }, { "Bush", 3 } },
 	snow = { { "Pine", 13, { 1, 3 } }, { "Boulder", 6 } },
@@ -229,6 +244,10 @@ end
 
 local function island(terrain: Terrain, isl: Island)
 	local x, z, r = isl.x, isl.z, isl.r
+	if isl.biome == "clover" then
+		CloverIsland.fill(terrain, x, z)
+		return
+	end
 	local top = if isl.biome == "beach" then "Sand" else "Grass"
 	-- Sand shelves stepping down into the water, then the beach.
 	for k = 4, 1, -1 do
@@ -302,6 +321,7 @@ local function buildTerrain()
 	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(96, 92, 90))
 	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(52, 50, 56))
 	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(92, 78, 58))
+	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(150, 116, 80))
 
 	-- Ocean and sea floor
 	terrain:FillBlock(CFrame.new(0, -18, 0), Vector3.new(1400, 36, 1400), Enum.Material.Water)
@@ -334,7 +354,14 @@ local function spawnNode(nodeFolder: Folder, nodeType: string, pos: Vector3)
 end
 
 -- A spot on this island that is dry, not too steep, and `spacing` away from everything taken.
-local function findSpot(isl: Island, taken: { Vector3 }, spacing: number, near: Vector3?, nearRadius: number?): Vector3?
+local function findSpot(
+	isl: Island,
+	taken: { Vector3 },
+	spacing: number,
+	near: Vector3?,
+	nearRadius: number?,
+	zone: string?
+): Vector3?
 	for _ = 1, 30 do
 		local px, pz
 		if near then
@@ -346,7 +373,12 @@ local function findSpot(isl: Island, taken: { Vector3 }, spacing: number, near: 
 			local d = math.sqrt(rng:NextNumber()) * (isl.r + 10)
 			px, pz = isl.x + math.cos(a) * d, isl.z + math.sin(a) * d
 		end
-		local hit = groundAt(px, pz)
+		local zoneOk = true
+		if isl.biome == "clover" then
+			local rx, rz = px - isl.x, pz - isl.z
+			zoneOk = CloverIsland.canGrow(rx, rz) and (zone == nil or CloverIsland.zoneAt(rx, rz) == zone)
+		end
+		local hit = zoneOk and groundAt(px, pz)
 		if hit and not NO_GROW[hit.Material] and hit.Position.Y > 0.8 and hit.Normal.Y > 0.8 then
 			local ok = true
 			for _, other in taken do
@@ -365,7 +397,7 @@ end
 
 local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 	for _, entry in BIOME_NODES[isl.biome] do
-		local nodeType, count, clump = entry[1], entry[2], entry[3]
+		local nodeType, count, clump, zone = entry[1], entry[2], entry[3], entry.zone
 		local made = 0
 		for _ = 1, count * 3 do
 			if made >= count then
@@ -373,7 +405,7 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 			end
 			if clump then
 				-- Trees grow alone or in small clumps, with open ground between clumps.
-				local centre = findSpot(isl, taken, CLUMP_SPACING)
+				local centre = findSpot(isl, taken, if zone then CLUMP_SPACING * 0.75 else CLUMP_SPACING, nil, nil, zone)
 				if centre then
 					local size = rng:NextInteger(clump[1], clump[2])
 					local clumpTaken = {}
@@ -384,7 +416,7 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 						if made >= count then
 							break
 						end
-						local spot = findSpot(isl, clumpTaken, IN_CLUMP_SPACING, centre, IN_CLUMP_SPACING * 1.6)
+						local spot = findSpot(isl, clumpTaken, IN_CLUMP_SPACING, centre, IN_CLUMP_SPACING * 1.6, zone)
 						if spot then
 							spawnNode(nodeFolder, nodeType, spot)
 							table.insert(clumpTaken, spot)
@@ -396,7 +428,7 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 					end
 				end
 			else
-				local spot = findSpot(isl, taken, NODE_SPACING)
+				local spot = findSpot(isl, taken, if zone then NODE_SPACING * 0.75 else NODE_SPACING, nil, nil, zone)
 				if spot then
 					spawnNode(nodeFolder, nodeType, spot)
 					table.insert(taken, spot)
@@ -518,10 +550,11 @@ function WorldBuilder.build()
 	end
 	task.wait(0.2)
 
-	-- Spawn on the south shore of Palm Beach.
+	-- Spawn on the stem of Clover Island.
 	local home = ISLANDS[1]
-	local spawnHit = groundAt(home.x, home.z + home.r * 0.75)
-	local spawnPos = if spawnHit then spawnHit.Position else Vector3.new(home.x, 3, home.z + home.r * 0.75)
+	local sx, sz = home.x + CloverIsland.Spawn.X, home.z + CloverIsland.Spawn.Y
+	local spawnHit = groundAt(sx, sz)
+	local spawnPos = if spawnHit then spawnHit.Position else Vector3.new(sx, 3, sz)
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "TideboundSpawn"
 	spawn.Anchored = true
@@ -540,8 +573,8 @@ function WorldBuilder.build()
 	folder("LootSacks")
 
 	-- Quest board and trader just inland from the spawn, facing it.
-	local boardHit = groundAt(spawnPos.X - 12, spawnPos.Z - 20)
-	local traderHit = groundAt(spawnPos.X + 12, spawnPos.Z - 20)
+	local boardHit = groundAt(home.x + CloverIsland.Board.X, home.z + CloverIsland.Board.Y)
+	local traderHit = groundAt(home.x + CloverIsland.Trader.X, home.z + CloverIsland.Trader.Y)
 	local taken = { spawnPos }
 	if boardHit then
 		makeQuestBoard(CFrame.lookAt(boardHit.Position, Vector3.new(spawnPos.X, boardHit.Position.Y, spawnPos.Z)))
@@ -562,7 +595,7 @@ function WorldBuilder.build()
 	end
 
 	-- Boars roam the two grassy islands.
-	Animals.spawnHerd("Boar", Vector3.new(home.x + 30, 0, home.z - 25), 3)
+	Animals.spawnHerd("Boar", Vector3.new(home.x + CloverIsland.Herd.X, 0, home.z + CloverIsland.Herd.Y), 3)
 	local hills = ISLANDS[2]
 	Animals.spawnHerd("Boar", Vector3.new(hills.x, 0, hills.z), 4)
 	Animals.start()
