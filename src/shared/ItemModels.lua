@@ -66,24 +66,81 @@ function builders.rock(m)
 	return lump(m, 0.9, CFrame.new(0, 0.3, 0), C.stone, Enum.Material.Slate, 3)
 end
 
-local function club(m: Model, headColor: Color3, headMaterial: Enum.Material, spikes: boolean): BasePart
-	local handle = part(m, Vector3.new(0.35, 2.6, 0.35), CFrame.new(0, 1.1, 0), C.woodDark, Enum.Material.Wood)
-	local head = part(m, Vector3.new(0.75, 1.4, 0.75), CFrame.new(0, 2.6, 0) * CFrame.Angles(0, math.rad(45), 0), headColor, headMaterial)
-	part(m, Vector3.new(0.6, 0.6, 0.6), CFrame.new(0, 3.35, 0) * CFrame.Angles(0, math.rad(45), 0), headColor:Lerp(Color3.new(0, 0, 0), 0.1), headMaterial)
-	if spikes then
-		for i = 0, 3 do
-			part(m, Vector3.new(0.25, 0.25, 0.5), head.CFrame * CFrame.Angles(0, i * math.pi / 2, 0) * CFrame.new(0, 0.1, -0.5), C.stoneDark, Enum.Material.Slate)
+-- A real club: thin at the grip, swelling to a heavy rounded end.
+-- Built from a stack of cylinders that get wider, capped with a ball.
+local CLUB_WOOD = Color3.fromRGB(122, 64, 40)
+
+local function club(m: Model, stoneHead: boolean): BasePart
+	local up = CFrame.Angles(0, 0, math.rad(90)) -- cylinders run along X; turn them to run along Y
+	local grip
+	local segments = 7
+	local length = 3.2
+	for i = 0, segments - 1 do
+		local t = i / (segments - 1)
+		local d = 0.24 + 0.36 * t ^ 1.6
+		local y = -0.2 + length * (i + 0.5) / segments
+		local lean = CFrame.Angles(math.rad(3 * t), 0, 0) -- a slight bend so it isn't a perfect rod
+		local p = part(m, Vector3.new(length / segments + 0.06, d, d), CFrame.new(0, y, 0) * lean * up, CLUB_WOOD:Lerp(Color3.new(0, 0, 0), (i % 2) * 0.06), Enum.Material.Wood, Enum.PartType.Cylinder)
+		if i == 0 then
+			grip = p
 		end
 	end
-	return handle
+	part(m, Vector3.new(0.62, 0.62, 0.62), CFrame.new(0, length - 0.25, 0.05), CLUB_WOOD, Enum.Material.Wood, Enum.PartType.Ball)
+	-- Grip wrap
+	part(m, Vector3.new(0.75, 0.29, 0.29), CFrame.new(0, 0.25, 0) * up, Color3.fromRGB(86, 58, 38), Enum.Material.Fabric, Enum.PartType.Cylinder)
+	if stoneHead then
+		for i = 0, 2 do
+			local a = i * math.pi * 2 / 3
+			lump(m, 0.38, CFrame.new(math.cos(a) * 0.28, length - 0.55, math.sin(a) * 0.28), C.stone, Enum.Material.Slate, 11 + i)
+		end
+	end
+	return grip
 end
 
 function builders.wood_club(m)
-	return club(m, C.wood, Enum.Material.Wood, false)
+	return club(m, false)
 end
 
 function builders.stone_club(m)
-	return club(m, C.stone, Enum.Material.Slate, true)
+	return club(m, true)
+end
+
+-- Swords share one shape; only the colour changes by tier.
+-- Faceted tapered blade, short crossguard, leather grip, tier-coloured pommel.
+local SWORD_TIERS: { [string]: Color3 } = {
+	wood = Color3.fromRGB(156, 118, 84),
+	stone = Color3.fromRGB(122, 122, 130),
+	silver = Color3.fromRGB(226, 228, 236),
+	gold = Color3.fromRGB(240, 204, 64),
+	sunsteel = Color3.fromRGB(176, 28, 38),
+	diamond = Color3.fromRGB(196, 242, 242),
+	fractite = Color3.fromRGB(64, 226, 236),
+	amethyst = Color3.fromRGB(124, 52, 222),
+	obsidian = Color3.fromRGB(32, 30, 38),
+	lunar = Color3.fromRGB(214, 222, 255),
+}
+local GRIP = Color3.fromRGB(112, 72, 46)
+
+local function sword(m: Model, tier: string): BasePart
+	local blade = SWORD_TIERS[tier]
+	local dark = blade:Lerp(Color3.new(0, 0, 0), 0.3)
+	local light = blade:Lerp(Color3.new(1, 1, 1), 0.18)
+	local grip = part(m, Vector3.new(0.26, 1, 0.26), CFrame.new(0, 0.35, 0), GRIP, Enum.Material.Fabric)
+	part(m, Vector3.new(0.34, 0.22, 0.34), CFrame.new(0, -0.25, 0), dark)
+	part(m, Vector3.new(1, 0.2, 0.3), CFrame.new(0, 0.95, 0), dark)
+	-- Flat blade plus a diamond-section ridge down the middle gives the faceted look.
+	part(m, Vector3.new(0.5, 2.6, 0.1), CFrame.new(0, 2.35, 0), blade)
+	part(m, Vector3.new(0.2, 2.6, 0.2), CFrame.new(0, 2.35, 0) * CFrame.Angles(0, math.rad(45), 0), light)
+	-- Pointed tip: blocks turned 45 degrees so half of each sticks out past the blade.
+	part(m, Vector3.new(0.354, 0.354, 0.1), CFrame.new(0, 3.65, 0) * CFrame.Angles(0, 0, math.rad(45)), blade)
+	part(m, Vector3.new(0.141, 0.141, 0.141), CFrame.new(0, 3.65, 0) * CFrame.Angles(0, math.rad(45), 0) * CFrame.Angles(math.rad(45), 0, 0), light)
+	return grip
+end
+
+for tier in SWORD_TIERS do
+	builders[tier .. "_sword"] = function(m)
+		return sword(m, tier)
+	end
 end
 
 local function harvester(m: Model, headColor: Color3, headMaterial: Enum.Material): BasePart
@@ -269,7 +326,7 @@ function ItemModels.build(itemId: string): Model
 end
 
 function ItemModels.isTool(itemId: string): boolean
-	return builders[itemId] ~= nil and (itemId == "rock" or itemId:find("_club") ~= nil or itemId:find("_harvester") ~= nil)
+	return builders[itemId] ~= nil and (itemId == "rock" or itemId:find("_sword") ~= nil or itemId:find("_club") ~= nil or itemId:find("_harvester") ~= nil)
 end
 
 return ItemModels
