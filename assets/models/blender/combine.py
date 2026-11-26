@@ -33,5 +33,7 @@ for o in bpy.data.objects:
             bpy.context.view_layer.objects.active = o
             bpy.ops.object.material_slot_remove()
 bpy.ops.object.select_all(action='SELECT')
-bpy.ops.wm.obj_export(filepath='/tmp/models/tidebound_models.obj', export_materials=True, up_axis='Y', forward_axis='NEGATIVE_Z')
+for o in bpy.data.objects:
+    if o.type=='MESH': o.data.name = o.name
+bpy.ops.wm.obj_export(filepath='/tmp/models/tidebound_models.obj', export_materials=True, up_axis='Y', forward_axis='NEGATIVE_Z', export_object_groups=True)
 print("MODELS", i, sorted(o.name for o in bpy.data.objects))
