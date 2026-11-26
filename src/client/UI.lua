@@ -87,13 +87,14 @@ local function rebuildHotbar()
 		end
 	end
 	local ids = UI.hotbarIds()
-	for i = 1, math.max(5, #ids) do
+	for i = 1, math.max(8, #ids) do
 		local id = ids[i]
 		local selected = id ~= nil and id == state.equipped
 		-- Round flat tan slot; the item's name sits above it, the stack count inside
-		-- at the bottom. The held item's slot is a little bigger with a gold rim.
-		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(84, 86), BackgroundTransparency = 1 })
-		local size = if selected then 64 else 58
+		-- at the bottom. All eight slots always show, like Island Tribes; the held
+		-- item's slot gets a gold rim.
+		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(58, 72), BackgroundTransparency = 1 })
+		local size = 52
 		local slot = new("TextButton", {
 			Parent = holder,
 			AnchorPoint = Vector2.new(0.5, 1),
@@ -107,10 +108,10 @@ local function rebuildHotbar()
 		if id then
 			Icons.make(id, slot, UDim2.fromScale(0.78, 0.78), UDim2.fromScale(0.11, 0.06))
 			-- Long names shrink to fit the slot so neighbours never overlap.
-			local name = label({ Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, if selected then 20 else 0, 0, 18), ZIndex = if selected then 3 else 1, Text = Items[id].name, TextScaled = true, TextColor3 = if selected then C.star else C.text })
-			new("UITextSizeConstraint", { Parent = name, MaxTextSize = if selected then 17 else 15 })
+			local name = label({ Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 10, 0, 16), ZIndex = if selected then 3 else 1, Text = Items[id].name, TextScaled = true, TextStrokeTransparency = 0.4, TextColor3 = if selected then C.star else C.text })
+			new("UITextSizeConstraint", { Parent = name, MaxTextSize = 13 })
 			if (state.items[id] or 0) > 1 then
-				label({ Parent = slot, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.fromOffset(40, 16), Text = tostring(state.items[id]), TextScaled = false, TextSize = 16, ZIndex = 3 })
+				label({ Parent = slot, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.fromOffset(40, 14), Text = tostring(state.items[id]), TextScaled = false, TextSize = 13, ZIndex = 3 })
 			end
 			slot.MouseButton1Click:Connect(function()
 				callbacks.onSlot(i)
@@ -126,7 +127,7 @@ local function statBar(parent: Instance, order: number, name: string, color: Col
 	-- value centred in it.
 	local row = new("Frame", { Parent = parent, LayoutOrder = order, Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1 })
 	label({ Parent = row, Size = UDim2.new(0, 74, 1, 0), Text = name, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 18, TextStrokeTransparency = 0.55 })
-	local back = new("Frame", { Parent = row, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 78, 0.5, 0), Size = UDim2.new(1, -78, 0, 20), BackgroundColor3 = C.cardDark, BorderSizePixel = 0 }, { UIKit.round() })
+	local back = new("Frame", { Parent = row, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 78, 0.5, 0), Size = UDim2.new(1, -78, 0, 20), BackgroundColor3 = C.barBack, BorderSizePixel = 0 }, { UIKit.round() })
 	local fill = new("Frame", { Parent = back, Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0 }, { UIKit.round() })
 	local text = label({ Parent = back, Size = UDim2.fromScale(1, 1), Text = "", TextScaled = false, TextSize = 15, TextStrokeTransparency = 0.5, ZIndex = 2 })
 	bars[name] = { fill = fill, text = text }
@@ -627,7 +628,7 @@ function UI.init(cb)
 	local shellsLabel = label({ Parent = shellsHolder, Position = UDim2.fromOffset(0, 54), Size = UDim2.new(1, 0, 0, 18), Text = "0", TextScaled = false, TextSize = 20 })
 
 	-- Hotbar (bottom centre)
-	hotbar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(8 * 88, 86), BackgroundTransparency = 1 }, {
+	hotbar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(8 * 62, 72), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 
