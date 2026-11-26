@@ -347,6 +347,11 @@ local function buildTerrain()
 	terrain.WaterTransparency = 0.6
 	terrain.WaterWaveSize = 0.12
 	terrain.WaterWaveSpeed = 8
+	-- Animated long grass on Grass/LeafyGrass, like the footage. Not settable
+	-- from scripts on every engine version, so default.project.json sets it too.
+	pcall(function()
+		(terrain :: any).Decoration = true
+	end)
 	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(106, 158, 70))
 	terrain:SetMaterialColor(Enum.Material.LeafyGrass, lerpColor(Color3.fromRGB(106, 158, 70), Color3.fromRGB(70, 110, 60), 0.5))
 	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(218, 196, 140))

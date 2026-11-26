@@ -39,6 +39,24 @@ local function bump(x: number, z: number, cx: number, cz: number, r: number, h: 
 	return h * exp(-((x - cx) ^ 2 + (z - cz) ^ 2) / (r * r))
 end
 
+-- Fine noise that breaks up straight material edges (-1..1).
+local function grain(x: number, z: number): number
+	return sin(x * 0.41 + z * 0.17) * 0.5 + sin(z * 0.37 - x * 0.23 + 1.7) * 0.5
+end
+-- Small bumps on the ground so slopes are not perfectly smooth (about -0.75..0.75).
+local function detail(x: number, z: number): number
+	return (sin(x * 0.29 + z * 0.11) * cos(z * 0.31 - x * 0.07) + sin(x * 0.53 - z * 0.47) * 0.5) * 0.5
+end
+-- Patches of the darker grass inside light grass, and the other way round.
+local function grassy(x: number, z: number, base: Enum.Material): Enum.Material
+	local n = noise(x * 0.6 + 90, z * 0.6)
+	if base == Enum.Material.Grass then
+		return if n > 1.3 then Enum.Material.LeafyGrass else Enum.Material.Grass
+	end
+	return if n < -1.3 then Enum.Material.Grass else Enum.Material.LeafyGrass
+end
+
+
 export type Field = {
 	name: string,
 	bounds: { number }, -- x0, x1, z0, z1
@@ -76,7 +94,7 @@ local function phGround(x, z)
 	for _, b in PH_HILLS do
 		h += inland * bump(x, z, b[1], b[2], b[3], b[4])
 	end
-	return h
+	return h + smooth(l / 0.2) * detail(x, z) * 0.7
 end
 local PH_POOLS = {}
 for _, p in { { -36, -4, 12 }, { -30, 62, 9 } } do
@@ -102,17 +120,17 @@ function PH.zoneAt(x, z)
 	return "forest"
 end
 function PH.material(x, z, h, slope)
-	local l = PH.land(x, z)
-	if l <= 0.07 or h < 2.6 then
+	local l, g = PH.land(x, z), grain(x, z)
+	if l <= 0.07 + g * 0.03 or h < 2.6 + g * 0.5 then
 		return M.Sand
 	end
-	if slope > 0.9 then
+	if slope > 0.9 + g * 0.15 then
 		return M.Rock
 	end
 	if PH.zoneAt(x, z) == "meadow" then
-		return M.LeafyGrass
+		return grassy(x, z, M.LeafyGrass)
 	end
-	return M.Grass
+	return grassy(x, z, M.Grass)
 end
 function PH.canGrow(x, z)
 	if PH.land(x, z) <= 0.1 then
@@ -167,10 +185,10 @@ function SS.height(x, z)
 	local w = ssRidge(x, z) * smooth((l - 0.06) / 0.3)
 	if w > 0 then
 		local hr = h + w * 30 + noise(x * 1.2, z * 1.2) * 2.5
-		hr = 1.5 + floor((hr - 1.5) / 5) * 5 + ((hr - 1.5) % 5) * 0.22 -- terraces
+		hr = 1.5 + floor((hr - 1.5 + grain(x, z) * 1.5) / 6) * 6 + ((hr - 1.5) % 6) * 0.45 -- rough ledges
 		h += (hr - h) * math.min(1, w * 1.6)
 	end
-	return h
+	return h + smooth(l / 0.2) * detail(x, z) * 0.7
 end
 function SS.carve(x, y, z)
 	if y < CAVE_FLOOR then
@@ -193,17 +211,17 @@ function SS.zoneAt(x, z)
 	return if ssRidge(x, z) > 0.45 then "cliffs" else "slope"
 end
 function SS.material(x, z, h, slope)
-	local l = SS.land(x, z)
-	if l <= 0.06 or h < 2.6 then
+	local l, g = SS.land(x, z), grain(x, z)
+	if l <= 0.06 + g * 0.03 or h < 2.6 + g * 0.5 then
 		return M.Sand
 	end
-	if ssRidge(x, z) > 0.45 then
-		return if slope > 0.7 then M.Slate else M.Rock
+	if ssRidge(x, z) > 0.45 + g * 0.08 then
+		return if slope > 0.7 + g * 0.15 then M.Slate else M.Rock
 	end
-	if slope > 0.9 then
+	if slope > 0.9 + g * 0.15 then
 		return M.Rock
 	end
-	return M.Grass
+	return grassy(x, z, M.Grass)
 end
 function SS.canGrow(x, z)
 	return SS.land(x, z) > 0.1 and hypot(x - SS.caveMouth.X, z - SS.caveMouth.Y) > 18
@@ -231,7 +249,7 @@ local function fiGround(x, z)
 	h += inland * (2 + noise(x, z) * 2)
 	h += inland * 40 * smooth(1 - d / 80) ^ 1.4
 	h += inland * smooth(1 - d / 72) * abs(noise(x * 0.8, z * 0.8)) * 5
-	return h
+	return h + smooth(l / 0.2) * detail(x, z) * 0.7
 end
 local POND_LEVEL = fiGround(POND[1], POND[2])
 function FI.height(x, z)
@@ -257,10 +275,11 @@ function FI.material(x, z, h, slope)
 	if hypot(x - POND[1], z - POND[2]) < POND[3] then
 		return M.Glacier -- the frozen pond
 	end
-	if l <= 0.05 or h < 2.2 then
+	local g = grain(x, z)
+	if l <= 0.05 + g * 0.03 or h < 2.2 + g * 0.5 then
 		return M.Sand
 	end
-	if slope > 1.5 and h > 8 then
+	if slope > 1.5 + g * 0.2 and h > 8 then
 		return M.Rock
 	end
 	return M.Snow
@@ -295,7 +314,7 @@ function SM.height(x, z)
 		local flats = smooth((92 + noise(x * 0.8, z * 0.8) * 6 - hypot(x, z)) / 22) -- shallow flats inside the marsh
 		return math.max(-26, 1 + l * 60) * (1 - flats) + math.max(-2.5, 1 + l * 14) * flats
 	end
-	return 1.2 + smooth(l / 0.25) * 1.8 + smooth((l - 0.2) / 0.5) * (1.2 + noise(x * 1.6, z * 1.6) * 0.9)
+	return 1.2 + smooth(l / 0.25) * 1.8 + smooth((l - 0.2) / 0.5) * (1.2 + noise(x * 1.6, z * 1.6) * 0.9) + smooth(l / 0.2) * detail(x, z) * 0.35
 end
 function SM.zoneAt(x, z)
 	local best, name = -9, "heart"
@@ -309,7 +328,7 @@ function SM.zoneAt(x, z)
 end
 function SM.material(x, z, h, slope)
 	local l = SM.land(x, z)
-	if l <= 0.05 then
+	if l <= 0.05 + grain(x, z) * 0.03 then
 		return M.Mud
 	end
 	if noise(x * 2.7 + 40, z * 2.7) > 1.1 then
@@ -349,6 +368,7 @@ function EI.height(x, z)
 	local cone = smooth(1 - d / 96) ^ 1.5 * 52
 	h += inland * (cone + 3 + noise(x * 1.5, z * 1.5) * 1.5)
 	h += (1 - eiLanding(x, z)) * smooth((l - 0.02) / 0.08) * 8 -- sea cliffs except at the landing
+	h += smooth(l / 0.2) * detail(x, z) * 0.9
 	if d < 22 then
 		h = math.min(h, 40 + (d / 22) ^ 2 * 12) -- crater
 	end
@@ -386,13 +406,14 @@ function EI.material(x, z, h, slope)
 	if d < 16 or eiStream(x, z) > 0 then
 		return M.CrackedLava
 	end
-	if l <= 0.05 or h < 2.4 then
+	local g = grain(x, z)
+	if l <= 0.05 + g * 0.03 or h < 2.4 + g * 0.5 then
 		return if eiLanding(x, z) < 0.5 then M.Basalt else M.Sand
 	end
 	if EI.zoneAt(x, z) == "camp" and noise(x * 1.8, z * 1.8) > 0.2 then
 		return M.Ground
 	end
-	if slope > 0.8 then
+	if slope > 0.8 + g * 0.15 then
 		return M.Slate
 	end
 	return M.Basalt

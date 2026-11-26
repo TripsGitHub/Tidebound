@@ -11,6 +11,17 @@ def beach(l):
     if l<=0: return max(-26.0, 1+l*60)
     return 1.5+smooth(l/0.18)*2.5
 def bump(x,z,cx,cz,r,h): return h*math.exp(-((x-cx)**2+(z-cz)**2)/(r*r))
+def grain(x,z):
+    # fine noise that breaks up straight material edges (-1..1)
+    return math.sin(x*0.41+z*0.17)*0.5+math.sin(z*0.37-x*0.23+1.7)*0.5
+def detail(x,z):
+    # small bumps on the ground so slopes are not perfectly smooth (about -0.75..0.75)
+    return (math.sin(x*0.29+z*0.11)*math.cos(z*0.31-x*0.07)+math.sin(x*0.53-z*0.47)*0.5)*0.5
+def grassy(x,z,base='Grass'):
+    # patches of the darker grass inside light grass and the other way round
+    n=noise(x*0.6+90,z*0.6)
+    if base=='Grass': return 'LeafyGrass' if n>1.3 else 'Grass'
+    return 'Grass' if n<-1.3 else 'LeafyGrass'
 def pool_cut(h,x,z,p):
     cx,cz,r,level=p; d=hyp(x-cx,z-cz)
     return min(h,level-(r-d)*0.5) if d<r else h
@@ -32,7 +43,7 @@ class PineHills:
         h+=inland*(2.5+noise(x,z)*1.6)
         for cx,cz,r,hh in ((-48,-30,34,13),(-20,40,30,10),(-60,30,26,9),(5,-62,26,8)):
             h+=inland*bump(x,z,cx,cz,r,hh)
-        return h
+        return h+smooth(l/0.2)*detail(x,z)*0.7
     pools=[(-36,-4,12,None),(-30,62,9,None)]
     def __init__(s):
         s.pools=[(cx,cz,r,s.ground(cx,cz)-0.6) for cx,cz,r,_ in PineHills.pools]
@@ -45,11 +56,11 @@ class PineHills:
         if z+noise(x*0.9,z*0.9)*6>18: return 'meadow'
         return 'forest'
     def material(s,x,z,h,slope):
-        l=s.land(x,z)
-        if l<=0.07 or h<2.6: return 'Sand'
-        if slope>0.9: return 'Rock'
-        if s.zone(x,z)=='meadow': return 'LeafyGrass'
-        return 'Grass'
+        l=s.land(x,z); g=grain(x,z)
+        if l<=0.07+g*0.03 or h<2.6+g*0.5: return 'Sand'
+        if slope>0.9+g*0.15: return 'Rock'
+        if s.zone(x,z)=='meadow': return grassy(x,z,'LeafyGrass')
+        return grassy(x,z)
     def can_grow(s,x,z):
         return s.land(x,z)>0.1 and all(hyp(x-p[0],z-p[1])>p[2]+3 for p in s.pools)
 
@@ -76,9 +87,9 @@ class StoneShelf:
         w=s.ridge(x,z)*smooth((l-0.06)/0.3)
         if w>0:
             hr=h+w*30+noise(x*1.2,z*1.2)*2.5
-            hr=1.5+math.floor((hr-1.5)/5)*5+((hr-1.5)%5)*0.22   # terraces
+            hr=1.5+math.floor((hr-1.5+grain(x,z)*1.5)/6)*6+((hr-1.5)%6)*0.45   # rough ledges
             h=h+(hr-h)*min(1.0,w*1.6)
-        return h
+        return h+smooth(l/0.2)*detail(x,z)*0.7
     def in_cave(s,x,y,z):
         (ax,az),(bx,bz)=s.cave_mouth,s.cave_end
         t=max(0.0,min(1.0,((x-ax)*(bx-ax)+(z-az)*(bz-az))/((bx-ax)**2+(bz-az)**2)))
@@ -92,11 +103,11 @@ class StoneShelf:
         if hyp(x-s.chamber[0],z-s.chamber[1])<s.chamber[2]: return 'cave'
         return 'cliffs' if s.ridge(x,z)>0.45 else 'slope'
     def material(s,x,z,h,slope):
-        l=s.land(x,z)
-        if l<=0.06 or h<2.6: return 'Sand'
-        if s.ridge(x,z)>0.45: return 'Slate' if slope>0.7 else 'Rock'
-        if slope>0.9: return 'Rock'
-        return 'Grass'
+        l=s.land(x,z); g=grain(x,z)
+        if l<=0.06+g*0.03 or h<2.6+g*0.5: return 'Sand'
+        if s.ridge(x,z)>0.45+g*0.08: return 'Slate' if slope>0.7+g*0.15 else 'Rock'
+        if slope>0.9+g*0.15: return 'Rock'
+        return grassy(x,z)
     def can_grow(s,x,z): return s.land(x,z)>0.1 and hyp(x-s.cave_mouth[0],z-s.cave_mouth[1])>18
 
 # ---------------------------------------------------------------- Frost Isle (north-west)
@@ -116,7 +127,7 @@ class FrostIsle:
         h+=inland*(2+noise(x,z)*2)
         h+=inland*40*smooth(1-d/80)**1.4
         h+=inland*smooth(1-d/72)*abs(noise(x*0.8,z*0.8))*5
-        return h
+        return h+smooth(l/0.2)*detail(x,z)*0.7
     def height(s,x,z):
         h=s.ground(x,z); cx,cz,r=s.pond; d=hyp(x-cx,z-cz)
         if d<r+6:
@@ -132,8 +143,9 @@ class FrostIsle:
     def material(s,x,z,h,slope):
         l=s.land(x,z)
         if hyp(x-s.pond[0],z-s.pond[1])<s.pond[2]: return 'Glacier'
-        if l<=0.05 or h<2.2: return 'Sand'
-        if slope>1.5 and h>8: return 'Rock'
+        g=grain(x,z)
+        if l<=0.05+g*0.03 or h<2.2+g*0.5: return 'Sand'
+        if slope>1.5+g*0.2 and h>8: return 'Rock'
         return 'Snow'
     def can_grow(s,x,z): return s.land(x,z)>0.1 and hyp(x-s.pond[0],z-s.pond[1])>s.pond[2]+4
 
@@ -151,7 +163,7 @@ class SlimeMarsh:
             flats=smooth((92+noise(x*0.8,z*0.8)*6-hyp(x,z))/22)     # shallow flats inside the marsh
             return max(-26.0,1+l*60)*(1-flats)+max(-2.5,1+l*14)*flats
         h=1.2+smooth(l/0.25)*1.8+smooth((l-0.2)/0.5)*(1.2+noise(x*1.6,z*1.6)*0.9)
-        return h
+        return h+smooth(l/0.2)*detail(x,z)*0.35
     def zone(s,x,z):
         best,name=-9,'heart'
         for cx,cz,r,n in ISLETS:
@@ -160,7 +172,7 @@ class SlimeMarsh:
         return name
     def material(s,x,z,h,slope):
         l=s.land(x,z)
-        if l<=0.05: return 'Mud'
+        if l<=0.05+grain(x,z)*0.03: return 'Mud'
         if noise(x*2.7+40,z*2.7)>1.1: return 'Mud'
         if l<0.14: return 'Ground'
         return 'LeafyGrass'
@@ -184,6 +196,7 @@ class EmberIsle:
         cone=smooth(1-d/96)**1.5*52
         h+=inland*(cone+3+noise(x*1.5,z*1.5)*1.5)
         h+=(1-s.landing(x,z))*smooth((l-0.02)/0.08)*8     # sea cliffs except at the landing
+        h+=smooth(l/0.2)*detail(x,z)*0.9
         if d<22: h=min(h,40+(d/22)**2*12)  # crater
         t=s.landing(x,z)*smooth((d-58)/8)*smooth((92-d)/8)       # ash terrace
         h=h+(6.5-h)*t if l>0.1 else h
@@ -204,8 +217,9 @@ class EmberIsle:
         d=hyp(x,z); l=s.land(x,z)
         if d<16: return 'CrackedLava'
         if s.stream(x,z)>0: return 'CrackedLava'
-        if l<=0.05 or h<2.4: return 'Basalt' if s.landing(x,z)<0.5 else 'Sand'
+        g=grain(x,z)
+        if l<=0.05+g*0.03 or h<2.4+g*0.5: return 'Basalt' if s.landing(x,z)<0.5 else 'Sand'
         if s.zone(x,z)=='camp' and noise(x*1.8,z*1.8)>0.2: return 'Ground'
-        if slope>0.8: return 'Slate'
+        if slope>0.8+g*0.15: return 'Slate'
         return 'Basalt'
     def can_grow(s,x,z): return s.land(x,z)>0.1 and s.stream(x,z)<=0 and hyp(x,z)>26

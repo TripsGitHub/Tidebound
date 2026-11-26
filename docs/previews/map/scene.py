@@ -15,25 +15,79 @@ class Clover:
     def zone(s,x,z): return CL.lobe_of(x,z)
     def can_grow(s,x,z): return CL.land(x,z)>0.1 and CL.path_dist(x,z)>5 and math.hypot(x+6,z-4)>14
 ISL=[(Clover(),0,320),(PineHills(),-300,90),(StoneShelf(),300,90),(FrostIsle(),-190,-265),(SlimeMarsh(),195,-265),(EmberIsle(),0,0)]
-STEP=float(os.environ.get('STEP','3'))
-names=list(M.keys())
+STEP=float(os.environ.get('STEP','2'))
+GRASS=os.environ.get('GRASS','').split(',')
+def lin(c): return tuple((((v/255)+0.055)/1.055)**2.4 for v in c)
+# One terrain material driven by blended vertex colours, like Roblox blends
+# materials between voxels; a little noise breaks up flat colour.
+tm=bpy.data.materials.new('Terrain'); tm.use_nodes=True; nt=tm.node_tree
+bs=nt.nodes['Principled BSDF']; bs.inputs['Roughness'].default_value=0.9
+ca=nt.nodes.new('ShaderNodeVertexColor'); ca.layer_name='Col'
+nz=nt.nodes.new('ShaderNodeTexNoise'); nz.inputs['Scale'].default_value=0.35; nz.inputs['Detail'].default_value=6
+tc=nt.nodes.new('ShaderNodeTexCoord'); nt.links.new(tc.outputs['Object'],nz.inputs['Vector'])
+mr=nt.nodes.new('ShaderNodeMapRange'); mr.inputs['To Min'].default_value=0.82; mr.inputs['To Max'].default_value=1.12
+nt.links.new(nz.outputs['Fac'],mr.inputs['Value'])
+mx=nt.nodes.new('ShaderNodeMix'); mx.data_type='RGBA'; mx.blend_type='MULTIPLY'; mx.inputs['Factor'].default_value=1
+nt.links.new(ca.outputs['Color'],mx.inputs['A'])
+cm=nt.nodes.new('ShaderNodeCombineColor'); nt.links.new(mr.outputs['Result'],cm.inputs[0]); nt.links.new(mr.outputs['Result'],cm.inputs[1]); nt.links.new(mr.outputs['Result'],cm.inputs[2])
+nt.links.new(cm.outputs['Color'],mx.inputs['B']); nt.links.new(mx.outputs['Result'],bs.inputs['Base Color'])
+bp=nt.nodes.new('ShaderNodeBump'); bp.inputs['Strength'].default_value=0.25
+n2=nt.nodes.new('ShaderNodeTexNoise'); n2.inputs['Scale'].default_value=2.5; n2.inputs['Detail'].default_value=8
+nt.links.new(tc.outputs['Object'],n2.inputs['Vector']); nt.links.new(n2.outputs['Fac'],bp.inputs['Height']); nt.links.new(bp.outputs['Normal'],bs.inputs['Normal'])
+grassmat=bpy.data.materials.new('GrassHair'); grassmat.use_nodes=True
+gb=grassmat.node_tree.nodes['Principled BSDF']; gb.inputs['Base Color'].default_value=(*lin((92,150,58)),1); gb.inputs['Roughness'].default_value=0.8
 for isl,cx,cz in ISL:
     x0,x1,z0,z1=isl.bounds
-    nx,nz=int((x1-x0)/STEP)+1,int((z1-z0)/STEP)+1
-    H=[[isl.height(x0+i*STEP,z0+j*STEP) for i in range(nx)] for j in range(nz)]
-    bm=bmesh.new(); V=[[bm.verts.new((cx+x0+i*STEP,-(cz+z0+j*STEP),H[j][i])) for i in range(nx)] for j in range(nz)]
+    nx,nz_=int((x1-x0)/STEP)+1,int((z1-z0)/STEP)+1
+    H=[[isl.height(x0+i*STEP,z0+j*STEP) for i in range(nx)] for j in range(nz_)]
+    C=[[None]*nx for _ in range(nz_)]; G=[[0.0]*nx for _ in range(nz_)]
+    for j in range(nz_):
+        for i in range(nx):
+            h=H[j][i]
+            sl=max(abs(H[j][min(i+1,nx-1)]-H[j][max(i-1,0)]),abs(H[min(j+1,nz_-1)][i]-H[max(j-1,0)][i]))/(2*STEP)
+            m='Seabed' if h<0 else isl.material(x0+i*STEP,z0+j*STEP,h,sl)
+            C[j][i]=lin(MATS[m]); G[j][i]=1.0 if m in ('Grass','LeafyGrass') else 0.0
+    # blend: two passes of a 3x3 average, roughly the width Roblox blends over
+    for _ in range(2):
+        N=[[None]*nx for _ in range(nz_)]; NG=[[0]*nx for _ in range(nz_)]
+        for j in range(nz_):
+            for i in range(nx):
+                acc=[0,0,0]; g=0; n=0
+                for dj in (-1,0,1):
+                    for di in (-1,0,1):
+                        jj,ii=j+dj,i+di
+                        if 0<=jj<nz_ and 0<=ii<nx:
+                            c=C[jj][ii]; acc[0]+=c[0]; acc[1]+=c[1]; acc[2]+=c[2]; g+=G[jj][ii]; n+=1
+                N[j][i]=(acc[0]/n,acc[1]/n,acc[2]/n); NG[j][i]=g/n
+        C,G=N,NG
+    bm=bmesh.new(); V=[[bm.verts.new((cx+x0+i*STEP,-(cz+z0+j*STEP),H[j][i])) for i in range(nx)] for j in range(nz_)]
     me=bpy.data.meshes.new(isl.name); ob=bpy.data.objects.new(isl.name,me); bpy.context.collection.objects.link(ob)
-    for k in names: me.materials.append(M[k])
-    for j in range(nz-1):
+    me.materials.append(tm)
+    col=bm.loops.layers.color.new('Col')
+    for j in range(nz_-1):
         for i in range(nx-1):
-            f=bm.faces.new((V[j][i],V[j][i+1],V[j+1][i+1],V[j+1][i]))
-            hs=[H[j][i],H[j][i+1],H[j+1][i],H[j+1][i+1]]; h=sum(hs)/4
-            x,z=x0+(i+.5)*STEP,z0+(j+.5)*STEP
-            m='Seabed' if h<0 else isl.material(x,z,h,(max(hs)-min(hs))/STEP)
-            f.material_index=names.index(m)
+            if max(H[j][i],H[j][i+1],H[j+1][i],H[j+1][i+1])<-25.5: continue
+            f=bm.faces.new((V[j][i],V[j][i+1],V[j+1][i+1],V[j+1][i])); f.smooth=True
+            for lp,(jj,ii) in zip(f.loops,((j,i),(j,i+1),(j+1,i+1),(j+1,i))):
+                lp[col]=(*C[jj][ii],1)
     bm.to_mesh(me); bm.free()
+    if isl.name in GRASS:
+        vg=ob.vertex_groups.new(name='grass')
+        for j in range(nz_):
+            for i in range(nx):
+                w=G[j][i] if H[j][i]>1.5 else 0
+                if w>0.05: vg.add([j*nx+i],w,'REPLACE')
+        me.materials.append(grassmat)
+        mod=ob.modifiers.new('hair','PARTICLE_SYSTEM'); ps=mod.particle_system; st=ps.settings
+        st.type='HAIR'; st.count=int(float(os.environ.get('GRASSN','120000'))); st.hair_length=1.5; st.material=2
+        st.use_advanced_hair=True; st.use_rotations=True; st.rotation_mode='NOR'; st.child_type='SIMPLE'; st.rendered_child_count=10; st.child_radius=0.9; st.child_length_threshold=0; st.roughness_endpoint=0.25; st.roughness_1=0.15; st.display_step=2; st.render_step=2
+        st.brownian_factor=0.2; st.length_random=0.6
+        ps.vertex_group_density='grass'; ps.vertex_group_length='grass'
+        st.root_radius=0.2; st.tip_radius=0.0; st.radius_scale=1
 # sea + pools
-bpy.ops.mesh.primitive_plane_add(size=3000,location=(0,0,-27)); bpy.context.object.data.materials.append(M['Seabed'])
+bpy.ops.mesh.primitive_plane_add(size=3000,location=(0,0,-26.02)); fl=bpy.context.object.data; fl.materials.append(tm)
+fa=fl.color_attributes.new('Col','FLOAT_COLOR','CORNER')
+for d in fa.data: d.color=(*lin(MATS['Seabed']),1)
 bpy.ops.mesh.primitive_plane_add(size=3000,location=(0,0,0.2)); sea=bpy.context.object
 sm=bpy.data.materials.new('Sea'); sm.use_nodes=True; bb=sm.node_tree.nodes['Principled BSDF']
 bb.inputs['Base Color'].default_value=(0.06,0.32,0.42,1); bb.inputs['Alpha'].default_value=0.72; bb.inputs['Roughness'].default_value=0.15
@@ -128,4 +182,10 @@ for spec in os.environ.get('SHOTS','overview').split(','):
     if spec=='frost': shot('/tmp/arch/frost3d.png',(-110,365,80),(-190,265,22),lens=30)
     if spec=='marsh': shot('/tmp/arch/marsh3d.png',(110,170,85),(195,265,2),lens=30)
     if spec=='ember': shot('/tmp/arch/ember3d.png',(10,-170,70),(0,0,22),lens=28)
+    if spec=='cloverground':
+        gx,gz=54,58; gh=CL.height(gx,gz)
+        shot('/tmp/arch/clover-ground.png',(gx,-(320+gz),gh+12),(-6,-(320+4),CL.height(-6,4)+2),lens=24,res=(1600,1000))
+    if spec=='pineground':
+        gx,gz=-20,60; gh=ISL[1][0].height(gx,gz)
+        shot('/tmp/arch/pine-ground.png',(-300+gx,-(90+gz),gh+14),(-300+gx+10,-(90+gz-70),gh+3),lens=24,res=(1600,1000))
 print('DONE')
