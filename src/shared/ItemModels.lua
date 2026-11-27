@@ -270,6 +270,12 @@ function builders.berries(m)
 	return core
 end
 
+function builders.sunfruit(m)
+	local fruit = part(m, Vector3.new(1.1, 1.25, 1.1), CFrame.new(), Color3.fromRGB(255, 150, 40), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	part(m, Vector3.new(0.6, 0.12, 0.3), CFrame.new(0.2, 0.68, 0) * CFrame.Angles(0, 0, 0.4), Color3.fromRGB(90, 160, 60), Enum.Material.SmoothPlastic)
+	return fruit
+end
+
 function builders.coconut(m)
 	return part(m, Vector3.new(1, 1, 1), CFrame.new(), C.coconut, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
 end

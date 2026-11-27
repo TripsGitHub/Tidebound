@@ -50,15 +50,23 @@ export type Result = {
 	secretRooms: { { pos: Vector3, size: Vector3, facing: Vector3 } },
 	ravines: { { a: Vector3, b: Vector3, shaft: Vector3? } },
 	spoke: { Vector3 }?,
+	hub: { pos: Vector3, r: number }?,
+	bossRooms: { { pos: Vector3, r: number, boss: string } },
 }
+
+local HUB_Y = -165 -- the Maw's great cavern
+local BOSS_Y = -195 -- the boss lairs below it
+local BOSSES = { "CrawlerQueen", "CrystalWarden", "MagmaGolem" }
 
 local function tierAt(y: number): string
 	if y > Caves.SHALLOW_Y then
 		return "upper"
 	elseif y > -80 then
 		return "lower"
+	elseif y > -130 then
+		return "deep"
 	end
-	return "deep"
+	return "abyss"
 end
 Caves.tierAt = tierAt
 
@@ -146,7 +154,7 @@ end
 -- islands: the scaled island list. groundAt(x, z) -> RaycastResult?
 -- canEnter(isl, x, z) -> true if that spot is dry, open land for an entrance.
 function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, number) -> RaycastResult?, canEnter: (any, number, number) -> boolean): Result
-	local result: Result = { chambers = {}, paths = {}, tunnels = {}, entrances = {}, exits = {}, pockets = {}, secretRooms = {}, ravines = {}, spoke = nil }
+	local result: Result = { chambers = {}, paths = {}, tunnels = {}, entrances = {}, exits = {}, pockets = {}, secretRooms = {}, ravines = {}, spoke = nil, hub = nil, bossRooms = {} }
 	local roots = {}
 	local halls = {} -- main halls branches can grow from: { points, depth range }
 
@@ -305,6 +313,49 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			local climb = wander(floor + Vector3.new(0, 8, 0), bottom, 10)
 			add(climb, BRANCH_R + 2, "ravine")
 			result.ravines[#result.ravines].shaft = bottom
+		end
+	end
+
+	-- The Maw: under the island marked `hub`, a wide spiral drops past its root cavern
+	-- to a great cavern far below everything else. Long halls run from it to the middle
+	-- island's root and the spawn island's root, and three lairs lie deeper still, each
+	-- with a boss in it.
+	for i, isl in islands do
+		if isl.hub then
+			local root = roots[i]
+			local centre = Vector3.new(isl.x, HUB_Y, isl.z)
+			local down = spiral(isl.x, isl.z, 60, 0, root.Y + 8, HUB_Y + 14)
+			table.insert(down, 1, root + Vector3.new(0, 8, 0))
+			add(down, HALL_R + 3, "hall")
+			table.insert(halls, down)
+			for k = 0, 3 do
+				local a = k / 4 * math.pi * 2 + 0.4
+				chamber(centre + Vector3.new(math.cos(a) * 40, 0, math.sin(a) * 40), 46, "abyss")
+			end
+			chamber(centre, 52, "abyss")
+			result.hub = { pos = centre, r = 80 }
+			local targets = { 1 }
+			if middle then
+				table.insert(targets, middle)
+			end
+			for _, j in targets do
+				if j ~= i then
+					local hall = wander(centre + Vector3.new(0, 8, 0), roots[j] + Vector3.new(0, 8, 0), 40)
+					add(hall, HALL_R + 1, "hall")
+					table.insert(halls, hall)
+				end
+			end
+			for k, boss in BOSSES do
+				local a = k / #BOSSES * math.pi * 2 + 1
+				local lair = centre + Vector3.new(math.cos(a) * 170, BOSS_Y - HUB_Y, math.sin(a) * 170)
+				local way = wander(centre + Vector3.new(math.cos(a) * 60, 8, math.sin(a) * 60), lair + Vector3.new(0, 10, 0), 20)
+				add(way, HALL_R + 1, "hall")
+				for q = -1, 1, 2 do
+					chamber(lair + Vector3.new(math.cos(a + q * 1.5) * 18, 0, math.sin(a + q * 1.5) * 18), 34, "lair")
+				end
+				chamber(lair, 40, "lair")
+				table.insert(result.bossRooms, { pos = lair, r = 40, boss = boss })
+			end
 		end
 	end
 

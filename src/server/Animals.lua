@@ -182,7 +182,98 @@ local function caveCrawler(): Model
 	return m
 end
 
-local builders = { Boar = boar, Crab = crab, Wolf = wolf, BogSlime = bogSlime, CinderBeetle = cinderBeetle, CaveCrawler = caveCrawler }
+local function goat(): Model
+	local m = Instance.new("Model")
+	local fur, horn = Color3.fromRGB(236, 230, 214), Color3.fromRGB(120, 104, 84)
+	part(m, Vector3.new(1.8, 1.7, 3.4), CFrame.new(0, 2.4, 0), fur, "Body")
+	part(m, Vector3.new(1.2, 1.3, 1.5), CFrame.new(0, 3.3, -2.1), fur, "Head")
+	part(m, Vector3.new(0.5, 0.8, 0.4), CFrame.new(0, 2.4, -2.7), fur, "Beard")
+	for _, x in { -0.4, 0.4 } do
+		part(m, Vector3.new(0.25, 1.1, 0.25), CFrame.new(x, 4.2, -1.9) * CFrame.Angles(math.rad(35), 0, x * 0.5), horn, "Horn")
+		part(m, Vector3.new(0.2, 0.2, 0.1), CFrame.new(x * 0.9, 3.5, -2.86), Color3.new(0, 0, 0), "Eye")
+	end
+	legs(m, horn, { Vector3.new(-0.55, 0.8, -1.1), Vector3.new(0.55, 0.8, -1.1), Vector3.new(-0.55, 0.8, 1.1), Vector3.new(0.55, 0.8, 1.1) }, Vector3.new(0.4, 1.6, 0.4))
+	return m
+end
+
+local function turtle(): Model
+	local m = Instance.new("Model")
+	local shell, skin = Color3.fromRGB(96, 120, 60), Color3.fromRGB(150, 170, 100)
+	local s = part(m, Vector3.new(3.2, 1.4, 3.8), CFrame.new(0, 1.3, 0), shell, "Shell")
+	part(m, Vector3.new(2.4, 0.5, 3), CFrame.new(0, 2.1, 0), Color3.fromRGB(120, 140, 70), "ShellTop")
+	part(m, Vector3.new(1.1, 0.9, 1.2), CFrame.new(0, 1.2, -2.3), skin, "Head")
+	for _, x in { -0.3, 0.3 } do
+		part(m, Vector3.new(0.18, 0.18, 0.1), CFrame.new(x, 1.4, -2.92), Color3.new(0, 0, 0), "Eye")
+	end
+	legs(m, skin, { Vector3.new(-1.4, 0.5, -1.2), Vector3.new(1.4, 0.5, -1.2), Vector3.new(-1.4, 0.5, 1.2), Vector3.new(1.4, 0.5, 1.2) }, Vector3.new(0.9, 0.8, 0.9))
+	s.Material = Enum.Material.Slate
+	return m
+end
+
+-- Bosses -------------------------------------------------------------------------
+local function neon(p: BasePart): BasePart
+	p.Material = Enum.Material.Neon
+	return p
+end
+
+local function crawlerQueen(): Model
+	local m = caveCrawler()
+	m:ScaleTo(3.2)
+	local hide = Color3.fromRGB(76, 60, 84)
+	part(m, Vector3.new(7, 5, 9), CFrame.new(0, 7, 9), hide, "EggSac")
+	for _, x in { -1, 1 } do
+		part(m, Vector3.new(1, 1, 6), CFrame.new(x * 2.4, 9, -6) * CFrame.Angles(math.rad(30), x * 0.3, 0), hide, "Fang")
+		neon(part(m, Vector3.new(1.2, 1.2, 0.3), CFrame.new(x * 1.6, 9.4, -7.2), Color3.fromRGB(255, 80, 120), "Eye"))
+	end
+	return m
+end
+
+local function crystalWarden(): Model
+	local m = Instance.new("Model")
+	local stone, glow = Color3.fromRGB(70, 66, 92), Color3.fromRGB(190, 140, 255)
+	part(m, Vector3.new(8, 9, 5), CFrame.new(0, 11, 0), stone, "Body")
+	part(m, Vector3.new(4.5, 4, 4), CFrame.new(0, 17.5, -0.4), stone, "Head")
+	neon(part(m, Vector3.new(3, 0.6, 0.3), CFrame.new(0, 18, -2.5), glow, "Eye"))
+	for _, x in { -1, 1 } do
+		part(m, Vector3.new(3, 9, 3), CFrame.new(x * 6, 10, 0) * CFrame.Angles(0, 0, x * 0.15), stone, "Arm")
+		neon(part(m, Vector3.new(2.4, 3.4, 2.4), CFrame.new(x * 6.8, 5, -0.4), glow, "Fist"))
+		part(m, Vector3.new(3, 6.5, 3), CFrame.new(x * 2.3, 3.25, 0), stone, "Leg")
+	end
+	for i = 1, 5 do
+		local a = (i - 3) * 0.35
+		neon(part(m, Vector3.new(1.2, 4 + (3 - math.abs(i - 3)) * 1.5, 1.2), CFrame.new(math.sin(a) * 3.2, 17.5, 1.5) * CFrame.Angles(-0.4, 0, -a), glow, "Shard"))
+	end
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = glow, 24, 2
+	light.Parent = m:FindFirstChild("Eye")
+	return m
+end
+
+local function magmaGolem(): Model
+	local m = Instance.new("Model")
+	local rock, lava = Color3.fromRGB(44, 36, 34), Color3.fromRGB(255, 110, 30)
+	part(m, Vector3.new(10, 10, 7), CFrame.new(0, 13, 0), rock, "Body")
+	neon(part(m, Vector3.new(5, 5, 0.4), CFrame.new(0, 13, -3.6), lava, "Core"))
+	part(m, Vector3.new(5, 4, 4.5), CFrame.new(0, 20, -0.8), rock, "Head")
+	for _, x in { -1.2, 1.2 } do
+		neon(part(m, Vector3.new(1, 0.7, 0.3), CFrame.new(x, 20.4, -3.1), lava, "Eye"))
+	end
+	for _, x in { -1, 1 } do
+		part(m, Vector3.new(4, 4, 4), CFrame.new(x * 7.4, 17, 0), rock, "Shoulder")
+		part(m, Vector3.new(3.4, 10, 3.4), CFrame.new(x * 7.6, 10, 0), rock, "Arm")
+		neon(part(m, Vector3.new(0.4, 8, 0.4), CFrame.new(x * 7.6, 10, -1.75), lava, "Crack"))
+		part(m, Vector3.new(4, 8, 4), CFrame.new(x * 3, 4, 0), rock, "Leg")
+	end
+	local fire = Instance.new("Fire")
+	fire.Size, fire.Heat, fire.Color, fire.SecondaryColor = 6, 4, lava, Color3.fromRGB(255, 200, 80)
+	fire.Parent = m:FindFirstChild("Head")
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = lava, 28, 2.5
+	light.Parent = m:FindFirstChild("Core")
+	return m
+end
+
+local builders = { CrawlerQueen = crawlerQueen, CrystalWarden = crystalWarden, MagmaGolem = magmaGolem, Goat = goat, Turtle = turtle, Boar = boar, Crab = crab, Wolf = wolf, BogSlime = bogSlime, CinderBeetle = cinderBeetle, CaveCrawler = caveCrawler }
 
 -- Cave animals can't look for the ground from the sky (that finds the island above
 -- them), so they feel for the floor just under where they are.
@@ -225,6 +316,27 @@ local function spawnAnimal(kind: string, home: Vector3)
 	model:SetAttribute("HP", def.hp)
 	model:SetAttribute("MaxHP", def.hp)
 	model:PivotTo(CFrame.new(home))
+	if def.boss then
+		-- A boss's name hangs over it so you know what you've walked into.
+		local _, size = model:GetBoundingBox()
+		local tag = Instance.new("BillboardGui")
+		tag.Name = "BossTag"
+		tag.Size = UDim2.fromOffset(260, 40)
+		tag.MaxDistance = 140
+		tag.AlwaysOnTop = false
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.Cartoon
+		label.TextScaled = true
+		label.Text = def.name
+		label.TextColor3 = Color3.fromRGB(255, 214, 120)
+		label.TextStrokeTransparency = 0.2
+		label.Parent = tag
+		tag.Adornee = model:FindFirstChild("Body") or model:FindFirstChildWhichIsA("BasePart")
+		tag.StudsOffsetWorldSpace = Vector3.new(0, size.Y * 0.6, 0)
+		tag.Parent = model
+	end
 	model.Parent = folder()
 	states[model] = {
 		model = model,
@@ -313,7 +425,7 @@ local function step(s: State, dt: number)
 		speed = s.def.runSpeed * 0.85
 		local toward = attackerRoot.Position - pos
 		local flat = Vector3.new(toward.X, 0, toward.Z)
-		if flat.Magnitude < 4.5 then
+		if flat.Magnitude < (s.def.reach or 4.5) then
 			goal = nil
 			if now >= s.nextBite then
 				s.nextBite = now + s.def.attackCooldown

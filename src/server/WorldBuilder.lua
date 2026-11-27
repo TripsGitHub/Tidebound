@@ -21,6 +21,8 @@ local MapScale = require(script.Parent.MapScale)
 local Caves = require(script.Parent.Caves)
 local Landmarks = require(script.Parent.Landmarks)
 local Minimap = require(script.Parent.Minimap)
+local Props = require(script.Parent.Props)
+local Camps = require(script.Parent.Camps)
 
 local WorldBuilder = {}
 local rng = Random.new(1911)
@@ -177,6 +179,7 @@ local makers = { Pine = makePine, Palm = makePalm, Boulder = makeBoulder, Bush =
 local NODE_MESHES = {
 	Pine = { mesh = "pine", scale = { 0.9, 1.2 } },
 	Palm = { mesh = "palm", scale = { 0.9, 1.15 } },
+	FruitPalm = { mesh = "palm", scale = { 1.05, 1.3 } },
 	Boulder = { mesh = "boulder", scale = { 0.85, 1.2 } },
 	Bush = { mesh = "bush", scale = { 0.9, 1.15 } },
 	SlimePool = { mesh = "slimepool", scale = { 1, 1 } },
@@ -263,14 +266,98 @@ local function makeOre(def, cf: CFrame): Model
 end
 
 -- Uses the imported mesh when the place has it, otherwise the block model.
+-- Variants: the same tree, bush or rock in different colours, chosen per island, so
+-- an autumn forest has orange and gold pines, Frost Isle's pines carry snow, and so on.
+-- { tint name, weight }; nil = the plain mesh colours.
+local rgbc = Color3.fromRGB
+local TINTS = {
+	autumn = { Leaf = rgbc(232, 120, 44) },
+	gold = { Leaf = rgbc(236, 186, 60) },
+	snowy = { Leaf = rgbc(226, 236, 240), mix = 0.6 },
+	dark = { Leaf = rgbc(46, 92, 70) },
+	blueberry = { Berry = rgbc(70, 90, 200) },
+	blossom = { Berry = rgbc(255, 190, 220), BushLeaf = rgbc(120, 170, 70) },
+	sandstone = { Basalt = rgbc(196, 132, 86), Moss = rgbc(180, 120, 80) },
+	ashen = { Basalt = rgbc(46, 42, 48), Moss = rgbc(90, 40, 34) },
+	snowcap = { Moss = rgbc(240, 244, 248) },
+	bare = { Moss = rgbc(120, 116, 110) },
+	lush = { Frond = rgbc(110, 190, 70) },
+	sunfruit = { Coconut = rgbc(255, 150, 40) },
+}
+local VARIANTS = {
+	Pine = {
+		default = { { nil, 6 }, { "autumn", 1 }, { "gold", 1 } },
+		hills = { { nil, 5 }, { "autumn", 2 }, { "gold", 2 }, { "dark", 1 } },
+		ruins = { { "autumn", 3 }, { "gold", 3 }, { nil, 2 } },
+		snow = { { "snowy", 5 }, { nil, 1 } },
+		crags = { { "dark", 3 }, { nil, 1 } },
+	},
+	Bush = { default = { { nil, 4 }, { "blueberry", 1 }, { "blossom", 1 } } },
+	Boulder = {
+		default = { { nil, 3 }, { "bare", 1 } },
+		mesa = { { "sandstone", 1 } },
+		ember = { { "ashen", 1 } },
+		skull = { { "ashen", 2 }, { nil, 1 } },
+		maw = { { "ashen", 2 }, { "bare", 1 } },
+		snow = { { "snowcap", 2 }, { nil, 1 } },
+	},
+	Palm = { default = { { nil, 3 }, { "lush", 1 } } },
+	FruitPalm = { default = { { "sunfruit", 1 } } },
+}
+local currentBiome = "default" -- set by populate while it fills an island
+
+local function pickVariant(nodeType: string): string?
+	local byBiome = VARIANTS[nodeType]
+	if not byBiome then
+		return nil
+	end
+	local list = byBiome[currentBiome] or byBiome.default
+	if not list then
+		return nil
+	end
+	local total = 0
+	for _, v in list do
+		total += v[2]
+	end
+	local roll = rng:NextNumber(0, total)
+	for _, v in list do
+		roll -= v[2]
+		if roll <= 0 then
+			return v[1]
+		end
+	end
+	return nil
+end
+
+local function applyTint(model: Model, tintName: string?)
+	local tint = tintName and TINTS[tintName]
+	if not tint then
+		return
+	end
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") then
+			for key, colour in tint do
+				if key ~= "mix" and string.find(p.Name, key) then
+					p.Color = p.Color:Lerp(colour, tint.mix or 0.85)
+				end
+			end
+		end
+	end
+end
+
 local function makeNode(nodeType: string, cf: CFrame): Model
 	if Nodes[nodeType].ore then
 		return makeOre(Nodes[nodeType], cf)
 	end
 	local spec = NODE_MESHES[nodeType]
-	local model = spec and Meshes.build(spec.mesh, { scale = rng:NextNumber(spec.scale[1], spec.scale[2]) })
+	local scale = spec and rng:NextNumber(spec.scale[1], spec.scale[2])
+	if spec and (nodeType == "Pine" or nodeType == "Palm") and rng:NextNumber() < 0.06 then
+		scale *= 1.5 -- now and then a giant
+	end
+	local model = spec and Meshes.build(spec.mesh, { scale = scale })
 	if model then
 		model:PivotTo(cf * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
+		applyTint(model, pickVariant(nodeType))
 		return model
 	end
 	return makers[nodeType](cf)
@@ -305,6 +392,8 @@ local ISLANDS: { Island } = {
 	{ name = "Old Ruins", x = 0, z = -370, r = 72, biome = "ruins" }, -- far north, past Ember
 	{ name = "Skull Key", x = 480, z = 330, r = 34, biome = "skull", ring = false },
 	{ name = "Gull Rock", x = -480, z = 330, r = 28, biome = "rockcay", ring = false },
+	{ name = "Sunfruit Isle", x = -340, z = 270, r = 66, biome = "fruit" }, -- fruit palms and ponds, near the start
+	{ name = "Maw Rock", x = 0, z = 160, r = 36, biome = "maw", ring = false, hub = true }, -- the way down to the Maw
 }
 -- Built MapScale.H times bigger than the shapes above, and MapScale.Spread further apart.
 for _, isl in ISLANDS do
@@ -402,9 +491,19 @@ local BIOME_NODES = {
 		{ "SilverVein", 2, zone = "*" },
 		{ "GoldVein", 3, zone = "*" },
 	},
+	maw = {
+		{ "Boulder", 8, zone = "*" },
+		{ "SilverVein", 2, zone = "*" },
+	},
 	rockcay = {
 		{ "Boulder", 4, zone = "*" },
 		{ "Palm", 2, { 1, 1 }, zone = "shore" },
+	},
+	fruit = { -- food: groves of fruit palms, berry bushes round the ponds
+		{ "FruitPalm", 18, { 2, 4 }, zone = "inland" },
+		{ "Palm", 6, { 1, 2 }, zone = "shore" },
+		{ "Bush", 10, zone = "inland" },
+		{ "Boulder", 3, zone = "*" },
 	},
 }
 
@@ -622,6 +721,7 @@ local function findSpot(
 end
 
 local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
+	currentBiome = isl.biome
 	for _, entry in BIOME_NODES[isl.biome] do
 		local nodeType, clump, zone = entry[1], entry[3], entry.zone
 		-- Same density as the hand-tuned 1x map (scaled by Density), over more land.
@@ -679,9 +779,12 @@ local CAVE_NODES = {
 	-- Rare ore only in the pockets at the end of the crawlways.
 	pocket_lower = { { "DiamondCluster", 2 } },
 	pocket_deep = { { "FractiteCluster", 1 }, { "AmethystGeode", 1 } },
+	-- The Maw and the boss lairs below it.
+	abyss = { { "SunstoneVein", 2 }, { "DiamondCluster", 1 } },
+	lair = { { "FractiteCluster", 1 }, { "AmethystGeode", 1 }, { "DiamondCluster", 1 } },
 }
 -- Odd ores along the halls, by depth (and never the rare ones).
-local HALL_ORE = { upper = "SilverVein", lower = "GoldVein", deep = "SunstoneVein" }
+local HALL_ORE = { upper = "SilverVein", lower = "GoldVein", deep = "SunstoneVein", abyss = "SunstoneVein" }
 local CRYSTAL_GLOW = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 255, 210) }
 local TORCH_GLOW = Color3.fromRGB(255, 170, 80)
 
@@ -884,11 +987,11 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 					local centre = f + Vector3.new(0, r * 0.45, 0)
 					local hit = workspace:Raycast(centre, surfaceDir() * (r + 8), params)
 					if hit then
-						crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], c.tier == "deep" and rng:NextNumber() < 0.5, hit.Normal)
+						crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], c.tier ~= "lower" and rng:NextNumber() < 0.5, hit.Normal)
 					end
 				end
 			end
-			oresIn(c, CAVE_NODES[c.tier])
+			oresIn(c, CAVE_NODES[c.tier] or CAVE_NODES.deep)
 		end
 	end
 
@@ -1096,6 +1199,100 @@ function WorldBuilder.spawnNodeOn(isl: Island, nodeType: string, zone: string?):
 	return if spot then spawnNode(nodes, nodeType, spot) else nil
 end
 
+-- Ground cover: grass tufts, ferns, flowers, pebbles, mushrooms and reeds, by island.
+-- Not harvestable, no collisions; just so the ground between resources isn't bare.
+local DECOR = {
+	default = { "tuft", "tuft", "flowers", "pebbles", "fern" },
+	clover = { "tuft", "tuft", "flowers", "flowers", "pebbles", "fern" },
+	hills = { "tuft", "fern", "fern", "mushrooms", "flowers", "pebbles" },
+	rock = { "pebbles", "pebbles", "tuft" },
+	snow = { "pebbles", "icicles" },
+	marsh = { "reeds", "reeds", "mushrooms", "tuft" },
+	ember = { "pebbles", "embers" },
+	cay = { "tuft", "shells", "pebbles" },
+	atoll = { "tuft", "shells", "flowers" },
+	crags = { "pebbles", "pebbles", "fern" },
+	mesa = { "pebbles", "tuft" },
+	ruins = { "fern", "mushrooms", "flowers", "tuft", "pebbles" },
+	skull = { "pebbles", "shells" },
+	rockcay = { "pebbles", "shells" },
+	maw = { "pebbles", "pebbles", "shells" },
+	fruit = { "flowers", "flowers", "tuft", "fern", "shells" },
+}
+local function decorPiece(f: Instance, kind: string, at: Vector3)
+	local function bit(props)
+		props.Anchored = true
+		props.CanCollide = false
+		props.CanQuery = false
+		props.CastShadow = false
+		local p = Instance.new(props.Class or "Part")
+		props.Class = nil
+		for k, v in props do
+			(p :: any)[k] = v
+		end
+		p.Parent = f
+		return p
+	end
+	if kind == "tuft" then
+		for i = 1, 4 do
+			bit({ Size = Vector3.new(0.25, rng:NextNumber(1.2, 2.2), 0.6), CFrame = CFrame.new(at + Vector3.new(rng:NextNumber(-0.6, 0.6), 0.6, rng:NextNumber(-0.6, 0.6))) * CFrame.Angles(rng:NextNumber(-0.4, 0.4), i * 0.8, rng:NextNumber(-0.4, 0.4)), Color = rgbc(150, 176, 60):Lerp(rgbc(200, 196, 80), rng:NextNumber()), Material = Enum.Material.Grass })
+		end
+	elseif kind == "fern" then
+		for i = 0, 5 do
+			bit({ Class = "WedgePart", Size = Vector3.new(0.15, 0.8, 2.6), CFrame = CFrame.new(at + Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, i * 1.05, 0) * CFrame.new(0, 0, -1.2) * CFrame.Angles(0.5, 0, 0), Color = rgbc(70, 130, 50), Material = Enum.Material.Grass })
+		end
+	elseif kind == "flowers" then
+		local colours = { rgbc(255, 120, 150), rgbc(255, 220, 90), rgbc(200, 140, 255), rgbc(255, 255, 255), rgbc(255, 150, 70) }
+		local c = colours[rng:NextInteger(1, #colours)]
+		for _ = 1, rng:NextInteger(3, 6) do
+			local p = at + Vector3.new(rng:NextNumber(-1.5, 1.5), 0, rng:NextNumber(-1.5, 1.5))
+			bit({ Size = Vector3.new(0.12, 0.8, 0.12), CFrame = CFrame.new(p + Vector3.new(0, 0.4, 0)), Color = rgbc(70, 130, 50) })
+			bit({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.5, CFrame = CFrame.new(p + Vector3.new(0, 0.85, 0)), Color = c })
+		end
+	elseif kind == "pebbles" then
+		for _ = 1, rng:NextInteger(2, 4) do
+			bit({ Size = Vector3.new(rng:NextNumber(0.6, 1.4), rng:NextNumber(0.3, 0.7), rng:NextNumber(0.6, 1.4)), CFrame = CFrame.new(at + Vector3.new(rng:NextNumber(-1.5, 1.5), 0.15, rng:NextNumber(-1.5, 1.5))) * CFrame.Angles(0, rng:NextNumber(0, 6), rng:NextNumber(-0.3, 0.3)), Color = rgbc(130, 126, 118):Lerp(rgbc(170, 162, 148), rng:NextNumber()), Material = Enum.Material.Slate })
+		end
+	elseif kind == "mushrooms" then
+		for _ = 1, rng:NextInteger(2, 4) do
+			local p = at + Vector3.new(rng:NextNumber(-1.2, 1.2), 0, rng:NextNumber(-1.2, 1.2))
+			local h = rng:NextNumber(0.5, 1.1)
+			bit({ Size = Vector3.new(0.25, h, 0.25), CFrame = CFrame.new(p + Vector3.new(0, h / 2, 0)), Color = rgbc(236, 226, 206) })
+			bit({ Shape = Enum.PartType.Ball, Size = Vector3.new(0.9, 0.4, 0.9) * (h + 0.4), CFrame = CFrame.new(p + Vector3.new(0, h, 0)), Color = if rng:NextNumber() < 0.5 then rgbc(210, 70, 60) else rgbc(220, 180, 120) })
+		end
+	elseif kind == "reeds" then
+		for _ = 1, rng:NextInteger(4, 7) do
+			local h = rng:NextNumber(2.5, 4.5)
+			bit({ Size = Vector3.new(0.2, h, 0.2), CFrame = CFrame.new(at + Vector3.new(rng:NextNumber(-1, 1), h / 2, rng:NextNumber(-1, 1))) * CFrame.Angles(rng:NextNumber(-0.15, 0.15), 0, rng:NextNumber(-0.15, 0.15)), Color = rgbc(120, 150, 60) })
+		end
+	elseif kind == "shells" then
+		for _ = 1, rng:NextInteger(1, 3) do
+			bit({ Size = Vector3.new(0.7, 0.25, 0.6), CFrame = CFrame.new(at + Vector3.new(rng:NextNumber(-1.5, 1.5), 0.1, rng:NextNumber(-1.5, 1.5))) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), Color = rgbc(250, 226, 210):Lerp(rgbc(240, 170, 150), rng:NextNumber()) })
+		end
+	elseif kind == "icicles" then
+		for _ = 1, 3 do
+			bit({ Size = Vector3.new(0.5, rng:NextNumber(1, 2.2), 0.5), CFrame = CFrame.new(at + Vector3.new(rng:NextNumber(-1, 1), 0.6, rng:NextNumber(-1, 1))) * CFrame.Angles(rng:NextNumber(-0.3, 0.3), 0, rng:NextNumber(-0.3, 0.3)), Color = rgbc(200, 236, 250), Material = Enum.Material.Glass, Transparency = 0.25 })
+		end
+	elseif kind == "embers" then
+		bit({ Size = Vector3.new(rng:NextNumber(1, 2), 0.2, rng:NextNumber(0.3, 0.6)), CFrame = CFrame.new(at + Vector3.new(0, 0.05, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), Color = rgbc(255, 110, 40), Material = Enum.Material.Neon })
+	end
+end
+
+local function decorate(isl: Island)
+	local f = workspace:FindFirstChild("Decor") or folder("Decor")
+	local kinds = DECOR[isl.biome] or DECOR.default
+	local count = math.floor((isl.r / 10) ^ 2 * 0.08)
+	for i = 1, count do
+		local spot = findSpot(isl, {}, 0, nil, nil, "*")
+		if spot then
+			decorPiece(f, kinds[rng:NextInteger(1, #kinds)], spot)
+		end
+		if i % 40 == 0 then
+			task.wait()
+		end
+	end
+end
+
 function WorldBuilder.build()
 	for _, child in workspace:GetChildren() do
 		if child.Name == "Baseplate" or child:IsA("SpawnLocation") or child.Name == "TestGround" then
@@ -1165,6 +1362,7 @@ function WorldBuilder.build()
 			end
 		end
 		populate(nodes, isl, local_)
+		decorate(isl)
 		task.wait()
 	end
 
@@ -1187,9 +1385,79 @@ function WorldBuilder.build()
 	table.move(network.chambers, 1, #network.chambers, #chambers + 1, chambers)
 	table.move(network.tunnels, 1, #network.tunnels, #tunnels + 1, tunnels)
 	dressCaves(nodes, chambers, tunnels, network.pockets)
+	if network.hub then
+		-- The heart of the Maw: a giant crystal pillar from floor to roof, ringed by
+		-- torches, with a sign pointing the way down to the lairs.
+		local hub = Instance.new("Model")
+		hub.Name = "MawHeart"
+		local c = network.hub.pos
+		hub.WorldPivot = CFrame.new(c)
+		local hit = caveFloorAt(c.X, c.Z, c.Y + 10)
+		local floor = if hit then hit.Position else c
+		crystal(hub, floor, Color3.fromRGB(190, 140, 255), true, Vector3.yAxis)
+		local pillar = Props.part(hub, { Name = "HeartPillar", Size = Vector3.new(9, 46, 9), CFrame = CFrame.new(floor + Vector3.new(0, 23, 0)) * CFrame.Angles(0, 0.4, 0), Color = Color3.fromRGB(170, 120, 255), Material = Enum.Material.Glass, Transparency = 0.15 })
+		local core = Props.part(hub, { Name = "HeartCore", Size = Vector3.new(3, 40, 3), CFrame = pillar.CFrame, Color = Color3.fromRGB(210, 170, 255), Material = Enum.Material.Neon, CanCollide = false })
+		local light = Instance.new("PointLight")
+		light.Color, light.Range, light.Brightness = Color3.fromRGB(190, 150, 255), 60, 2
+		light.Parent = core
+		for k = 0, 5 do
+			local a = k / 6 * math.pi * 2
+			local at = caveFloorAt(floor.X + math.cos(a) * 20, floor.Z + math.sin(a) * 20, floor.Y + 12)
+			if at then
+				if k % 2 == 0 then
+					Props.torchPost(hub, at.Position, 8)
+				else
+					crystal(hub, at.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], true, Vector3.yAxis)
+				end
+			end
+		end
+		Props.bigSign(hub, floor + Vector3.new(0, 0, 14), Vector3.new(0, 0, 1), "THE MAW")
+		hub.Parent = workspace
+	end
 	Landmarks.build(network, ISLANDS, groundAt, function(isl)
 		return findSpot(isl, {}, 0, Vector3.new(isl.x, 0, isl.z), isl.r * 0.4, "*")
 	end)
+	-- Camps on most islands, on a flat open spot away from the landmark; clear the
+	-- trees and rocks inside their walls.
+	Camps.build(ISLANDS, groundAt, function(isl)
+		for _ = 1, 40 do
+			local spot = findSpot(isl, {}, 0, nil, nil, "*")
+			if spot and (spot - Vector3.new(sx, spot.Y, sz)).Magnitude > 120 then
+				local flat = true
+				for k = 0, 7 do
+					local a = k / 8 * math.pi * 2
+					local hit = groundAt(spot.X + math.cos(a) * 24, spot.Z + math.sin(a) * 24)
+					if not hit or math.abs(hit.Position.Y - spot.Y) > 5 or hit.Material == Enum.Material.Water or hit.Position.Y < 1 then
+						flat = false
+						break
+					end
+				end
+				local clear = true
+				for _, lm in (workspace:FindFirstChild("Landmarks") :: Folder):GetChildren() do
+					if (lm:GetPivot().Position - spot).Magnitude < 70 then
+						clear = false
+					end
+				end
+				if flat and clear then
+					return spot
+				end
+			end
+		end
+		return nil
+	end)
+	for _, camp in workspace.Camps:GetChildren() do
+		local c = camp:GetPivot().Position
+		for _, n in nodes:GetChildren() do
+			if (n:GetPivot().Position - c).Magnitude < 30 then
+				n:Destroy()
+			end
+		end
+		for _, d in workspace.Decor:GetChildren() do
+			if (d.Position - c).Magnitude < 28 then
+				d:Destroy()
+			end
+		end
+	end
 	Minimap.publish(ISLANDS, network, groundAt)
 	if game:GetService("RunService"):IsStudio() and workspace:GetAttribute("VerifyCaves") ~= false then
 		task.spawn(Caves.verify, workspace.Terrain, network)
@@ -1202,13 +1470,14 @@ function WorldBuilder.build()
 	-- Everything else, by island: { kind, herds, per herd, zone }.
 	local MOBS = {
 		["Clover Island"] = { { "Crab", 2, 3, "palms" } },
-		["Driftwood Cay"] = { { "Crab", 3, 3, "shore" } },
-		["Coral Atoll"] = { { "Crab", 4, 3, "shore" }, { "Boar", 1, 3, "inland" } },
+		["Coral Atoll"] = { { "Crab", 4, 3, "shore" }, { "Boar", 1, 3, "inland" }, { "Turtle", 3, 2, "shore" } },
+		["Sunfruit Isle"] = { { "Boar", 2, 3, "inland" }, { "Turtle", 2, 2, "shore" }, { "Crab", 2, 3, "shore" } },
 		["Pine Hills"] = { { "Boar", 1, 4, "forest" } },
-		["Silver Crags"] = { { "Wolf", 2, 3, "inland" } },
+		["Silver Crags"] = { { "Wolf", 2, 3, "inland" }, { "Goat", 2, 3, "peak" } },
 		["Frost Isle"] = { { "Wolf", 3, 3, "slopes" } },
 		["Slime Marsh"] = { { "BogSlime", 4, 3, "*" } },
-		["Gold Mesa"] = { { "Boar", 2, 3, "inland" } },
+		["Gold Mesa"] = { { "Boar", 2, 3, "inland" }, { "Goat", 3, 3, "*" } },
+		["Driftwood Cay"] = { { "Crab", 3, 3, "shore" }, { "Turtle", 2, 2, "shore" } },
 		["Old Ruins"] = { { "Wolf", 2, 3, "inland" }, { "Boar", 2, 4, "inland" } },
 		["Ember Isle"] = { { "CinderBeetle", 3, 2, "slopes" } },
 		["Skull Key"] = { { "Crab", 2, 4, "*" } },
@@ -1228,6 +1497,10 @@ function WorldBuilder.build()
 		if (c.tier == "lower" or c.tier == "deep") and rng:NextNumber() < 0.35 then
 			Animals.spawnHerd("CaveCrawler", c.pos + Vector3.new(0, 3, 0), rng:NextInteger(1, 2))
 		end
+	end
+	-- A boss in each lair below the Maw.
+	for _, lair in network.bossRooms do
+		Animals.spawnHerd(lair.boss, lair.pos + Vector3.new(0, 3, 0), 1)
 	end
 	Animals.start()
 

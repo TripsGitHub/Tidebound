@@ -305,8 +305,12 @@ local function depthName(y: number): string
 		return "Upper Caves"
 	elseif y > -80 then
 		return "Lower Caves"
+	elseif y > -150 then
+		return "Deep Network"
+	elseif y > -180 then
+		return "The Maw"
 	end
-	return "Deep Network"
+	return "Boss Lairs"
 end
 
 local params = RaycastParams.new()

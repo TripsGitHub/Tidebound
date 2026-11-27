@@ -31,6 +31,7 @@ local Items = {
 	-- Food -------------------------------------------------------------
 	berries = { name = "Berries", kind = "food", order = 20, hunger = 8 },
 	coconut = { name = "Coconut", kind = "food", order = 21, hunger = 14 },
+	sunfruit = { name = "Sunfruit", kind = "food", order = 21.5, hunger = 18, heal = 6 },
 	raw_meat = { name = "Raw Meat", kind = "food", order = 22, hunger = 5, hurt = 5 },
 	cooked_meat = { name = "Cooked Meat", kind = "food", order = 23, hunger = 35, heal = 15 },
 

@@ -483,6 +483,12 @@ local function make(spec): Field
 		local a, d = rand:NextNumber(0, pi * 2), rand:NextNumber(R * 0.1, R * 0.7)
 		table.insert(spires, { cos(a) * d, sin(a) * d, rand:NextNumber(3, 6), spec.peak * rand:NextNumber(0.9, 1.6) })
 	end
+	-- Ponds: round dips with water in them, somewhere inland.
+	local ponds = {}
+	for _ = 1, spec.ponds or 0 do
+		local a, d = rand:NextNumber(0, pi * 2), rand:NextNumber(R * 0.15, R * 0.5)
+		table.insert(ponds, { cos(a) * d, sin(a) * d, R * rand:NextNumber(0.08, 0.13) })
+	end
 	function F.land(x, z)
 		local a = atan2(z, x)
 		local wob = sin(a * 3 + seed) * 0.12 + sin(a * 5 + seed * 2.3) * 0.07 + noise(x * 1.3 + seed * 7, z * 1.3) * 0.04
@@ -516,12 +522,36 @@ local function make(spec): Field
 		end
 		return h + smooth(l / 0.2) * detail(x, z) * 0.6
 	end
-	F.height = ground
+	for _, pd in ponds do
+		pd[4] = ground(pd[1], pd[2]) - 0.6 -- water level, just under the ground there
+	end
+	local function height(x, z)
+		local h = ground(x, z)
+		for _, pd in ponds do
+			local d = hypot(x - pd[1], z - pd[2])
+			if d < pd[3] + 5 then
+				local bed = pd[4] - 3.5 * smooth(1 - d / pd[3])
+				h = math.min(h, bed + smooth((d - pd[3]) / 5) * (h - bed))
+			end
+		end
+		return h
+	end
+	F.height = height
+	if #ponds > 0 then
+		function F.water(x, y, z)
+			for _, pd in ponds do
+				if hypot(x - pd[1], z - pd[2]) < pd[3] + 1 and y < pd[4] then
+					return M.Water
+				end
+			end
+			return nil
+		end
+	end
 	function F.zoneAt(x, z)
 		if F.land(x, z) < 0.18 then
 			return "shore"
 		end
-		if ground(x, z) > spec.peak * 0.55 then
+		if height(x, z) > spec.peak * 0.55 then
 			return "peak"
 		end
 		return "inland"
@@ -542,18 +572,29 @@ local function make(spec): Field
 		return m
 	end
 	function F.canGrow(x, z)
-		return F.land(x, z) > 0.1
+		if F.land(x, z) <= 0.1 then
+			return false
+		end
+		for _, pd in ponds do
+			if hypot(x - pd[1], z - pd[2]) < pd[3] + 3 then
+				return false
+			end
+		end
+		return true
 	end
+	F.ponds = ponds
 	return F :: Field
 end
 IslandFields.make = make
 
 IslandFields.cay = make({ name = "Driftwood Cay", r = 45, peak = 6, hills = 2, seed = 11, low = M.Sand, high = M.LeafyGrass })
 IslandFields.atoll = make({ name = "Coral Atoll", r = 58, peak = 7, hills = 4, seed = 19, atoll = true, low = M.Grass, high = M.LeafyGrass })
-IslandFields.crags = make({ name = "Silver Crags", r = 62, peak = 34, hills = 4, spires = 9, seed = 29, low = M.Slate, high = M.Rock, cliff = M.Slate })
+IslandFields.crags = make({ name = "Silver Crags", r = 62, peak = 34, hills = 4, spires = 9, ponds = 1, seed = 29, low = M.Slate, high = M.Rock, cliff = M.Slate })
 IslandFields.mesa = make({ name = "Gold Mesa", r = 64, peak = 30, hills = 3, mesa = true, seed = 43, low = M.Sandstone, high = M.Sandstone, cliff = M.Sandstone, shore = M.Sand })
-IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 16, hills = 5, seed = 61, low = M.Grass, high = M.LeafyGrass })
+IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 16, hills = 5, ponds = 2, seed = 61, low = M.Grass, high = M.LeafyGrass })
+IslandFields.fruit = make({ name = "Sunfruit Isle", r = 66, peak = 12, hills = 4, ponds = 3, seed = 97, low = M.Grass, high = M.LeafyGrass })
 IslandFields.skull = make({ name = "Skull Key", r = 34, peak = 22, hills = 1, seed = 71, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
+IslandFields.maw = make({ name = "Maw Rock", r = 36, peak = 18, hills = 2, spires = 6, seed = 89, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 IslandFields.rockcay = make({ name = "Gull Rock", r = 28, peak = 14, hills = 2, spires = 3, seed = 83, low = M.Rock, high = M.Rock })
 
 IslandFields.hills = PH :: Field

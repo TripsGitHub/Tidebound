@@ -4,6 +4,8 @@
 -- rooms deep in the caves, which are kept empty for traders and events later.
 local Landmarks = {}
 
+local Props = require(script.Parent.Props)
+
 local rng = Random.new(777)
 
 local function part(parent: Instance, props): Part
@@ -253,6 +255,63 @@ function BUILDERS.skull(m: Model, c: Vector3, groundAt)
 	return "Skull Rock", 40
 end
 
+-- Sunfruit Isle: the Sunfruit Giant, a palm ten times the size of any other, bent over
+-- the island with a crown of huge fronds and a heavy cluster of glowing fruit.
+function BUILDERS.fruit(m: Model, c: Vector3, groundAt)
+	local bark, barkDark = Color3.fromRGB(176, 124, 70), Color3.fromRGB(140, 96, 54)
+	local base = c + Vector3.new(14, 0, 0)
+	local p = base
+	local dir = Vector3.new(-0.25, 1, 0).Unit
+	for k = 0, 13 do
+		local w = 5.5 - k * 0.22
+		local seg = Props.part(m, { Name = "Trunk", Size = Vector3.new(w, 4.2, w), CFrame = CFrame.lookAt(p, p + Vector3.new(1, 0, 0), dir) * CFrame.Angles(0, k * 0.3, 0), Color = if k % 2 == 0 then bark else barkDark, Material = Enum.Material.Wood })
+		seg.CFrame = CFrame.fromMatrix(p + dir * 2, dir:Cross(Vector3.zAxis).Unit, dir) * CFrame.Angles(0, k * 0.3, 0)
+		p = p + dir * 4
+		dir = (dir + Vector3.new(-0.06, -0.01, 0)).Unit
+	end
+	local top = p
+	for i = 0, 7 do
+		local a = i / 8 * math.pi * 2
+		local out = Vector3.new(math.cos(a), 0, math.sin(a))
+		local tip = top + out * 22 + Vector3.new(0, -7, 0)
+		local mid = (top + tip) / 2
+		Props.part(m, { Class = "WedgePart", Name = "Frond", Size = Vector3.new(0.6, 3, (tip - top).Magnitude), CFrame = CFrame.lookAt(mid, tip) * CFrame.Angles(0, 0, math.pi / 2), Color = if i % 2 == 0 then Color3.fromRGB(110, 180, 60) else Color3.fromRGB(140, 200, 70), Material = Enum.Material.Grass, CanCollide = false })
+	end
+	for i = 1, 9 do
+		local fruit = Props.part(m, { Name = "Sunfruit", Shape = Enum.PartType.Ball, Size = Vector3.one * rng:NextNumber(2.4, 3.4), CFrame = CFrame.new(top + Vector3.new(rng:NextNumber(-3, 3), rng:NextNumber(-5, -2), rng:NextNumber(-3, 3))), Color = if i % 3 == 0 then Color3.fromRGB(255, 200, 60) else Color3.fromRGB(255, 140, 40), Material = Enum.Material.Neon, CanCollide = false })
+		if i == 1 then
+			local light = Instance.new("PointLight")
+			light.Color = Color3.fromRGB(255, 180, 80)
+			light.Range = 30
+			light.Brightness = 1.4
+			light.Parent = fruit
+		end
+	end
+	return "The Sunfruit Giant", (top - c).Y + 6
+end
+
+-- Maw Rock: a huge jaw of black stone teeth round a dark hollow, the sign that the
+-- caves under this rock go down to the Maw, the deepest place in the world.
+function BUILDERS.maw(m: Model, c: Vector3, groundAt)
+	local tooth, gum = Color3.fromRGB(228, 220, 200), Color3.fromRGB(46, 40, 44)
+	for i = 0, 13 do
+		local a = i / 14 * math.pi * 2
+		local r = 16 + rng:NextNumber(-1.5, 1.5)
+		local at = c + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+		local h = rng:NextNumber(12, 22)
+		local lean = CFrame.lookAt(at, Vector3.new(c.X, at.Y, c.Z)) * CFrame.Angles(math.rad(-rng:NextNumber(14, 26)), 0, 0)
+		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(rng:NextNumber(3, 5), h, rng:NextNumber(4, 6)), CFrame = lean * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone })
+		Props.part(m, { Name = "Gum", Size = Vector3.new(6, 3, 7), CFrame = CFrame.new(at + Vector3.new(0, 1, 0)) * CFrame.Angles(0, -a, 0), Color = gum, Material = Enum.Material.Basalt })
+	end
+	-- The throat: a dark disc with a dim red glow deep inside.
+	Props.part(m, { Shape = Enum.PartType.Cylinder, Name = "Throat", Size = Vector3.new(0.6, 26, 26), CFrame = CFrame.new(c + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(18, 14, 16), Material = Enum.Material.Basalt, CanCollide = false })
+	local glow = Props.part(m, { Name = "Glow", Size = Vector3.new(4, 0.4, 4), CFrame = CFrame.new(c + Vector3.new(0, 0.5, 0)), Color = Color3.fromRGB(200, 40, 30), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.4 })
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = Color3.fromRGB(255, 60, 40), 34, 1.6
+	light.Parent = glow
+	return "The Maw", 30
+end
+
 -- A plain cairn for any island without its own landmark.
 function BUILDERS.default(m: Model, c: Vector3, groundAt)
 	for i = 0, 7 do
@@ -261,6 +320,116 @@ function BUILDERS.default(m: Model, c: Vector3, groundAt)
 		part(m, { Name = "Standing", Size = Vector3.new(3, 9 + (i % 2) * 5, 2), CFrame = CFrame.lookAt(p + Vector3.new(0, 4, 0), c + Vector3.new(0, 4, 0)), Color = Color3.fromRGB(140, 134, 124), Material = Enum.Material.Slate })
 	end
 	return "Standing Stones", 22
+end
+
+-- Details and effects added round each landmark after it's built, so each one feels
+-- lived in: props people left, plants, and something moving in the air.
+local function ring(c: Vector3, r: number, a: number): Vector3
+	return c + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+end
+local DETAIL = {}
+function DETAIL.clover(m, c)
+	Props.flowers(m, c, 22, 26)
+	Props.barrel(m, CFrame.new(ring(c, 17, 0.3)))
+	Props.crate(m, CFrame.new(ring(c, 18, 0.8)) * CFrame.Angles(0, 0.4, 0), 2.6)
+	Props.torchPost(m, ring(c, 16, 2.4), 6)
+	Props.torchPost(m, ring(c, 16, 5.6), 6)
+	local glow = Props.part(m, { Name = "WellGlow", Size = Vector3.new(12, 0.4, 12), CFrame = CFrame.new(c + Vector3.new(0, -5, 0)), Color = Color3.fromRGB(90, 200, 230), Material = Enum.Material.Neon, Transparency = 0.5, CanCollide = false, CanQuery = false })
+	Props.particles(glow, "fireflies")
+end
+function DETAIL.hills(m, c)
+	Props.emitter(m, c + Vector3.new(0, 8, 0), Vector3.new(30, 10, 30), "fireflies")
+	for i = 1, 7 do
+		local p = ring(c, rng:NextNumber(15, 22), rng:NextNumber(0, math.pi * 2))
+		local cap = Props.part(m, { Name = "Mushroom", Shape = Enum.PartType.Ball, Size = Vector3.new(2.4, 1, 2.4), CFrame = CFrame.new(p + Vector3.new(0, 1.4, 0)), Color = if i % 2 == 0 then Color3.fromRGB(210, 70, 60) else Color3.fromRGB(236, 196, 120), CanCollide = false })
+		Props.part(m, { Name = "MushroomStem", Size = Vector3.new(0.6, 1.4, 0.6), CFrame = cap.CFrame - Vector3.new(0, 0.7, 0), Color = Color3.fromRGB(240, 230, 210), CanCollide = false })
+	end
+	Props.logPile(m, CFrame.new(ring(c, 22, 1.2)) * CFrame.Angles(0, 1.2, 0))
+end
+function DETAIL.rock(m, c)
+	Props.emitter(m, c + Vector3.new(0, 30, 0), Vector3.new(28, 16, 8), "dust")
+	Props.banner(m, c + Vector3.new(-22, 0, 6), Props.CLOTH[3], 14)
+	Props.banner(m, c + Vector3.new(22, 0, 6), Props.CLOTH[3], 14)
+	for i = 1, 6 do
+		Props.part(m, { Name = "Rubble", Size = Vector3.new(2, 1.4, 2) * rng:NextNumber(0.7, 1.4), CFrame = CFrame.new(ring(c, rng:NextNumber(18, 26), rng:NextNumber(0, 6.28)) + Vector3.new(0, 0.5, 0)) * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 6), 0), Color = Color3.fromRGB(128, 124, 118), Material = Enum.Material.Slate })
+	end
+end
+function DETAIL.snow(m, c)
+	Props.emitter(m, c + Vector3.new(0, 30, 0), Vector3.new(40, 2, 40), "snow")
+	for i = 0, 5 do
+		Props.part(m, { Name = "IceShard", Size = Vector3.new(1.2, rng:NextNumber(3, 6), 1.2), CFrame = CFrame.new(ring(c, rng:NextNumber(19, 25), i * 1.05) + Vector3.new(0, 1.5, 0)) * CFrame.Angles(rng:NextNumber(-0.4, 0.4), 0, rng:NextNumber(-0.4, 0.4)), Color = Color3.fromRGB(190, 230, 250), Material = Enum.Material.Glass, Transparency = 0.3 })
+	end
+	Props.campfire(m, ring(c, 24, 2))
+end
+function DETAIL.marsh(m, c)
+	Props.emitter(m, c + Vector3.new(0, 8, 0), Vector3.new(34, 12, 34), "spores")
+	for i = 0, 9 do
+		local p = ring(c, rng:NextNumber(18, 26), i * 0.63)
+		Props.part(m, { Name = "Reed", Size = Vector3.new(0.3, rng:NextNumber(3, 5), 0.3), CFrame = CFrame.new(p + Vector3.new(0, 2, 0)) * CFrame.Angles(rng:NextNumber(-0.2, 0.2), 0, rng:NextNumber(-0.2, 0.2)), Color = Color3.fromRGB(110, 140, 60), CanCollide = false })
+	end
+end
+function DETAIL.ember(m, c)
+	Props.emitter(m, c + Vector3.new(0, 3, 0), Vector3.new(10, 2, 10), "embers")
+	for i = 0, 5 do
+		local p = ring(c, rng:NextNumber(18, 24), i * 1.05)
+		local crack = Props.part(m, { Name = "LavaCrack", Size = Vector3.new(0.8, 0.3, rng:NextNumber(4, 8)), CFrame = CFrame.new(p + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), Color = Color3.fromRGB(255, 110, 40), Material = Enum.Material.Neon, CanCollide = false })
+		crack.CastShadow = false
+	end
+end
+function DETAIL.cay(m, c)
+	Props.barrel(m, CFrame.new(ring(c, 18, 0.4)) * CFrame.Angles(0, 0, 0))
+	Props.barrel(m, CFrame.new(ring(c, 20, 0.9)))
+	Props.crateStack(m, CFrame.new(ring(c, 19, 2.2)) * CFrame.Angles(0, 2.2, 0))
+	Props.part(m, { Name = "Chest", Size = Vector3.new(3.4, 2.2, 2.2), CFrame = CFrame.new(ring(c, 15, 4) + Vector3.new(0, 1.1, 0)) * CFrame.Angles(0, 0.6, 0.12), Color = Color3.fromRGB(120, 76, 40), Material = Enum.Material.WoodPlanks })
+	Props.emitter(m, ring(c, 15, 4) + Vector3.new(0, 2.6, 0), Vector3.new(2, 1, 2), "fireflies")
+end
+function DETAIL.atoll(m, c)
+	Props.emitter(m, c + Vector3.new(0, 4, 0), Vector3.new(20, 2, 20), "bubbles")
+	Props.flowers(m, c, 22, 14)
+end
+function DETAIL.crags(m, c)
+	Props.emitter(m, c + Vector3.new(16, 40, 0), Vector3.new(8, 30, 8), "dust")
+	Props.crateStack(m, CFrame.new(ring(c, 20, 2.5)) * CFrame.Angles(0, 2.5, 0))
+	Props.torchPost(m, ring(c, 18, 3.6), 6)
+end
+function DETAIL.mesa(m, c)
+	Props.banner(m, c + Vector3.new(0, 47, 0), Props.CLOTH[1], 8)
+	Props.crateStack(m, CFrame.new(ring(c, 20, 1)) * CFrame.Angles(0, 1, 0))
+	Props.barrel(m, CFrame.new(ring(c, 19, 1.8)))
+	Props.torchPost(m, ring(c, 17, 4), 6)
+	Props.torchPost(m, ring(c, 17, 5.4), 6)
+end
+function DETAIL.ruins(m, c)
+	Props.emitter(m, c + Vector3.new(0, 10, 0), Vector3.new(36, 14, 36), "fireflies")
+	for i = 0, 11 do
+		local p = ring(c, rng:NextNumber(14, 22), i * 0.52)
+		Props.part(m, { Name = "Vine", Size = Vector3.new(0.3, rng:NextNumber(6, 14), 0.3), CFrame = CFrame.new(p + Vector3.new(0, 5, 0)) * CFrame.Angles(0, 0, rng:NextNumber(-0.15, 0.15)), Color = Color3.fromRGB(70, 120, 50), CanCollide = false })
+	end
+	Props.torchPost(m, ring(c, 25, 0), 7)
+	Props.torchPost(m, ring(c, 25, math.pi), 7)
+end
+function DETAIL.skull(m, c)
+	Props.torchPost(m, c + Vector3.new(-14, 0, -4), 8)
+	Props.torchPost(m, c + Vector3.new(14, 0, -4), 8)
+	Props.emitter(m, c + Vector3.new(0, 20, 4), Vector3.new(14, 6, 4), "embers")
+	for i = 1, 5 do
+		Props.part(m, { Name = "Bone", Size = Vector3.new(0.6, 0.6, rng:NextNumber(2, 4)), CFrame = CFrame.new(ring(c, rng:NextNumber(10, 18), rng:NextNumber(3.5, 6)) + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), Color = Color3.fromRGB(230, 222, 204), CanCollide = false })
+	end
+end
+function DETAIL.maw(m, c)
+	Props.emitter(m, c + Vector3.new(0, 4, 0), Vector3.new(22, 4, 22), "embers")
+	for k = 0, 3 do
+		Props.torchPost(m, ring(c, 24, k * math.pi / 2 + 0.4), 9)
+	end
+	for _ = 1, 8 do
+		Props.part(m, { Name = "Bone", Size = Vector3.new(0.7, 0.7, rng:NextNumber(2, 5)), CFrame = CFrame.new(ring(c, rng:NextNumber(20, 30), rng:NextNumber(0, 6.28)) + Vector3.new(0, 0.35, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), Color = Color3.fromRGB(230, 222, 204), CanCollide = false })
+	end
+end
+function DETAIL.fruit(m, c)
+	Props.emitter(m, c + Vector3.new(0, 18, 0), Vector3.new(30, 10, 30), "fireflies")
+	Props.crateStack(m, CFrame.new(ring(c, 18, 0.5)) * CFrame.Angles(0, 0.5, 0))
+	Props.barrel(m, CFrame.new(ring(c, 17, 1.3)))
+	Props.flowers(m, c, 24, 24)
 end
 
 Landmarks.Builders = BUILDERS
@@ -299,6 +468,9 @@ function Landmarks.place(kind: string, centre: Vector3, groundAt, title: string?
 	local m = Instance.new("Model")
 	local builder = BUILDERS[kind] or BUILDERS.default
 	local name, height = builder(m, centre, groundAt)
+	if DETAIL[kind] then
+		DETAIL[kind](m, centre)
+	end
 	ground(m, centre.Y, groundAt)
 	m.Name = title or name
 	m.WorldPivot = CFrame.new(centre)

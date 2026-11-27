@@ -32,6 +32,20 @@ local Nodes = {
 			{ item = "coconut", min = 1, max = 2 },
 		},
 	},
+	-- Sunfruit Isle's palms: heavy with fruit.
+	FruitPalm = {
+		name = "Sunfruit Palm",
+		material = "wood",
+		hp = 12,
+		respawn = 90,
+		xp = 12,
+		falls = true,
+		drops = {
+			{ item = "log", min = 3, max = 4 },
+			{ item = "leaves", min = 1, max = 2 },
+			{ item = "sunfruit", min = 2, max = 3 },
+		},
+	},
 	Boulder = {
 		name = "Boulder",
 		material = "stone",
