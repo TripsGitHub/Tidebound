@@ -4,6 +4,7 @@
 -- hand-designed shape (CloverIsland.lua, IslandFields.lua) with named zones that
 -- decide what grows where.
 -- (The hand-built v2 map replaces this in a later milestone.)
+local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -1225,23 +1226,6 @@ local function makeCaveMouth(centre: Vector3, facing: Vector3, size: number?)
 	m.Parent = workspace
 end
 
-local function sign(text: string, adornee: BasePart, height: number)
-	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(170, 32)
-	gui.StudsOffset = Vector3.new(0, height, 0)
-	gui.MaxDistance = 70
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.FontFace = Font.new("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold)
-	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(255, 244, 214)
-	label.TextStrokeTransparency = 0.3
-	label.Text = text
-	label.Parent = gui
-	gui.Parent = adornee
-end
-
 local function prompt(parent: BasePart, action: string, object: string, panel: string)
 	local p = Instance.new("ProximityPrompt")
 	p.ActionText = action
@@ -1252,6 +1236,70 @@ local function prompt(parent: BasePart, action: string, object: string, panel: s
 	p.Triggered:Connect(function(player)
 		Remotes.OpenPanel:FireClient(player, panel)
 	end)
+end
+
+-- NPCs are ordinary Roblox avatars (R15, with the official idle animation), with a
+-- dark name bar and a level badge over their heads like a player's.
+local IDLE_ANIM = "rbxassetid://507766388" -- Roblox's own R15 idle
+local function npcAvatar(cf: CFrame, name: string, level: number, outfit: { shirt: Color3, pants: Color3, skin: Color3 }): Model?
+	local desc = Instance.new("HumanoidDescription")
+	desc.HeadColor, desc.LeftArmColor, desc.RightArmColor = outfit.skin, outfit.skin, outfit.skin
+	desc.TorsoColor, desc.LeftLegColor, desc.RightLegColor = outfit.shirt, outfit.pants, outfit.pants
+	local ok, model = pcall(function()
+		return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+	end)
+	if not ok or not model then
+		return nil
+	end
+	model.Name = name
+	local hum = model:FindFirstChildOfClass("Humanoid") :: Humanoid
+	hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart
+	root.Anchored = true
+	model:PivotTo(cf * CFrame.new(0, 3, 0))
+	model.Parent = workspace
+	local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+	local anim = Instance.new("Animation")
+	anim.AnimationId = IDLE_ANIM
+	pcall(function()
+		local track = (animator :: Animator):LoadAnimation(anim)
+		track.Looped = true
+		track:Play()
+	end)
+	-- Name bar: a dark rounded strip with the level in a circle on its left.
+	local head = model:FindFirstChild("Head") :: BasePart
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(170, 26)
+	gui.StudsOffset = Vector3.new(0, 2.4, 0)
+	gui.MaxDistance = 80
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.new(1, -14, 1, 0)
+	bar.Position = UDim2.fromOffset(14, 0)
+	bar.BackgroundColor3 = Color3.fromRGB(40, 32, 30)
+	bar.BackgroundTransparency = 0.15
+	bar.Parent = gui
+	Instance.new("UICorner", bar).CornerRadius = UDim.new(0.5, 0)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, -20, 1, 0)
+	label.Position = UDim2.fromOffset(18, 0)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(245, 236, 220)
+	label.Text = name
+	label.Parent = bar
+	local badge = Instance.new("TextLabel")
+	badge.Size = UDim2.fromOffset(28, 28)
+	badge.Position = UDim2.fromOffset(0, -1)
+	badge.BackgroundColor3 = Color3.fromRGB(28, 22, 20)
+	badge.Font = Enum.Font.GothamBold
+	badge.TextScaled = true
+	badge.TextColor3 = Color3.fromRGB(245, 236, 220)
+	badge.Text = tostring(level)
+	badge.Parent = gui
+	Instance.new("UICorner", badge).CornerRadius = UDim.new(0.5, 0)
+	gui.Parent = head
+	return model
 end
 
 local function makeQuestBoard(cf: CFrame)
@@ -1265,9 +1313,12 @@ local function makeQuestBoard(cf: CFrame)
 	for i, x in { -1.7, 0.1, 1.8 } do
 		part(m, { Size = Vector3.new(1.3, 1.6, 0.05), CFrame = cf * CFrame.new(x, 4.8 + (i % 2) * 0.3, -0.23) * CFrame.Angles(0, 0, math.rad((i - 2) * 6)), Color = Color3.fromRGB(240, 228, 196) })
 	end
-	sign("Quest Board", board, 3.2)
 	prompt(board, "View quests", "Quest Board", "quests")
 	m.Parent = workspace
+	local npc = npcAvatar(cf * CFrame.new(4.6, 0, -1.5) * CFrame.Angles(0, math.rad(-20), 0), "Quest Master", 100, { shirt = Color3.fromRGB(150, 70, 50), pants = Color3.fromRGB(90, 60, 40), skin = Color3.fromRGB(214, 170, 130) })
+	if npc then
+		prompt(npc:FindFirstChild("Head") :: BasePart, "Talk", "Quest Master", "quests")
+	end
 end
 
 local function makeTrader(cf: CFrame)
@@ -1275,16 +1326,15 @@ local function makeTrader(cf: CFrame)
 	m.Name = "Trader"
 	part(m, { Size = Vector3.new(2, 2, 1), CFrame = cf * CFrame.new(0, 1, 1.5), Color = Color3.fromRGB(96, 72, 50) })
 	part(m, { Size = Vector3.new(2.2, 2.2, 1.1), CFrame = cf * CFrame.new(0, 3.1, 1.5), Color = Color3.fromRGB(70, 110, 130) })
-	local head = part(m, { Name = "Head", Size = Vector3.new(1.3, 1.3, 1.3), CFrame = cf * CFrame.new(0, 4.85, 1.5), Color = Color3.fromRGB(200, 156, 118) })
-	part(m, { Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.35, 3, 3), CFrame = cf * CFrame.new(0, 5.65, 1.5) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(214, 186, 112), Material = Enum.Material.Fabric })
+	local head = part(m, { Name = "Head", Size = Vector3.new(1.3, 1.3, 1.3), CFrame = cf * CFrame.new(0, 4.85, 1.5), Color = Color3.fromRGB(200, 156, 118), Transparency = 1, CanCollide = false })
 	part(m, { Size = Vector3.new(7, 2.8, 1.6), CFrame = cf * CFrame.new(0, 1.4, -0.6), Color = COLORS.trunk, Material = Enum.Material.WoodPlanks })
 	part(m, { Size = Vector3.new(7.6, 0.3, 4.2), CFrame = cf * CFrame.new(0, 7.2, 0.4) * CFrame.Angles(math.rad(-12), 0, 0), Color = Color3.fromRGB(196, 92, 62), Material = Enum.Material.Fabric })
 	for _, x in { -3.4, 3.4 } do
 		part(m, { Size = Vector3.new(0.45, 7.3, 0.45), CFrame = cf * CFrame.new(x, 3.65, -1.2), Color = COLORS.trunkDark, Material = Enum.Material.Wood })
 	end
-	sign("Trader", head, 2.4)
 	prompt(head, "Trade", "Trader", "shop")
 	m.Parent = workspace
+	npcAvatar(cf * CFrame.new(0, 0, 1.6), "Trader", 100, { shirt = Color3.fromRGB(70, 110, 130), pants = Color3.fromRGB(96, 72, 50), skin = Color3.fromRGB(200, 156, 118) })
 end
 
 -- Island Tribes' look comes mostly from Roblox's own lighting: warm low sun, thick

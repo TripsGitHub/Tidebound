@@ -105,6 +105,30 @@ local function boar(): Model
 	return model
 end
 
+-- Shape helpers: rounded parts read far better than plain blocks.
+local function ball(m: Model, size: Vector3, cf: CFrame, color: Color3, name: string?, mat: Enum.Material?): Part
+	local p = part(m, size, cf, color, name)
+	p.Shape = Enum.PartType.Ball
+	if mat then
+		p.Material = mat
+	end
+	return p
+end
+local function rod(m: Model, length: number, thick: number, from: Vector3, to: Vector3, color: Color3, name: string?): Part
+	local p = part(m, Vector3.new(thick, thick, length), CFrame.lookAt((from + to) / 2, to), color, name)
+	return p
+end
+local function eyes(m: Model, at: Vector3, gap: number, size: number, glow: Color3?)
+	for _, x in { -gap, gap } do
+		local white = ball(m, Vector3.one * size, CFrame.new(at + Vector3.new(x, 0, 0)), glow or Color3.fromRGB(240, 236, 220), "Eye")
+		if glow then
+			white.Material = Enum.Material.Neon
+		else
+			ball(m, Vector3.one * size * 0.55, CFrame.new(at + Vector3.new(x, 0, -size * 0.3)), Color3.fromRGB(20, 18, 16), "Eye")
+		end
+	end
+end
+
 -- Block models for the other animals, all facing -Z and standing on the origin.
 local function legs(m: Model, color: Color3, spots: { Vector3 }, size: Vector3)
 	for _, pos in spots do
@@ -129,16 +153,28 @@ end
 
 local function wolf(): Model
 	local m = Instance.new("Model")
-	local fur, dark = Color3.fromRGB(150, 154, 162), Color3.fromRGB(92, 96, 106)
-	part(m, Vector3.new(1.8, 1.8, 4.2), CFrame.new(0, 2.6, 0), fur, "Body")
-	part(m, Vector3.new(1.6, 1.5, 1.6), CFrame.new(0, 3.2, -2.6), fur, "Head")
-	part(m, Vector3.new(0.9, 0.7, 1.2), CFrame.new(0, 2.9, -3.8), dark, "Snout")
+	local fur, dark, belly = Color3.fromRGB(128, 132, 140), Color3.fromRGB(76, 78, 88), Color3.fromRGB(196, 198, 202)
+	-- Deep chest tapering to the hips, a ruff of fur at the neck.
+	local body = ball(m, Vector3.new(2.2, 2.2, 4.6), CFrame.new(0, 2.7, 0.2), fur, "Body")
+	ball(m, Vector3.new(2.4, 2.4, 1.8), CFrame.new(0, 3, -1.5), fur, "Ruff")
+	ball(m, Vector3.new(1.6, 1.1, 3), CFrame.new(0, 2.1, 0.3), belly, "Belly")
+	-- Head: skull, long muzzle, nose, pointed ears and amber eyes.
+	ball(m, Vector3.new(1.7, 1.6, 1.8), CFrame.new(0, 3.6, -2.6), fur, "Head")
+	part(m, Vector3.new(0.9, 0.75, 1.5), CFrame.new(0, 3.25, -3.6), dark, "Snout")
+	ball(m, Vector3.new(0.4, 0.35, 0.35), CFrame.new(0, 3.45, -4.35), Color3.fromRGB(20, 18, 18), "Snout")
 	for _, x in { -0.5, 0.5 } do
-		part(m, Vector3.new(0.4, 0.7, 0.3), CFrame.new(x, 4.2, -2.4), dark, "Ear")
-		part(m, Vector3.new(0.25, 0.2, 0.1), CFrame.new(x * 0.8, 3.5, -3.42), Color3.fromRGB(255, 210, 80), "Eye")
+		local ear = Instance.new("WedgePart")
+		ear.Name = "Ear"
+		ear.Size = Vector3.new(0.25, 0.9, 0.6)
+		ear.CFrame = CFrame.new(x, 4.6, -2.4) * CFrame.Angles(0, math.pi, x * -0.3)
+		ear.Color = dark
+		ear.Anchored, ear.CanCollide = true, false
+		ear.Parent = m
 	end
-	part(m, Vector3.new(0.5, 0.5, 2), CFrame.new(0, 3.2, 2.8) * CFrame.Angles(math.rad(30), 0, 0), dark, "Tail")
-	legs(m, dark, { Vector3.new(-0.6, 0.9, -1.4), Vector3.new(0.6, 0.9, -1.4), Vector3.new(-0.6, 0.9, 1.4), Vector3.new(0.6, 0.9, 1.4) }, Vector3.new(0.5, 1.8, 0.5))
+	eyes(m, Vector3.new(0, 3.85, -3.35), 0.42, 0.32, Color3.fromRGB(255, 190, 60))
+	-- Bushy tail.
+	ball(m, Vector3.new(0.8, 0.8, 2.6), CFrame.new(0, 3.1, 3.2) * CFrame.Angles(math.rad(35), 0, 0), dark, "Tail")
+	legs(m, dark, { Vector3.new(-0.65, 0.95, -1.5), Vector3.new(0.65, 0.95, -1.5), Vector3.new(-0.65, 0.95, 1.6), Vector3.new(0.65, 0.95, 1.6) }, Vector3.new(0.5, 1.9, 0.5))
 	return m
 end
 
@@ -170,18 +206,28 @@ local function cinderBeetle(): Model
 	return m
 end
 
+-- A big cave spider: round abdomen, eight long legs, a cluster of glowing eyes and fangs.
 local function caveCrawler(): Model
 	local m = Instance.new("Model")
-	local hide, eye = Color3.fromRGB(58, 52, 64), Color3.fromRGB(150, 230, 255)
-	part(m, Vector3.new(2.6, 1.6, 3.2), CFrame.new(0, 2, 0.8), hide, "Body")
-	part(m, Vector3.new(1.8, 1.3, 1.6), CFrame.new(0, 2, -1.4), hide, "Head")
-	for i, x in { -0.5, 0, 0.5 } do
-		local e = part(m, Vector3.new(0.3, 0.3, 0.1), CFrame.new(x, 2.3 + (if i == 2 then 0.3 else 0), -2.22), eye, "Eye")
+	local hide, mark, eye = Color3.fromRGB(46, 40, 52), Color3.fromRGB(110, 70, 120), Color3.fromRGB(150, 230, 255)
+	local body = ball(m, Vector3.new(2, 1.6, 2), CFrame.new(0, 2, -0.6), hide, "Body")
+	ball(m, Vector3.new(3, 2.6, 3.4), CFrame.new(0, 2.5, 1.9), hide, "Abdomen")
+	ball(m, Vector3.new(1.4, 0.5, 2), CFrame.new(0, 3.75, 1.9), mark, "Marking")
+	ball(m, Vector3.new(1.4, 1.2, 1.3), CFrame.new(0, 2, -1.8), hide, "Head")
+	for i, o in { Vector3.new(-0.3, 0.25, 0), Vector3.new(0.3, 0.25, 0), Vector3.new(-0.5, 0, 0.1), Vector3.new(0.5, 0, 0.1), Vector3.new(0, 0.45, 0.05) } do
+		local e = ball(m, Vector3.one * (if i <= 2 then 0.32 else 0.22), CFrame.new(Vector3.new(0, 2.2, -2.4) + o), eye, "Eye")
 		e.Material = Enum.Material.Neon
 	end
-	for _, x in { -1, 1 } do
+	for _, x in { -0.25, 0.25 } do
+		part(m, Vector3.new(0.22, 0.7, 0.22), CFrame.new(x, 1.5, -2.35) * CFrame.Angles(0.3, 0, -x), Color3.fromRGB(220, 210, 190), "Fang")
+	end
+	-- Legs: four a side, reaching out and down to the floor.
+	for _, side in { -1, 1 } do
 		for k = 0, 3 do
-			part(m, Vector3.new(2.4, 0.3, 0.3), CFrame.new(x * 2, 1.3, -1 + k * 0.9) * CFrame.Angles(0, (k - 1.5) * 0.25 * x, x * -0.8), hide, "Leg")
+			local z = -1.3 + k * 0.6
+			local hip = Vector3.new(side * 0.8, 2.2, z)
+			local foot = Vector3.new(side * 3.4, 0.1, z + (k - 1.5) * 1.1)
+			rod(m, (foot - hip).Magnitude + 0.6, 0.3, hip + Vector3.new(0, 0.6, 0), foot, hide, "Leg")
 		end
 	end
 	return m
@@ -216,65 +262,97 @@ local function turtle(): Model
 end
 
 -- Bosses -------------------------------------------------------------------------
-local function neon(p: BasePart): BasePart
-	p.Material = Enum.Material.Neon
-	return p
-end
 
 local function crawlerQueen(): Model
 	local m = caveCrawler()
-	m:ScaleTo(3.2)
-	local hide = Color3.fromRGB(76, 60, 84)
-	part(m, Vector3.new(7, 5, 9), CFrame.new(0, 7, 9), hide, "EggSac")
-	for _, x in { -1, 1 } do
-		part(m, Vector3.new(1, 1, 6), CFrame.new(x * 2.4, 9, -6) * CFrame.Angles(math.rad(30), x * 0.3, 0), hide, "Fang")
-		neon(part(m, Vector3.new(1.2, 1.2, 0.3), CFrame.new(x * 1.6, 9.4, -7.2), Color3.fromRGB(255, 80, 120), "Eye"))
+	m:ScaleTo(3.4)
+	local hide = Color3.fromRGB(60, 40, 66)
+	-- A swollen egg sac glowing from inside, and a crown of bone spines.
+	local sac = ball(m, Vector3.new(9, 7, 10), CFrame.new(0, 9.5, 11), Color3.fromRGB(170, 120, 150), "EggSac", Enum.Material.Glass)
+	sac.Transparency = 0.25
+	local glow = ball(m, Vector3.new(5, 4, 6), CFrame.new(0, 9.5, 11), Color3.fromRGB(255, 120, 170), "EggGlow", Enum.Material.Neon)
+	glow.Transparency = 0.4
+	for k = -2, 2 do
+		local spine = Instance.new("WedgePart")
+		spine.Name = "Crown"
+		spine.Size = Vector3.new(0.6, 3 - math.abs(k) * 0.4, 1.4)
+		spine.CFrame = CFrame.new(k * 0.9, 9.6, -5.6) * CFrame.Angles(0, math.pi, k * 0.25)
+		spine.Color = Color3.fromRGB(230, 220, 200)
+		spine.Anchored, spine.CanCollide = true, false
+		spine.Parent = m
 	end
+	for _, p in m:GetDescendants() do
+		if p:IsA("BasePart") and (p.Name == "Abdomen" or p.Name == "Body" or p.Name == "Head") then
+			p.Color = hide
+		end
+	end
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = Color3.fromRGB(255, 120, 170), 30, 1.5
+	light.Parent = glow
 	return m
 end
 
+-- A hulking statue of dark stone grown through with crystal; its fists are crystal.
 local function crystalWarden(): Model
 	local m = Instance.new("Model")
-	local stone, glow = Color3.fromRGB(70, 66, 92), Color3.fromRGB(190, 140, 255)
-	part(m, Vector3.new(8, 9, 5), CFrame.new(0, 11, 0), stone, "Body")
-	part(m, Vector3.new(4.5, 4, 4), CFrame.new(0, 17.5, -0.4), stone, "Head")
-	neon(part(m, Vector3.new(3, 0.6, 0.3), CFrame.new(0, 18, -2.5), glow, "Eye"))
+	local stone, glow, dark = Color3.fromRGB(78, 74, 100), Color3.fromRGB(190, 140, 255), Color3.fromRGB(46, 42, 62)
+	local body = ball(m, Vector3.new(10, 10, 7), CFrame.new(0, 12, 0), stone, "Body", Enum.Material.Slate)
+	ball(m, Vector3.new(8, 5, 6), CFrame.new(0, 7.5, 0.3), dark, "Hips", Enum.Material.Slate)
+	ball(m, Vector3.new(4.6, 4.2, 4.4), CFrame.new(0, 18, -1.2), stone, "Head", Enum.Material.Slate)
+	local visor = part(m, Vector3.new(3.4, 0.7, 0.4), CFrame.new(0, 18.2, -3.3), glow, "Eye")
+	visor.Material = Enum.Material.Neon
 	for _, x in { -1, 1 } do
-		part(m, Vector3.new(3, 9, 3), CFrame.new(x * 6, 10, 0) * CFrame.Angles(0, 0, x * 0.15), stone, "Arm")
-		neon(part(m, Vector3.new(2.4, 3.4, 2.4), CFrame.new(x * 6.8, 5, -0.4), glow, "Fist"))
-		part(m, Vector3.new(3, 6.5, 3), CFrame.new(x * 2.3, 3.25, 0), stone, "Leg")
+		ball(m, Vector3.new(4.5, 4.5, 4.5), CFrame.new(x * 6, 15, 0), stone, "Shoulder", Enum.Material.Slate)
+		part(m, Vector3.new(3, 8, 3), CFrame.new(x * 6.6, 10, 0) * CFrame.Angles(0, 0, x * 0.12), stone, "Arm").Material = Enum.Material.Slate
+		local fist = ball(m, Vector3.new(3.6, 3.6, 3.6), CFrame.new(x * 7.2, 5.2, -0.3), glow, "Fist", Enum.Material.Neon)
+		fist.Transparency = 0.1
+		part(m, Vector3.new(3.2, 7, 3.2), CFrame.new(x * 2.6, 3.5, 0), dark, "Leg").Material = Enum.Material.Slate
 	end
-	for i = 1, 5 do
-		local a = (i - 3) * 0.35
-		neon(part(m, Vector3.new(1.2, 4 + (3 - math.abs(i - 3)) * 1.5, 1.2), CFrame.new(math.sin(a) * 3.2, 17.5, 1.5) * CFrame.Angles(-0.4, 0, -a), glow, "Shard"))
+	-- Crystal growths out of the back and shoulders.
+	for i = 1, 9 do
+		local a = (i - 5) * 0.32
+		local h = 3 + (4 - math.abs(i - 5)) * 1.4
+		local c = part(m, Vector3.new(1.3, h, 1.3), CFrame.new(math.sin(a) * 4, 15 + math.cos(a) * 2, 2.6) * CFrame.Angles(-0.5, 0, -a * 1.2) * CFrame.new(0, h / 2, 0), glow, "Shard")
+		c.Material = Enum.Material.Glass
+		c.Transparency = 0.15
 	end
 	local light = Instance.new("PointLight")
-	light.Color, light.Range, light.Brightness = glow, 24, 2
-	light.Parent = m:FindFirstChild("Eye")
+	light.Color, light.Range, light.Brightness = glow, 30, 2
+	light.Parent = visor
 	return m
 end
 
+-- Cooled black rock with molten cracks; a burning head and a glowing core.
 local function magmaGolem(): Model
 	local m = Instance.new("Model")
-	local rock, lava = Color3.fromRGB(44, 36, 34), Color3.fromRGB(255, 110, 30)
-	part(m, Vector3.new(10, 10, 7), CFrame.new(0, 13, 0), rock, "Body")
-	neon(part(m, Vector3.new(5, 5, 0.4), CFrame.new(0, 13, -3.6), lava, "Core"))
-	part(m, Vector3.new(5, 4, 4.5), CFrame.new(0, 20, -0.8), rock, "Head")
-	for _, x in { -1.2, 1.2 } do
-		neon(part(m, Vector3.new(1, 0.7, 0.3), CFrame.new(x, 20.4, -3.1), lava, "Eye"))
+	local rock, lava = Color3.fromRGB(40, 32, 30), Color3.fromRGB(255, 110, 30)
+	local body = ball(m, Vector3.new(12, 11, 8), CFrame.new(0, 14, 0), rock, "Body", Enum.Material.Basalt)
+	local core = ball(m, Vector3.new(4.5, 4.5, 1.5), CFrame.new(0, 14, -3.6), lava, "Core", Enum.Material.Neon)
+	ball(m, Vector3.new(9, 5, 7), CFrame.new(0, 8.5, 0.4), rock, "Hips", Enum.Material.Basalt)
+	ball(m, Vector3.new(5, 4.4, 4.6), CFrame.new(0, 20.6, -1), rock, "Head", Enum.Material.Basalt)
+	for _, x in { -1.1, 1.1 } do
+		ball(m, Vector3.new(0.9, 0.6, 0.4), CFrame.new(x, 20.9, -3.2), lava, "Eye", Enum.Material.Neon)
 	end
 	for _, x in { -1, 1 } do
-		part(m, Vector3.new(4, 4, 4), CFrame.new(x * 7.4, 17, 0), rock, "Shoulder")
-		part(m, Vector3.new(3.4, 10, 3.4), CFrame.new(x * 7.6, 10, 0), rock, "Arm")
-		neon(part(m, Vector3.new(0.4, 8, 0.4), CFrame.new(x * 7.6, 10, -1.75), lava, "Crack"))
-		part(m, Vector3.new(4, 8, 4), CFrame.new(x * 3, 4, 0), rock, "Leg")
+		ball(m, Vector3.new(5.5, 5, 5), CFrame.new(x * 7.6, 17, 0), rock, "Shoulder", Enum.Material.Basalt)
+		part(m, Vector3.new(3.8, 9, 3.8), CFrame.new(x * 8, 11, 0), rock, "Arm").Material = Enum.Material.Basalt
+		ball(m, Vector3.new(4.6, 4.6, 4.6), CFrame.new(x * 8.2, 5.4, -0.3), rock, "Fist", Enum.Material.Basalt)
+		part(m, Vector3.new(4.2, 8, 4.2), CFrame.new(x * 3.2, 4, 0), rock, "Leg").Material = Enum.Material.Basalt
+	end
+	-- Molten seams across the body.
+	for i = 1, 7 do
+		local seam = part(m, Vector3.new(0.35, rng:NextNumber(3, 6), 0.3), CFrame.new(rng:NextNumber(-4, 4), rng:NextNumber(10, 17), -3.9) * CFrame.Angles(0, 0, rng:NextNumber(-0.8, 0.8)), lava, "Seam")
+		seam.Material = Enum.Material.Neon
+		if i % 2 == 0 then
+			seam.CFrame = CFrame.new(seam.Position.X, seam.Position.Y, 3.9) * CFrame.Angles(0, 0, rng:NextNumber(-0.8, 0.8))
+		end
 	end
 	local fire = Instance.new("Fire")
-	fire.Size, fire.Heat, fire.Color, fire.SecondaryColor = 6, 4, lava, Color3.fromRGB(255, 200, 80)
+	fire.Size, fire.Heat, fire.Color, fire.SecondaryColor = 7, 5, lava, Color3.fromRGB(255, 200, 80)
 	fire.Parent = m:FindFirstChild("Head")
 	local light = Instance.new("PointLight")
-	light.Color, light.Range, light.Brightness = lava, 28, 2.5
-	light.Parent = m:FindFirstChild("Core")
+	light.Color, light.Range, light.Brightness = lava, 32, 2.5
+	light.Parent = core
 	return m
 end
 
