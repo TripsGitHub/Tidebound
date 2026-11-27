@@ -656,15 +656,11 @@ local function island(terrain: Terrain, isl: Island)
 	terrain:FillCylinder(CFrame.new(x, 3 - 20, z), 40, coreR, core[isl.biome])
 
 	if isl.biome == "hills" then
-		-- Rolling hills and a couple of inland lakes.
+		-- Rolling hills (no inland lakes: they read as stray pools).
 		for _ = 1, 7 do
 			local a, d = rng:NextNumber(0, math.pi * 2), rng:NextNumber(0, r * 0.6)
 			local rad = rng:NextNumber(20, 38)
 			terrain:FillBall(Vector3.new(x + math.cos(a) * d, -rad * 0.6, z + math.sin(a) * d), rad, Enum.Material.Grass)
-		end
-		for _ = 1, 2 do
-			local a, d = rng:NextNumber(0, math.pi * 2), rng:NextNumber(r * 0.2, r * 0.5)
-			terrain:FillCylinder(CFrame.new(x + math.cos(a) * d, 1.6, z + math.sin(a) * d), 3, rng:NextNumber(10, 16), Enum.Material.Water)
 		end
 	elseif isl.biome == "rock" then
 		-- Steep rock cliffs along the coast, grass between.
@@ -1225,7 +1221,7 @@ local function openShaft(sh)
 	sh.top = Vector3.new(x, surface, z)
 	local h = surface + 10 - sh.bottom.Y
 	terrain:FillCylinder(CFrame.new(x, sh.bottom.Y + h / 2, z), h, sh.r, Enum.Material.Air)
-	terrain:FillBall(Vector3.new(x, surface + 1, z), sh.r + 3, Enum.Material.Air)
+	terrain:FillBall(Vector3.new(x, surface + 3, z), sh.r + 1, Enum.Material.Air) -- just a lip, not a crater
 	if sh.kind == "waterfall" then
 		local wh = surface - 0.5 - (sh.bottom.Y + 1)
 		terrain:FillCylinder(CFrame.new(x, sh.bottom.Y + 1 + wh / 2, z), wh, sh.r - 0.5, Enum.Material.Water)

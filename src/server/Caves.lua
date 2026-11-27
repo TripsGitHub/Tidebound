@@ -54,6 +54,7 @@ export type Result = {
 	bossRooms: { { pos: Vector3, r: number, boss: string } },
 	barriers: { { pos: Vector3, dir: Vector3, r: number, kind: string } },
 	plugs: { { pos: Vector3, dir: Vector3, r: number, zones: string } }?,
+	roofs: { { x: number, z: number, y0: number, y1: number, r: number, top: Enum.Material } }?,
 	shafts: { { bottom: Vector3, top: Vector3, kind: string, r: number } },
 	lobes: { { pos: Vector3, r: number } },
 	pillars: { { pos: Vector3, height: number, r: number } },
@@ -254,8 +255,10 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 		if entrance and angle then
 			local radius = math.max(60, (Vector3.new(entrance.X, 0, entrance.Z) - Vector3.new(cx, 0, cz)).Magnitude)
 			-- Down into the hill from the mouth, then spiral.
-			local path = { entrance + Vector3.new(0, 4, 0) }
-			local s1, a1 = spiral(cx, cz, radius, angle, entrance.Y - 2, UPPER_Y)
+			-- A short steep ramp first (about 1 down for 2.5 along), so the hall is under a
+			-- proper roof within a few strides instead of running as an open trench.
+			local path = { entrance + Vector3.new(0, 3, 0) }
+			local s1, a1 = spiral(cx, cz, radius, angle + 26 / radius, entrance.Y - 9, UPPER_Y)
 			table.move(s1, 1, #s1, #path + 1, path)
 			local upper = path[#path]
 			table.insert(halls, add(path, HALL_R, "hall", Z.SURF))
@@ -296,7 +299,8 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 				local foot = upperC + Vector3.new(math.cos(a) * 18, 2, math.sin(a) * 18)
 				local hit = groundAt(foot.X, foot.Z)
 				if hit and hit.Position.Y > 4 and hit.Material ~= M.Water and canEnter(isl, foot.X, foot.Z) then
-					local kind = if k == 1 and rng:NextNumber() < 0.5 then "waterfall" else "ladder"
+					-- Always a ladder: a water-filled shaft left a pond sitting on the hilltop.
+					local kind = "ladder"
 					local r = 6 -- wide enough to climb or swim up without catching the walls
 					local pts = {}
 					for y = foot.Y, hit.Position.Y + 2, 3 do
@@ -615,6 +619,40 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	end
 
 	Caves.fixLeaks(result)
+	-- Where a tunnel runs close under the ground its balls break the surface and leave
+	-- round dirt craters. Away from the mouths, put the ground back over it: rock down to
+	-- a roof a little over the middle of the tunnel, the island's own top layer on top.
+	local mouths = {}
+	for _, e in result.entrances do
+		table.insert(mouths, { p = e.pos, r = 6 })
+	end
+	for _, e in result.exits do
+		table.insert(mouths, { p = e.pos, r = 12 })
+	end
+	for _, sh in result.shafts do
+		table.insert(mouths, { p = sh.top, r = sh.r + 14 })
+	end
+	result.roofs = {}
+	for _, t in result.tunnels do
+		if t.kind ~= "shaft" then
+			for _, p in samples(t.points) do
+				local clear = true
+				for _, m in mouths do
+					if (Vector3.new(p.X - m.p.X, 0, p.Z - m.p.Z)).Magnitude < m.r + t.r then
+						clear = false
+						break
+					end
+				end
+				if clear and p.Y + t.r > -2 then
+					local g = groundAt(p.X, p.Z)
+					local roof = p.Y + t.r * 0.55
+					if g and g.Material ~= M.Water and g.Position.Y > roof + 1 and g.Position.Y < p.Y + t.r + 4 then
+						table.insert(result.roofs, { x = p.X, z = p.Z, y0 = roof, y1 = g.Position.Y, r = t.r + 1, top = g.Material })
+					end
+				end
+			end
+		end
+	end
 	Caves.carveAll(terrain, result)
 	return result
 end
@@ -1025,6 +1063,15 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 	-- Rock slabs between bits of cave in different zones that the gap fixer couldn't part.
 	for _, pt in result.plugs or {} do
 		terrain:FillCylinder(CFrame.lookAt(pt.pos, pt.pos + pt.dir) * CFrame.Angles(-math.pi / 2, 0, 0), WALL, pt.r, M.Rock)
+	end
+	-- Roofs back over tunnels that ran too close under the ground (see Caves.build).
+	for _, rf in result.roofs or {} do
+		local skin = math.min(3, rf.y1 - rf.y0)
+		local rockH = rf.y1 - skin - rf.y0
+		if rockH > 0.5 then
+			terrain:FillCylinder(CFrame.new(rf.x, rf.y0 + rockH / 2, rf.z), rockH, rf.r, M.Rock)
+		end
+		terrain:FillCylinder(CFrame.new(rf.x, rf.y1 - skin / 2, rf.z), skin, rf.r, rf.top)
 	end
 
 	-- The ravines are open to the sea: a flat-floored trench with ragged walls, and a
