@@ -93,7 +93,7 @@ local function snapshot(player: Player): { [string]: any }?
 		xp = prog.xp,
 		shells = prog.shells,
 		quests = Quests.export(player),
-		builds = Building.export(player),
+		base = Building.export(player),
 	}
 end
 
@@ -155,8 +155,8 @@ function Save.load(player: Player): boolean
 		Inventory.load(player, data)
 		Progression.load(player, data)
 		Quests.load(player, data.quests)
-		if data.builds then
-			task.defer(Building.restore, player, data.builds)
+		if data.base then
+			Building.load(player, data.base)
 		end
 	end
 	loaded[player] = true

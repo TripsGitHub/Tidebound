@@ -447,6 +447,12 @@ function builders.stone_base(m)
 	return slab(m, C.stone, Enum.Material.Slate, C.stoneDark)
 end
 
+function builders.large_stone_base(m)
+	local core = slab(m, C.stoneDark, Enum.Material.Slate, C.stone)
+	part(m, Vector3.new(1.2, 0.32, 1.2), CFrame.new(0, 0.05, 0), C.stone, Enum.Material.Slate)
+	return core
+end
+
 function builders.wood_wall(m)
 	return part(m, Vector3.new(2, 2.2, 0.3), CFrame.new(), C.wood, Enum.Material.WoodPlanks)
 end

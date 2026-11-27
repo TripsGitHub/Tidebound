@@ -40,11 +40,12 @@ local Items = {
 
 	-- Buildables -------------------------------------------------------
 	campfire = { name = "Campfire", kind = "placeable", order = 30, structure = "Campfire" },
-	wood_base = { name = "Wood Base", kind = "placeable", order = 31, structure = "WoodBase" },
+	wood_base = { name = "Wooden Base", kind = "placeable", order = 31, structure = "WoodBase" },
 	wood_wall = { name = "Wood Wall", kind = "placeable", order = 32, structure = "WoodWall" },
 	wood_gate = { name = "Wood Gate", kind = "placeable", order = 33, structure = "WoodGate" },
 	stone_base = { name = "Stone Base", kind = "placeable", order = 34, structure = "StoneBase" },
 	stone_wall = { name = "Stone Wall", kind = "placeable", order = 35, structure = "StoneWall" },
+	large_stone_base = { name = "Large Stone Base", kind = "placeable", order = 34.5, structure = "LargeStoneBase" },
 	storage_chest = { name = "Storage Chest", kind = "placeable", order = 36, structure = "Chest" },
 
 	-- Resources --------------------------------------------------------

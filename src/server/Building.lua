@@ -70,6 +70,16 @@ function builders.StoneBase(model: Model, cf: CFrame, size: Vector3)
 	return core
 end
 
+function builders.LargeStoneBase(model: Model, cf: CFrame, size: Vector3)
+	local core = builders.StoneBase(model, cf, size)
+	core.Color = STONE_DARK
+	-- Flagstone inlay so it reads as the big one.
+	for _, o in { Vector3.new(-size.X / 4, 0, -size.Z / 4), Vector3.new(size.X / 4, 0, size.Z / 4), Vector3.new(-size.X / 4, 0, size.Z / 4), Vector3.new(size.X / 4, 0, -size.Z / 4) } do
+		part(model, false, { Name = "Flag", Size = Vector3.new(size.X / 2 - 3, 0.12, size.Z / 2 - 3), CFrame = cf * CFrame.new(o + Vector3.new(0, size.Y / 2 - 0.25, 0)), Color = STONE, Material = Enum.Material.Slate })
+	end
+	return core
+end
+
 function builders.WoodWall(model: Model, cf: CFrame, size: Vector3)
 	local core = part(model, true, { Name = "Core", Size = size - Vector3.new(0.2, 0, 0.3), CFrame = cf, Color = WOOD, Material = Enum.Material.Wood })
 	-- Upright logs with pointed tops, like a palisade.
@@ -268,6 +278,10 @@ function Building.onPlace(player: Player, itemId: unknown, position: unknown, ro
 		Remotes.Notify:FireClient(player, "You need " .. cost .. " " .. item.name .. " for that size", "warn")
 		return
 	end
+	if Structures.isBase(item.structure) and baseOf(player.UserId) then
+		Remotes.Notify:FireClient(player, "You already have a base. Build on it, or break it to move", "warn")
+		return
+	end
 	if ownedCount(player.UserId) >= Config.MaxStructures then
 		Remotes.Notify:FireClient(player, "Base is at its size limit (" .. Config.MaxStructures .. " pieces)", "warn")
 		return
@@ -328,78 +342,168 @@ function Building.onPlace(player: Player, itemId: unknown, position: unknown, ro
 	if not Inventory.take(player, itemId, cost) then
 		return
 	end
-	construct(player.UserId, player, itemId, cf, n)
+	local placed = construct(player.UserId, player, itemId, cf, n)
 	Crafting.placed(player, itemId)
+	if Structures.isBase(item.structure) then
+		rebuildOn(player, placed)
+	end
 	Quests.record(player, "build", nil, 1)
 end
 
--- Saving bases: every piece you own, as plain numbers, so it can be rebuilt on any
--- server when you come back.
-function Building.export(player: Player): { any }
+-- Bases ---------------------------------------------------------------------------
+-- Each player has one base (a Wooden, Stone or Large Stone plot). Only what stands on
+-- it is saved, relative to the base, so the whole thing can be put down anywhere:
+-- when you join you craft a new base plate, and placing it rebuilds what was on your
+-- old one (any plate type; pieces that don't fit on a smaller plate stay saved).
+-- Pieces built away from your base are temporary. Leaving clears your pieces.
+
+local pending: { [Player]: { itemId: string?, builds: { any } } } = {}
+
+local function baseOf(userId: number): Model?
+	for _, m in workspace.Structures:GetChildren() do
+		local st = m:GetAttribute("StructureType")
+		if m:GetAttribute("OwnerId") == userId and st and Structures.isBase(st) and m:IsA("Model") and m.PrimaryPart then
+			return m
+		end
+	end
+	return nil
+end
+Building.baseOf = baseOf
+
+-- The base's build frame: centre of its top face, turned with it.
+local function baseFrame(base: Model): (CFrame, Vector3)
+	local core = base.PrimaryPart :: BasePart
+	local _, ry = core.CFrame:ToOrientation()
+	local top = core.Position.Y + core.Size.Y / 2
+	return CFrame.new(core.Position.X, top, core.Position.Z) * CFrame.Angles(0, ry, 0), core.Size
+end
+
+-- Where a piece was built (the cf construct() got), from its core.
+local function buildCf(m: Model): CFrame
+	local cf = (m.PrimaryPart :: BasePart).CFrame
+	local st = m:GetAttribute("StructureType")
+	if st == "Chest" then
+		local size = Structures.sizeFor("Chest")
+		cf = cf * CFrame.new(0, size.Y / 2 - size.Y * 0.34, 0)
+	elseif st == "Campfire" then
+		cf = cf * CFrame.new(0, Structures.sizeFor("Campfire").Y / 2 - 0.2, 0)
+	elseif st and Structures.isBase(st) then
+		cf = cf * CFrame.new(0, 0.15, 0)
+	end
+	return cf
+end
+
+local function onBase(frame: CFrame, size: Vector3, p: Vector3): boolean
+	local rel = frame:PointToObjectSpace(p)
+	return math.abs(rel.X) <= size.X / 2 + 1.5 and math.abs(rel.Z) <= size.Z / 2 + 1.5 and rel.Y > -3 and rel.Y < 40
+end
+
+local function round1(n: number): number
+	return math.round(n * 10) / 10
+end
+
+-- Called when a base goes down: if it's the one you saved, everything on it comes back.
+local function rebuildOn(player: Player, base: Model)
+	local saved = pending[player]
+	if not saved then
+		return
+	end
+	pending[player] = nil
+	local frame, plate = baseFrame(base)
+	local count, skipped = 0, 0
+	local leftover = {}
+	for _, e in saved.builds do
+		local item = type(e) == "table" and Items[e.i]
+		if item and item.kind == "placeable" and Structures[item.structure] and not Structures.isBase(item.structure) and type(e.x) == "number" then
+			local size = Structures.sizeFor(item.structure)
+			local cf = frame * CFrame.new(e.x, e.y, e.z) * CFrame.Angles(0, math.rad(tonumber(e.r) or 0), 0)
+			if not onBase(frame, plate, cf.Position) then
+				table.insert(leftover, e) -- needs a bigger plate; kept for next time
+			elseif count < Config.MaxStructures and not blocked(cf, size) then
+				construct(player.UserId, player, e.i, cf, 1, if (tonumber(e.hp) or 0) > 0 then e.hp else nil, e.c)
+				count += 1
+			else
+				skipped += 1
+			end
+		end
+	end
+	if #leftover > 0 then
+		-- Remember what didn't fit, so a bigger plate later still brings it back.
+		pending[player] = { itemId = saved.itemId, builds = leftover }
+	end
+	Remotes.Notify:FireClient(player, "Your base is back" .. (if count > 0 then " with " .. count .. " pieces" else "") .. (if #leftover > 0 then " (" .. #leftover .. " need a bigger base)" elseif skipped > 0 then " (" .. skipped .. " were blocked)" else ""), "good")
+end
+
+-- What to save: your base and everything on it. nil when you have no base.
+function Building.export(player: Player): any
+	local base = baseOf(player.UserId)
+	if not base then
+		local p = pending[player]
+		return if p then { i = p.itemId, builds = p.builds } else nil
+	end
+	local frame, size = baseFrame(base)
 	local list = {}
 	for _, m in workspace.Structures:GetChildren() do
 		local itemId = m:GetAttribute("ItemId")
-		if m:GetAttribute("OwnerId") == player.UserId and itemId and m:IsA("Model") and m.PrimaryPart then
-			local cf = m.PrimaryPart.CFrame
-			local st = m:GetAttribute("StructureType")
-			if st == "Chest" then
-				-- the chest's core is its lower body; the build centre is higher up
-				local size = Structures.sizeFor("Chest")
-				cf = cf * CFrame.new(0, size.Y / 2 - size.Y * 0.34, 0)
-			elseif Structures.isFloor(st) or st == "Campfire" then
-				-- cores of floors/campfires are offset down from the build centre
-				cf = cf * CFrame.new(0, if m:GetAttribute("StructureType") == "Campfire" then (Structures.sizeFor("Campfire").Y / 2 - 0.2) else 0.15, 0)
-			end
-			local _, ry = cf:ToOrientation()
-			table.insert(list, {
-				i = itemId,
-				x = math.round(cf.X * 10) / 10,
-				y = math.round(cf.Y * 10) / 10,
-				z = math.round(cf.Z * 10) / 10,
-				r = Structures.snapRotation(math.deg(ry)),
-				n = m:GetAttribute("Tiles") or 1,
-				hp = math.floor(m:GetAttribute("HP") or 0),
-				c = if st == "Chest" then Chests.export(m) else nil,
-			})
-			if #list >= Config.MaxStructures then
-				break
+		local st = m:GetAttribute("StructureType")
+		if m ~= base and m:GetAttribute("OwnerId") == player.UserId and itemId and st and m:IsA("Model") and m.PrimaryPart and not Structures.isBase(st) then
+			local cf = buildCf(m)
+			if onBase(frame, size, cf.Position) then
+				local rel = frame:ToObjectSpace(cf)
+				local _, ry = rel:ToOrientation()
+				table.insert(list, {
+					i = itemId,
+					x = round1(rel.X),
+					y = round1(rel.Y),
+					z = round1(rel.Z),
+					r = Structures.snapRotation(math.deg(ry)),
+					hp = math.floor(m:GetAttribute("HP") or 0),
+					c = if st == "Chest" then Chests.export(m) else nil,
+				})
+				if #list >= Config.MaxStructures then
+					break
+				end
 			end
 		end
 	end
-	return list
+	return { i = base:GetAttribute("ItemId"), hp = math.floor(base:GetAttribute("HP") or 0), builds = list }
 end
 
--- Rebuild a saved base. Pieces already standing (you came back to the same server)
--- or now blocked by something are skipped.
-function Building.restore(player: Player, list: any)
-	if type(list) ~= "table" then
+-- On join: remember what stood on your base. Craft and place a base plate to get it back.
+function Building.load(player: Player, saved: any)
+	if type(saved) ~= "table" or type(saved.builds) ~= "table" or #saved.builds == 0 then
 		return
 	end
-	workspace:WaitForChild("Structures")
-	local mine: { [string]: boolean } = {}
-	for _, m in workspace.Structures:GetChildren() do
-		if m:GetAttribute("OwnerId") == player.UserId and m:IsA("Model") and m.PrimaryPart then
-			local p = m.PrimaryPart.Position
-			mine[math.round(p.X) .. "," .. math.round(p.Z) .. "," .. tostring(m:GetAttribute("ItemId"))] = true
+	local item = type(saved.i) == "string" and Items[saved.i]
+	pending[player] = { itemId = saved.i, builds = saved.builds }
+	task.delay(6, function() -- once their screen is up
+		if player.Parent and pending[player] then
+			Remotes.Notify:FireClient(player, "Craft and place a base to bring back your " .. #saved.builds .. " saved pieces" .. (if item then " (you had a " .. item.name .. ")" else ""), "good")
 		end
-	end
-	local count = 0
-	for _, e in list do
-		if count >= Config.MaxStructures then
-			break
+	end)
+end
+
+function Building.pendingBase(player: Player): string?
+	local p = pending[player]
+	return p and p.itemId
+end
+
+-- Leaving: your pieces go with you (they're saved on your base).
+function Building.removePlayer(player: Player)
+	local id = player.UserId
+	task.delay(1, function() -- after Save.leave has taken its snapshot
+		pending[player] = nil
+		if game:GetService("Players"):GetPlayerByUserId(id) then
+			return -- came straight back
 		end
-		local item = type(e) == "table" and Items[e.i]
-		if item and item.kind == "placeable" and Structures[item.structure] and type(e.x) == "number" then
-			local key = math.round(e.x) .. "," .. math.round(e.z) .. "," .. e.i
-			local n = if Structures.isFloor(item.structure) then math.clamp(tonumber(e.n) or 1, 1, Structures.MAX_TILES) else 1
-			local size = Structures.sizeFor(item.structure, n)
-			local cf = CFrame.new(e.x, e.y, e.z) * CFrame.Angles(0, math.rad(tonumber(e.r) or 0), 0)
-			if not mine[key] and not blocked(cf, size) then
-				construct(player.UserId, player, e.i, cf, n, if (tonumber(e.hp) or 0) > 0 then e.hp else nil, e.c)
-				count += 1
+		for _, m in workspace.Structures:GetChildren() do
+			if m:GetAttribute("OwnerId") == id then
+				m:SetAttribute("Despawn", true)
+				m:Destroy()
 			end
 		end
-	end
+	end)
 end
+Players.PlayerRemoving:Connect(Building.removePlayer)
 
 return Building

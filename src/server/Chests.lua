@@ -92,8 +92,8 @@ function Chests.setup(model: Model, saved: any)
 			end
 		end
 		viewers[model] = nil
-		-- Broken open: everything inside spills out.
-		if box2 then
+		-- Broken open: everything inside spills out (not when its owner just left).
+		if box2 and not model:GetAttribute("Despawn") then
 			for id, n in box2 do
 				Drops.spawn(id, n, at + Vector3.new(0, 2, 0))
 			end

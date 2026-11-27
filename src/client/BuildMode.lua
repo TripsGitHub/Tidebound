@@ -118,10 +118,9 @@ RunService.RenderStepped:Connect(function()
 	local item = Items[currentItem :: string]
 	local floor = Structures.isFloor(item.structure)
 	local wall = item.structure == "WoodWall" or item.structure == "StoneWall" or item.structure == "WoodGate"
-	-- Snap to your floors: a new floor clicks onto the nearest edge of one nearby, a
-	-- wall lines up along the nearest floor edge, so bases join up cleanly.
+	-- Walls snap to your base: they line up along its nearest edge.
 	local structures = workspace:FindFirstChild("Structures")
-	if structures and (floor or wall) then
+	if structures and wall then
 		local best, bestDist = nil, math.huge
 		for _, m in structures:GetChildren() do
 			local st = m:GetAttribute("StructureType")
