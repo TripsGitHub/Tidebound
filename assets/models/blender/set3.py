@@ -57,7 +57,17 @@ def xform(bm, loc=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
     M = Matrix.Translation(V(loc)) @ Euler(rot).to_matrix().to_4x4() @ Matrix.Diagonal((*scale, 1))
     bmesh.ops.transform(bm, matrix=M, verts=bm.verts)
 
+# Small details (rivets, plumes, horns, extra shards, straps) only go in with DETAIL=1.
+# The default is the simpler look.
+DETAIL = os.environ.get('DETAIL') == '1'
+_skip = [False]
+class extra:
+    def __enter__(self): _skip[0] = not DETAIL
+    def __exit__(self, *a): _skip[0] = False
+
 def make(bm, role):
+    if _skip[0]:
+        bm.free(); return None
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     ob = obj_from_bm(bm, role, MAT[role])
     CUR.append(ob)
@@ -251,26 +261,28 @@ def helmet_wood():
     lathe('Plate', dome(0.8, 0.8, -0.04, 0.8, nv=5, power=0.5), nu=10, n=2.6, jitter=0.03, seed=2, thick=0.06, cap_top=True)
     lathe('Plate', [(-0.12, 0.9, 0.9), (-0.03, 0.84, 0.84)], nu=10, n=2.6, thick=0.05, seed=3, jitter=0.03)
     lathe('Trim', [(0.0, 0.85, 0.85), (0.13, 0.84, 0.84)], nu=14, n=2.6, thick=0.05)
-    gem('Trim', 0.08, (0.86, -0.12, 0.06), squash=(0.8, 1, 1))
-    for i, (dy, dz, ang) in enumerate([(0.0, 0.0, 0.2), (-0.12, 0.02, -0.25), (0.1, 0.02, 0.6)]):
-        b = V((0.86, -0.14 + dy, 0.08 + dz))
-        d = V((0.15, -0.35 + ang * 0.3, 0.9)).normalized()
-        tube('Accent', [(b, 0.02), (b + d * 0.14, 0.1), (b + d * 0.34, 0.08), (b + d * 0.5, 0)], sides=4, flat=0.18)
-    tube('Strap', [((0.66, 0.0, -0.02), 0.05), ((0.6, 0.12, -0.38), 0.05), ((0.36, 0.42, -0.62), 0.05),
-                   ((0, 0.5, -0.68), 0.05), ((-0.36, 0.42, -0.62), 0.05), ((-0.6, 0.12, -0.38), 0.05),
-                   ((-0.66, 0.0, -0.02), 0.05)], sides=4, flat=0.35)
+    with extra():
+        gem('Trim', 0.08, (0.86, -0.12, 0.06), squash=(0.8, 1, 1))
+        for i, (dy, dz, ang) in enumerate([(0.0, 0.0, 0.2), (-0.12, 0.02, -0.25), (0.1, 0.02, 0.6)]):
+            b = V((0.86, -0.14 + dy, 0.08 + dz))
+            d = V((0.15, -0.35 + ang * 0.3, 0.9)).normalized()
+            tube('Accent', [(b, 0.02), (b + d * 0.14, 0.1), (b + d * 0.34, 0.08), (b + d * 0.5, 0)], sides=4, flat=0.18)
+        tube('Strap', [((0.66, 0.0, -0.02), 0.05), ((0.6, 0.12, -0.38), 0.05), ((0.36, 0.42, -0.62), 0.05),
+                       ((0, 0.5, -0.68), 0.05), ((-0.36, 0.42, -0.62), 0.05), ((-0.6, 0.12, -0.38), 0.05),
+                       ((-0.66, 0.0, -0.02), 0.05)], sides=4, flat=0.35)
 
 def helmet_stone():
     lathe('Plate', dome(0.82, 0.82, -0.04, 0.8, nv=4, power=0.5), nu=8, n=2.6, jitter=0.07, seed=5, thick=0.08, cap_top=True)
     box('Plate', (1.3, 0.28, 0.24), (0, 0.76, 0.1), (math.radians(12), 0, 0), bevel=0.05, jitter=0.05, seed=6)
     lathe('Strap', [(-0.05, 0.86, 0.86), (0.1, 0.85, 0.85)], nu=12, n=2.6, thick=0.04)
-    def horn(sx):
-        tube('Accent', [((sx * 0.66, 0.05, 0.26), 0.13), ((sx * 0.98, 0.04, 0.4), 0.11),
-                        ((sx * 1.12, 0.0, 0.7), 0.08), ((sx * 1.06, -0.08, 0.95), 0.04), ((sx * 0.96, -0.12, 1.05), 0)], sides=6)
-        box('Trim', (0.16, 0.2, 0.18), (sx * 0.8, 0.04, 0.3), bevel=0.03, jitter=0.1, seed=7)
-    mirror_x(horn)
-    for x in (-0.25, 0.25):
-        box('Trim', (0.12, 0.08, 0.16), (x, 0.88, 0.04), bevel=0.02, jitter=0.1, seed=8)
+    with extra():
+        def horn(sx):
+            tube('Accent', [((sx * 0.66, 0.05, 0.26), 0.13), ((sx * 0.98, 0.04, 0.4), 0.11),
+                            ((sx * 1.12, 0.0, 0.7), 0.08), ((sx * 1.06, -0.08, 0.95), 0.04), ((sx * 0.96, -0.12, 1.05), 0)], sides=6)
+            box('Trim', (0.16, 0.2, 0.18), (sx * 0.8, 0.04, 0.3), bevel=0.03, jitter=0.1, seed=7)
+        mirror_x(horn)
+        for x in (-0.25, 0.25):
+            box('Trim', (0.12, 0.08, 0.16), (x, 0.88, 0.04), bevel=0.02, jitter=0.1, seed=8)
 
 def helmet_metal():
     lathe('Plate', dome(0.8, 0.81, -0.04, 0.8, nv=6, power=0.5), nu=18, n=2.6, thick=0.05, cap_top=True)
@@ -278,26 +290,30 @@ def helmet_metal():
     lathe('Plate', [(-0.6, 0.86, 0.87), (-0.3, 0.83, 0.84), (-0.03, 0.81, 0.82)], az=(128, 412), nu=16, n=2.6, thick=0.05)
     box('Plate', (0.13, 0.07, 0.46), (0, 0.85, -0.14), bevel=0.02, taper=(1.3, 1))
     lathe('Trim', [(-0.08, 0.84, 0.85), (0.1, 0.835, 0.845)], nu=18, n=2.6, thick=0.04)
-    rivets('Trim', 0.01, 0.85, 0.86, 2.6, 10)
-    # Crest ridge from brow to nape, and a plume behind it.
-    pts = []
-    for k in range(9):
-        t = math.radians(20 + 150 * k / 8)  # angle from +Y over the top to the back
-        pts.append(((0, 0.84 * math.cos(t), -0.04 + 0.84 * math.sin(t) ** 0.9), 0.06))
-    tube('Trim', pts, sides=4, flat=1.6)
-    tube('Accent', [((0, 0.2, 0.86), 0.06), ((0, -0.15, 0.95), 0.12), ((0, -0.55, 0.85), 0.13),
-                    ((0, -0.86, 0.5), 0.1), ((0, -0.95, 0.12), 0.05), ((0, -0.96, -0.05), 0)], sides=6, flat=0.55)
+    with extra():
+        rivets('Trim', 0.01, 0.85, 0.86, 2.6, 10)
+        # Crest ridge from brow to nape, and a plume behind it.
+        pts = []
+        for k in range(9):
+            t = math.radians(20 + 150 * k / 8)  # angle from +Y over the top to the back
+            pts.append(((0, 0.84 * math.cos(t), -0.04 + 0.84 * math.sin(t) ** 0.9), 0.06))
+        tube('Trim', pts, sides=4, flat=1.6)
+        tube('Accent', [((0, 0.2, 0.86), 0.06), ((0, -0.15, 0.95), 0.12), ((0, -0.55, 0.85), 0.13),
+                        ((0, -0.86, 0.5), 0.1), ((0, -0.95, 0.12), 0.05), ((0, -0.96, -0.05), 0)], sides=6, flat=0.55)
 
 def helmet_crystal():
     lathe('Plate', dome(0.84, 0.84, -0.04, 0.8, nv=3, power=0.45), nu=6, n=2.0, offset=30, thick=0.07, cap_top=True)
     lathe('Trim', [(-0.12, 0.9, 0.9), (0.1, 0.87, 0.87)], nu=6, offset=30, thick=0.06)
     lathe('Trim', [(-0.55, 0.9, 0.9), (-0.1, 0.88, 0.88)], az=(150, 390), nu=4, thick=0.06)
-    for i, (a, length, r, tilt) in enumerate([(90, 0.75, 0.11, 0.15), (55, 0.5, 0.08, 0.45), (125, 0.5, 0.08, 0.45),
-                                              (15, 0.4, 0.07, 0.7), (165, 0.4, 0.07, 0.7), (270, 0.45, 0.08, 0.5)]):
-        ar = math.radians(a)
-        base = V((math.cos(ar) * 0.64, math.sin(ar) * 0.64, 0.4))
-        d = V((math.cos(ar) * tilt, math.sin(ar) * tilt, 1))
-        shard('Accent', base, d, length, r, seed=i)
+    with extra():
+        for i, (a, length, r, tilt) in enumerate([(90, 0.75, 0.11, 0.15), (55, 0.5, 0.08, 0.45), (125, 0.5, 0.08, 0.45),
+                                                  (15, 0.4, 0.07, 0.7), (165, 0.4, 0.07, 0.7), (270, 0.45, 0.08, 0.5)]):
+            ar = math.radians(a)
+            base = V((math.cos(ar) * 0.64, math.sin(ar) * 0.64, 0.4))
+            d = V((math.cos(ar) * tilt, math.sin(ar) * tilt, 1))
+            shard('Accent', base, d, length, r, seed=i)
+    if not DETAIL:
+        shard('Accent', (0, 0.66, 0.42), (0, 0.25, 1), 0.55, 0.11, seed=0)
 
 # ---- chest (on UpperTorso, 2 x 1.6 x 1) + pauldron (on the right UpperArm, outward +X) ----
 
@@ -319,11 +335,12 @@ def chest_wood():
             bevel=0.025, jitter=0.04, seed=i)
     for z in (0.42, -0.42):
         lathe('Trim', [(z - 0.06, 1.2, 0.72), (z + 0.06, 1.2, 0.72)], nu=24, n=4, thick=0.06)
-    shoulder_straps()
-    for i, (dx, ang) in enumerate([(0, 0.1), (0.1, -0.5), (-0.08, 0.6)]):
-        b = V((-0.45 + dx, 0.76, 0.42))
-        d = V((ang * 0.5, 0.15, 1)).normalized()
-        tube('Accent', [(b, 0.02), (b + d * 0.16, 0.11), (b + d * 0.36, 0.09), (b + d * 0.52, 0)], sides=4, flat=0.18)
+    with extra():
+        shoulder_straps()
+        for i, (dx, ang) in enumerate([(0, 0.1), (0.1, -0.5), (-0.08, 0.6)]):
+            b = V((-0.45 + dx, 0.76, 0.42))
+            d = V((ang * 0.5, 0.15, 1)).normalized()
+            tube('Accent', [(b, 0.02), (b + d * 0.16, 0.11), (b + d * 0.36, 0.09), (b + d * 0.52, 0)], sides=4, flat=0.18)
 
 def chest_stone():
     box('Plate', (1.75, 0.18, 1.32), (0, 0.6, 0.04), (math.radians(-4), 0, math.radians(2)), bevel=0.06, jitter=0.05, seed=11)
@@ -332,29 +349,33 @@ def chest_stone():
     for sx in (-1, 1):
         box('Plate', (0.18, 0.95, 1.05), (sx * 1.04, 0, -0.06), bevel=0.05, jitter=0.06, seed=14 + sx)
     lathe('Strap', [(-0.62, 1.2, 0.74), (-0.46, 1.2, 0.74)], nu=24, n=4, thick=0.05)
-    for sx in (-1, 1):
-        tube('Strap', [((sx * 0.92, 0.72, 0.72), 0.08), ((0, 0.78, 0.06), 0.08), ((-sx * 0.92, 0.72, -0.56), 0.08)], sides=4, flat=0.3)
-    shoulder_straps()
-    gem('Trim', 0.1, (0, 0.82, 0.06), squash=(1.2, 0.7, 1.2))
-    for i, dx in enumerate((-0.16, 0, 0.16)):
-        b = V((dx, 0.84, 0.0))
-        tube('Accent', [(b, 0.05), (b + V((dx * 0.4, 0.06, -0.18)), 0.045), (b + V((dx * 0.8, 0.12, -0.32)), 0.03),
-                        (b + V((dx, 0.2, -0.4)), 0)], sides=5)
+    with extra():
+        for sx in (-1, 1):
+            tube('Strap', [((sx * 0.92, 0.72, 0.72), 0.08), ((0, 0.78, 0.06), 0.08), ((-sx * 0.92, 0.72, -0.56), 0.08)], sides=4, flat=0.3)
+        shoulder_straps()
+        gem('Trim', 0.1, (0, 0.82, 0.06), squash=(1.2, 0.7, 1.2))
+        for i, dx in enumerate((-0.16, 0, 0.16)):
+            b = V((dx, 0.84, 0.0))
+            tube('Accent', [(b, 0.05), (b + V((dx * 0.4, 0.06, -0.18)), 0.045), (b + V((dx * 0.8, 0.12, -0.32)), 0.03),
+                            (b + V((dx, 0.2, -0.4)), 0)], sides=5)
 
 def chest_metal():
     prof = [(-0.84, 1.1, 0.62), (-0.4, 1.13, 0.67), (0.2, 1.15, 0.72), (0.6, 1.13, 0.68), (0.84, 1.1, 0.66)]
     lathe('Plate', prof, nu=28, n=4, thick=0.06)
-    box('Plate', (0.1, 0.07, 1.5), (0, 0.71, 0), rot=(math.radians(-2), 0, 0), bevel=0.02)
+    with extra():
+        box('Plate', (0.1, 0.07, 1.5), (0, 0.71, 0), rot=(math.radians(-2), 0, 0), bevel=0.02)
     lathe('Trim', [(-0.9, 1.15, 0.68), (-0.74, 1.15, 0.68)], nu=28, n=4, thick=0.05)
-    lathe('Trim', [(-0.68, 1.16, 0.7), (-0.54, 1.16, 0.7)], nu=28, n=4, thick=0.04)
-    rivets('Trim', -0.82, 1.16, 0.69, 4, 14)
+    with extra():
+        lathe('Trim', [(-0.68, 1.16, 0.7), (-0.54, 1.16, 0.7)], nu=28, n=4, thick=0.04)
+        rivets('Trim', -0.82, 1.16, 0.69, 4, 14)
     lathe('Trim', [(0.74, 0.66, 0.52), (0.98, 0.58, 0.46)], nu=20, n=2.4, thick=0.05)
     box('Trim', (0.34, 0.05, 0.34), (0, 0.75, 0.24), (0, math.radians(45), 0), bevel=0.02)
     gem('Accent', 0.13, (0, 0.78, 0.24), squash=(1, 0.5, 1), sub=1)
-    shoulder_straps(0.84)
-    for sx in (-1, 1):
-        box('Strap', (0.08, 0.36, 0.14), (sx * 1.16, 0, 0.1), bevel=0.02)
-        box('Trim', (0.1, 0.1, 0.1), (sx * 1.19, 0.12, 0.1), bevel=0.015)
+    with extra():
+        shoulder_straps(0.84)
+        for sx in (-1, 1):
+            box('Strap', (0.08, 0.36, 0.14), (sx * 1.16, 0, 0.1), bevel=0.02)
+            box('Trim', (0.1, 0.1, 0.1), (sx * 1.19, 0.12, 0.1), bevel=0.015)
 
 def chest_crystal():
     prof = [(-0.84, 1.1, 0.64), (-0.25, 1.17, 0.74), (0.45, 1.16, 0.73), (0.84, 1.06, 0.64)]
@@ -362,11 +383,12 @@ def chest_crystal():
     lathe('Trim', [(-0.92, 1.16, 0.7), (-0.74, 1.16, 0.7)], nu=8, n=2.6, thick=0.06)
     lathe('Trim', [(0.76, 0.7, 0.55), (0.98, 0.6, 0.48)], nu=8, n=2.2, thick=0.06)
     shard('Accent', (0, 0.74, -0.05), (0, 0.3, 1), 0.62, 0.15, sides=5, seed=1)
-    shard('Accent', (-0.18, 0.72, -0.12), (-0.5, 0.3, 1), 0.36, 0.08, sides=5, seed=2)
-    shard('Accent', (0.18, 0.72, -0.12), (0.5, 0.3, 1), 0.36, 0.08, sides=5, seed=3)
-    for sx in (-1, 1):
-        shard('Plate', (sx * 0.62, -0.2, 0.78), (sx * 0.4, -0.3, 1), 0.5, 0.09, seed=4)
-        shard('Plate', (sx * 0.3, -0.72, 0.4), (sx * 0.2, -0.8, 0.8), 0.42, 0.08, seed=5)
+    with extra():
+        shard('Accent', (-0.18, 0.72, -0.12), (-0.5, 0.3, 1), 0.36, 0.08, sides=5, seed=2)
+        shard('Accent', (0.18, 0.72, -0.12), (0.5, 0.3, 1), 0.36, 0.08, sides=5, seed=3)
+        for sx in (-1, 1):
+            shard('Plate', (sx * 0.62, -0.2, 0.78), (sx * 0.4, -0.3, 1), 0.5, 0.09, seed=4)
+            shard('Plate', (sx * 0.3, -0.72, 0.4), (sx * 0.2, -0.8, 0.8), 0.42, 0.08, seed=5)
 
 PAUL_ROT = (0, math.radians(22), 0)
 PAUL_LOC = (0.1, 0, 0.42)
@@ -377,32 +399,38 @@ def pauldron_wood():
     lathe('Plate', [(-0.2, 0.74, 0.7), (0.02, 0.7, 0.67)], az=(-80, 80), nu=5, thick=0.06, jitter=0.05, seed=22,
           loc=PAUL_LOC, rot=PAUL_ROT)
     lathe('Trim', [(0.06, 0.66, 0.64), (0.16, 0.6, 0.58)], nu=12, n=2.2, thick=0.05, loc=PAUL_LOC, rot=PAUL_ROT)
-    lathe('Strap', [(-0.32, 0.58, 0.58), (-0.2, 0.58, 0.58)], nu=12, n=4, thick=0.04)
+    with extra():
+        lathe('Strap', [(-0.32, 0.58, 0.58), (-0.2, 0.58, 0.58)], nu=12, n=4, thick=0.04)
 
 def pauldron_stone():
     box('Plate', (0.92, 0.96, 0.22), (0.3, 0, 0.66), (0, math.radians(24), 0), bevel=0.06, jitter=0.06, seed=31)
-    box('Plate', (0.62, 0.78, 0.2), (0.6, 0, 0.3), (0, math.radians(58), 0), bevel=0.05, jitter=0.07, seed=32)
+    with extra():
+        box('Plate', (0.62, 0.78, 0.2), (0.6, 0, 0.3), (0, math.radians(58), 0), bevel=0.05, jitter=0.07, seed=32)
     lathe('Strap', [(-0.1, 0.6, 0.6), (0.06, 0.6, 0.6)], nu=12, n=4, thick=0.05)
-    tube('Accent', [((0.42, 0, 0.78), 0.1), ((0.62, 0, 0.98), 0.08), ((0.86, 0, 1.08), 0.04), ((1.0, 0, 1.08), 0)], sides=6)
+    with extra():
+        tube('Accent', [((0.42, 0, 0.78), 0.1), ((0.62, 0, 0.98), 0.08), ((0.86, 0, 1.08), 0.04), ((1.0, 0, 1.08), 0)], sides=6)
 
 def pauldron_metal():
     lathe('Plate', dome(0.68, 0.66, 0, 0.36, nv=5), nu=16, n=2.2, thick=0.05, cap_top=True, loc=PAUL_LOC, rot=PAUL_ROT)
     lathe('Plate', [(-0.2, 0.74, 0.7), (-0.02, 0.71, 0.68)], az=(-100, 100), nu=10, thick=0.045, loc=PAUL_LOC, rot=PAUL_ROT)
-    lathe('Plate', [(-0.36, 0.76, 0.72), (-0.18, 0.74, 0.7)], az=(-90, 90), nu=10, thick=0.045, loc=PAUL_LOC, rot=PAUL_ROT)
+    with extra():
+        lathe('Plate', [(-0.36, 0.76, 0.72), (-0.18, 0.74, 0.7)], az=(-90, 90), nu=10, thick=0.045, loc=PAUL_LOC, rot=PAUL_ROT)
     lathe('Trim', [(-0.03, 0.71, 0.69), (0.05, 0.7, 0.68)], nu=16, n=2.2, thick=0.04, loc=PAUL_LOC, rot=PAUL_ROT)
-    for a in (-50, 0, 50):
-        ar = math.radians(a)
-        p = Euler(PAUL_ROT).to_matrix() @ V((math.cos(ar) * 0.72, math.sin(ar) * 0.7, 0.01)) + V(PAUL_LOC)
-        gem('Trim', 0.035, p)
-    lathe('Strap', [(-0.3, 0.58, 0.58), (-0.18, 0.58, 0.58)], nu=12, n=4, thick=0.04)
+    with extra():
+        for a in (-50, 0, 50):
+            ar = math.radians(a)
+            p = Euler(PAUL_ROT).to_matrix() @ V((math.cos(ar) * 0.72, math.sin(ar) * 0.7, 0.01)) + V(PAUL_LOC)
+            gem('Trim', 0.035, p)
+        lathe('Strap', [(-0.3, 0.58, 0.58), (-0.18, 0.58, 0.58)], nu=12, n=4, thick=0.04)
 
 def pauldron_crystal():
     lathe('Plate', dome(0.7, 0.68, 0, 0.36, nv=3, power=0.5), nu=6, thick=0.06, cap_top=True, loc=PAUL_LOC, rot=PAUL_ROT)
     lathe('Trim', [(-0.08, 0.74, 0.72), (0.04, 0.72, 0.7)], nu=6, thick=0.05, loc=PAUL_LOC, rot=PAUL_ROT)
     shard('Accent', (0.3, 0, 0.72), (0.55, 0, 1), 0.6, 0.11, seed=1)
-    shard('Accent', (0.35, 0.22, 0.62), (0.6, 0.35, 0.8), 0.38, 0.07, seed=2)
-    shard('Accent', (0.35, -0.22, 0.62), (0.6, -0.35, 0.8), 0.38, 0.07, seed=3)
-    lathe('Strap', [(-0.3, 0.58, 0.58), (-0.18, 0.58, 0.58)], nu=12, n=4, thick=0.04)
+    with extra():
+        shard('Accent', (0.35, 0.22, 0.62), (0.6, 0.35, 0.8), 0.38, 0.07, seed=2)
+        shard('Accent', (0.35, -0.22, 0.62), (0.6, -0.35, 0.8), 0.38, 0.07, seed=3)
+        lathe('Strap', [(-0.3, 0.58, 0.58), (-0.18, 0.58, 0.58)], nu=12, n=4, thick=0.04)
 
 # ---- hip (on LowerTorso, 2 x 0.4 x 1) + thigh (on UpperLeg, 1 x 1.217 x 1) ----
 
@@ -426,23 +454,27 @@ def hip_stone():
     for i, (x, y, w, rz) in enumerate([(-0.5, 0.7, 0.72, 0), (0.5, 0.7, 0.72, 0), (0, -0.7, 1.4, math.pi)]):
         box('Plate', (w, 0.15, 0.6), (x, y, -0.42), (math.radians(-6) if y > 0 else math.radians(6), 0, rz),
             bevel=0.05, jitter=0.06, seed=50 + i)
-    gem('Trim', 0.1, (0, 0.72, 0.0), squash=(1.2, 0.6, 1))
-    for i, dx in enumerate((-0.9, 0.9)):
-        tube('Accent', [((dx, 0.66, -0.1), 0.06), ((dx * 1.02, 0.7, -0.4), 0.05), ((dx * 1.0, 0.72, -0.62), 0.03),
-                        ((dx * 0.96, 0.74, -0.74), 0)], sides=5)
+    with extra():
+        gem('Trim', 0.1, (0, 0.72, 0.0), squash=(1.2, 0.6, 1))
+        for i, dx in enumerate((-0.9, 0.9)):
+            tube('Accent', [((dx, 0.66, -0.1), 0.06), ((dx * 1.02, 0.7, -0.4), 0.05), ((dx * 1.0, 0.72, -0.62), 0.03),
+                            ((dx * 0.96, 0.74, -0.74), 0)], sides=5)
 
 def hip_metal():
     lathe('Strap', [(-0.14, 1.13, 0.65), (0.14, 1.13, 0.65)], nu=28, n=4, thick=0.05)
     box('Trim', (0.3, 0.06, 0.26), (0, 0.68, 0), bevel=0.02)
-    gem('Accent', 0.06, (0, 0.72, 0), squash=(1, 0.5, 1))
+    with extra():
+        gem('Accent', 0.06, (0, 0.72, 0), squash=(1, 0.5, 1))
     for a0, a1 in TASSETS:
         lathe('Plate', [(-0.44, 1.2, 0.75), (-0.1, 1.16, 0.7)], az=(a0, a1), nu=8, n=4, thick=0.045)
         lathe('Plate', [(-0.8, 1.26, 0.82), (-0.4, 1.22, 0.77)], az=(a0 + 3, a1 - 3), nu=8, n=4, thick=0.045)
-        rivets('Trim', -0.17, 1.17, 0.71, 4, 3, az=(a0 + 12, a1 - 12))
+        with extra():
+            rivets('Trim', -0.17, 1.17, 0.71, 4, 3, az=(a0 + 12, a1 - 12))
 
 def hip_crystal():
     lathe('Trim', [(-0.15, 1.14, 0.66), (0.15, 1.14, 0.66)], nu=8, n=2.6, thick=0.06)
-    shard('Accent', (0, 0.72, -0.12), (0, 0.15, 1), 0.3, 0.09, seed=3)
+    with extra():
+        shard('Accent', (0, 0.72, -0.12), (0, 0.15, 1), 0.3, 0.09, seed=3)
     for a0, a1 in TASSETS:
         lathe('Plate', [(-0.78, 1.26, 0.84), (-0.12, 1.18, 0.74)], az=(a0, a1), nu=3, n=2.6, thick=0.06)
 
@@ -457,23 +489,27 @@ def thigh_wood():
 
 def thigh_stone():
     box('Plate', (0.86, 0.14, 0.9), (0, 0.6, 0.02), (math.radians(-4), 0, 0), bevel=0.05, jitter=0.06, seed=71)
-    box('Plate', (0.12, 0.6, 0.7), (0.6, 0.18, 0.06), bevel=0.04, jitter=0.07, seed=72)
+    with extra():
+        box('Plate', (0.12, 0.6, 0.7), (0.6, 0.18, 0.06), bevel=0.04, jitter=0.07, seed=72)
     for z in (0.34, -0.28):
         lathe('Strap', [(z - 0.06, 0.7, 0.7), (z + 0.06, 0.7, 0.7)], nu=16, n=4, thick=0.05)
 
 def thigh_metal():
     lathe('Plate', [(-0.46, 0.61, 0.63), (0.2, 0.63, 0.66), (0.5, 0.64, 0.67)], az=(-15, 195), nu=14, n=4, thick=0.05)
     lathe('Trim', [(0.44, 0.66, 0.69), (0.56, 0.66, 0.69)], az=(-15, 195), nu=14, n=4, thick=0.04)
-    rivets('Trim', 0.5, 0.67, 0.7, 4, 5, az=(10, 170))
+    with extra():
+        rivets('Trim', 0.5, 0.67, 0.7, 4, 5, az=(10, 170))
     gem('Plate', 0.3, (0, 0.6, -0.56), squash=(1.1, 0.55, 1), sub=1)
-    gem('Trim', 0.05, (0, 0.77, -0.56))
-    for z in (0.25, -0.3):
-        lathe('Strap', [(z - 0.05, 0.6, 0.6), (z + 0.05, 0.6, 0.6)], az=(195, 345), nu=6, n=4, thick=0.035)
+    with extra():
+        gem('Trim', 0.05, (0, 0.77, -0.56))
+        for z in (0.25, -0.3):
+            lathe('Strap', [(z - 0.05, 0.6, 0.6), (z + 0.05, 0.6, 0.6)], az=(195, 345), nu=6, n=4, thick=0.035)
 
 def thigh_crystal():
     lathe('Plate', [(-0.48, 0.62, 0.64), (0.5, 0.66, 0.68)], az=(-15, 195), nu=4, n=2.4, thick=0.06)
     lathe('Trim', [(0.42, 0.7, 0.72), (0.56, 0.7, 0.72)], az=(-15, 195), nu=4, n=2.4, thick=0.05)
-    shard('Accent', (0, 0.58, -0.5), (0, 1, 0.15), 0.32, 0.1, seed=4)
+    with extra():
+        shard('Accent', (0, 0.58, -0.5), (0, 1, 0.15), 0.32, 0.1, seed=4)
 
 # ---- boot (on LowerLeg, 1 x 1.193 x 1; the foot sits below it) ----
 
@@ -489,7 +525,8 @@ def boot_wood():
     lathe('Plate', [(-0.4, 0.66, 0.67), (0.36, 0.67, 0.69)], az=(45, 135), nu=4, n=4, thick=0.08, jitter=0.03, seed=81)
     for z in (0.3, -0.05, -0.38):
         lathe('Trim', [(z - 0.045, 0.7, 0.72), (z + 0.045, 0.7, 0.72)], nu=16, n=4, thick=0.04)
-    box('Plate', (0.9, 0.3, 0.12), (0, 0.6, -0.4), bevel=0.03, jitter=0.05, seed=82)
+    with extra():
+        box('Plate', (0.9, 0.3, 0.12), (0, 0.6, -0.4), bevel=0.03, jitter=0.05, seed=82)
 
 def boot_stone():
     lathe('Strap', [(-0.55, 0.6, 0.6), (0.3, 0.61, 0.61), (0.46, 0.67, 0.67)], nu=16, n=4, thick=0.05)
@@ -503,13 +540,15 @@ def boot_metal():
     lathe('Trim', [(0.4, 0.68, 0.7), (0.54, 0.68, 0.7)], nu=24, n=4, thick=0.045)
     lathe('Trim', [(-0.52, 0.64, 0.66), (-0.4, 0.64, 0.66)], nu=24, n=4, thick=0.04)
     boot_base('Plate', toe_role='Trim')
-    rivets('Trim', 0.47, 0.69, 0.71, 4, 8)
+    with extra():
+        rivets('Trim', 0.47, 0.69, 0.71, 4, 8)
 
 def boot_crystal():
     lathe('Plate', [(-0.5, 0.62, 0.64), (0.46, 0.68, 0.7)], nu=8, n=2.4, thick=0.06)
     lathe('Trim', [(0.4, 0.72, 0.74), (0.56, 0.72, 0.74)], nu=8, n=2.4, thick=0.05)
     boot_base('Trim', toe_role='Plate')
-    shard('Accent', (0, 0.66, 0.1), (0, 0.35, 1), 0.42, 0.09, seed=6)
+    with extra():
+        shard('Accent', (0, 0.66, 0.1), (0, 0.35, 1), 0.42, 0.09, seed=6)
 
 # ---------------------------------------------------------------- tools (grip at origin, along +Z)
 
