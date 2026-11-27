@@ -1722,6 +1722,7 @@ function WorldBuilder.build()
 		end
 	end
 	setLighting()
+	workspace:SetAttribute("LoadingStep", "Raising the islands")
 	buildTerrain()
 
 	-- Right after the server starts, raycasts can't see freshly filled terrain yet.
@@ -1774,6 +1775,7 @@ function WorldBuilder.build()
 		table.insert(taken, spawnPos + Vector3.new(math.cos(a) * 10, 0, math.sin(a) * 10))
 	end
 
+	workspace:SetAttribute("LoadingStep", "Growing the forests")
 	for _, isl in ISLANDS do
 		-- Each island only checks spacing against what's on it (keeps placement fast).
 		local local_ = {}
@@ -1795,6 +1797,7 @@ function WorldBuilder.build()
 	local chambers, tunnels = shelfCave(shelf)
 
 	-- The cave network under the whole map, with an entrance on every island.
+	workspace:SetAttribute("LoadingStep", "Carving the caves")
 	local network = Caves.build(workspace.Terrain, NAMED, groundAt, function(isl, x, z)
 		local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
 		local rx, rz = (x - isl.x) / H, (z - isl.z) / H
@@ -1845,6 +1848,7 @@ function WorldBuilder.build()
 		if network.hub then
 			table.insert(spaces, network.hub)
 		end
+		workspace:SetAttribute("LoadingStep", "Dressing the sea floor")
 		SeaFloor.build(ISLANDS, bores, spaces)
 		-- Sunken grottos under the open sea, clear of every cave above.
 		local avoid = {}
@@ -2106,6 +2110,7 @@ function WorldBuilder.build()
 	-- Bosses wait behind their gates: they spawn when a gate is opened (see above).
 	Animals.start()
 
+	workspace:SetAttribute("LoadingStep", "Almost there")
 	startDayNight()
 end
 
