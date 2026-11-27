@@ -38,29 +38,53 @@ local function shell(terrain: Terrain, p: Vector3, r: number)
 	terrain:ReplaceMaterial(Region3.new(p - pad, p + pad):ExpandToGrid(4), 4, M.Air, M.Rock)
 end
 
-local function carvePath(terrain: Terrain, points: { Vector3 })
+local function samples(points: { Vector3 }): { Vector3 }
+	local out = {}
 	for i = 1, #points - 1 do
 		local a, b = points[i], points[i + 1]
 		local n = math.max(1, math.ceil((b - a).Magnitude / STEP))
 		for s = 0, n - 1 do
-			shell(terrain, a:Lerp(b, s / n), TUNNEL_R)
+			table.insert(out, a:Lerp(b, s / n))
 		end
 	end
-	for i = 1, #points - 1 do
-		local a, b = points[i], points[i + 1]
-		local n = math.max(1, math.ceil((b - a).Magnitude / STEP))
-		for s = 0, n do
-			terrain:FillBall(a:Lerp(b, s / n), TUNNEL_R, M.Air)
-		end
-	end
+	table.insert(out, points[#points])
+	return out
 end
 
-local function carveChamber(terrain: Terrain, floor: Vector3, r: number)
-	local centre = floor + Vector3.new(0, r * 0.45, 0)
-	shell(terrain, centre, r)
-	terrain:FillBall(centre, r, M.Air)
-	-- Flat floor.
-	terrain:FillCylinder(CFrame.new(floor - Vector3.new(0, 3, 0)), 6, r * 0.95, M.Rock)
+-- Carves everything at once, in an order where nothing undoes anything else:
+-- 1. rock shells round every deep tunnel and chamber, 2. hollow the chambers,
+-- 3. lay their flat floors, 4. bore every tunnel (through those floors where a
+-- tunnel leads on downwards).
+local function carveAll(terrain: Terrain, paths: { { Vector3 } }, chambers: { { pos: Vector3, r: number } })
+	local all = {}
+	for _, path in paths do
+		table.insert(all, samples(path))
+	end
+	for n, pts in all do
+		for _, p in pts do
+			shell(terrain, p, TUNNEL_R)
+		end
+		if n % 4 == 0 then
+			task.wait()
+		end
+	end
+	for _, c in chambers do
+		shell(terrain, c.pos + Vector3.new(0, c.r * 0.45, 0), c.r)
+	end
+	for _, c in chambers do
+		terrain:FillBall(c.pos + Vector3.new(0, c.r * 0.45, 0), c.r, M.Air)
+	end
+	for _, c in chambers do
+		terrain:FillCylinder(CFrame.new(c.pos - Vector3.new(0, 3, 0)), 6, c.r * 0.95, M.Rock)
+	end
+	for n, pts in all do
+		for _, p in pts do
+			terrain:FillBall(p, TUNNEL_R, M.Air)
+		end
+		if n % 4 == 0 then
+			task.wait()
+		end
+	end
 end
 
 -- A tunnel that spirals down around (cx, cz) from `from` to height `toY`, ending at
@@ -125,33 +149,26 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			local s1, a1 = spiral(cx, cz, radius, angle, entrance.Y - 1, UPPER_Y)
 			table.move(s1, 1, #s1, #path + 1, path)
 			local upper = path[#path]
-			carvePath(terrain, path)
 			table.insert(result.paths, path)
-			carveChamber(terrain, upper - Vector3.new(0, TUNNEL_R * 0.6, 0), 18)
 			table.insert(result.chambers, { pos = upper - Vector3.new(0, TUNNEL_R * 0.6, 0), r = 18, tier = "upper" })
 
 			local s2, a2 = spiral(cx, cz, radius * 0.75, a1 + 0.6, UPPER_Y, LOWER_Y)
 			table.insert(s2, 1, upper)
-			carvePath(terrain, s2)
 			table.insert(result.paths, s2)
 			local lower = s2[#s2]
-			carveChamber(terrain, lower - Vector3.new(0, TUNNEL_R * 0.6, 0), 20)
 			table.insert(result.chambers, { pos = lower - Vector3.new(0, TUNNEL_R * 0.6, 0), r = 20, tier = "lower" })
 
 			local s3 = spiral(cx, cz, radius * 0.45, a2 + 0.6, LOWER_Y, DEEP_Y + 6)
 			table.insert(s3, 1, lower)
 			table.insert(s3, root + Vector3.new(0, 6, 0))
-			carvePath(terrain, s3)
 			table.insert(result.paths, s3)
 
 			local outward = Vector3.new(entrance.X - cx, 0, entrance.Z - cz)
 			table.insert(result.entrances, { pos = entrance, facing = if outward.Magnitude > 0 then outward.Unit else Vector3.zAxis })
 		end
 		-- The island's root cavern in the Deep Network.
-		carveChamber(terrain, root, 26)
 		table.insert(result.chambers, { pos = root, r = 26, tier = "deep" })
 		roots[index] = root
-		task.wait()
 	end
 
 	-- Deep Network: the outer islands in a ring, and each one to the middle island.
@@ -181,16 +198,14 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	for _, link in links do
 		local a, b = link[1] + Vector3.new(0, 6, 0), link[2] + Vector3.new(0, 6, 0)
 		local path = wander(a, b)
-		carvePath(terrain, path)
 		table.insert(result.paths, path)
 		-- A cavern halfway along each long tunnel.
 		local mid = path[math.max(1, math.floor(#path / 2))]
 		local floor = Vector3.new(mid.X, DEEP_Y - rng:NextNumber(0, 8), mid.Z)
-		carveChamber(terrain, floor, 30)
 		table.insert(result.chambers, { pos = floor, r = 30, tier = "deep" })
-		task.wait()
 	end
 
+	carveAll(terrain, result.paths, result.chambers)
 	return result
 end
 
