@@ -34,7 +34,7 @@ local function build(prompt: ProximityPrompt, gui: ScreenGui)
 		AlwaysOnTop = true,
 		Size = UDim2.fromOffset(300, 72),
 		SizeOffset = Vector2.new(0, 0.5),
-		StudsOffset = Vector2.new(0, 0),
+		StudsOffset = Vector3.new(0, 1, 0),
 		LightInfluence = 0,
 		ResetOnSpawn = false,
 		Adornee = prompt.Parent,
