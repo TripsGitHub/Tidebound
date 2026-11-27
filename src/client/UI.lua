@@ -23,6 +23,7 @@ local new, label, button, corner, stroke = UIKit.new, UIKit.label, UIKit.button,
 
 local player = Players.LocalPlayer
 local UI = {}
+local rgbAir = Color3.fromRGB(104, 176, 206)
 
 local gui: ScreenGui
 local state = { items = {}, equipped = nil, armour = {}, bagSize = Config.BaseBagSize }
@@ -684,6 +685,37 @@ function UI.init(cb)
 	statBar(stats, 1, "Health", C.health)
 	statBar(stats, 2, "Bag", C.bag)
 	statBar(stats, 3, "Hunger", C.hunger)
+
+	-- Air: a row of bubbles above the stats that only shows under water (or while
+	-- it refills). Each bubble pops as your air runs down.
+	local airRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -128), Size = UDim2.fromOffset(268, 26), BackgroundTransparency = 1, Visible = false }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local bubbles: { Frame } = {}
+	for i = 1, 10 do
+		bubbles[i] = new("Frame", { Parent = airRow, LayoutOrder = i, Size = UDim2.fromOffset(20, 20), BackgroundColor3 = rgbAir, BackgroundTransparency = 0.15, BorderSizePixel = 0 }, {
+			UIKit.round(),
+			new("UIStroke", { Color = Color3.fromRGB(230, 248, 255), Thickness = 1.5, Transparency = 0.2 }),
+			new("Frame", { Position = UDim2.fromScale(0.2, 0.18), Size = UDim2.fromScale(0.28, 0.28), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.25, BorderSizePixel = 0 }, { UIKit.round() }),
+		})
+	end
+	local function updateAir()
+		local air, max = player:GetAttribute("Air"), player:GetAttribute("MaxAir")
+		if not air or not max or max <= 0 then
+			airRow.Visible = false
+			return
+		end
+		airRow.Visible = air < max - 0.05
+		local filled = air / max * #bubbles
+		for i, b in bubbles do
+			local amount = math.clamp(filled - (#bubbles - i), 0, 1)
+			b.BackgroundTransparency = 0.15 + (1 - amount) * 0.85
+			b.Size = UDim2.fromOffset(10 + 10 * amount, 10 + 10 * amount)
+			b.BackgroundColor3 = if air <= 0 then C.bad else rgbAir
+		end
+	end
+	player:GetAttributeChangedSignal("Air"):Connect(updateAir)
+	player:GetAttributeChangedSignal("MaxAir"):Connect(updateAir)
 
 	-- Pickup prompt, floating over the item in the world: its name, then "[F] Pickup"
 	promptFrame = new("BillboardGui", { Parent = player:WaitForChild("PlayerGui"), Name = "TideboundPickup", Size = UDim2.fromOffset(280, 76), StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0), AlwaysOnTop = true, Active = true, LightInfluence = 0, ResetOnSpawn = false, Enabled = false })

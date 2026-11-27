@@ -456,6 +456,21 @@ function builders.wood_gate(m)
 	return core
 end
 
+-- Diving gear: a sea-glass dome with a brass rim.
+function builders.aqua_mask(m)
+	local core = part(m, Vector3.new(1.5, 1.1, 1.5), CFrame.new(), Color3.fromRGB(96, 184, 196), Enum.Material.Glass)
+	part(m, Vector3.new(1.7, 0.22, 1.7), CFrame.new(0, -0.5, 0), Color3.fromRGB(176, 132, 64), Enum.Material.Metal)
+	part(m, Vector3.new(0.9, 0.5, 0.15), CFrame.new(0, 0.05, -0.76), Color3.fromRGB(200, 240, 246), Enum.Material.Glass)
+	return core
+end
+
+function builders.pearl_helm(m)
+	local core = part(m, Vector3.new(1.6, 1.3, 1.6), CFrame.new(), Color3.fromRGB(232, 226, 236), Enum.Material.Glass)
+	part(m, Vector3.new(1.8, 0.25, 1.8), CFrame.new(0, -0.6, 0), Color3.fromRGB(150, 160, 176), Enum.Material.Metal)
+	part(m, Vector3.new(0.5, 0.5, 0.5), CFrame.new(0, 0.75, 0), Color3.fromRGB(250, 246, 255), Enum.Material.Glass, Enum.PartType.Ball)
+	return core
+end
+
 -- Public -------------------------------------------------------------------------
 
 -- Returns a new Model for the item, with PrimaryPart set. Every part is anchored,

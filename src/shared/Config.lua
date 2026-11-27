@@ -24,6 +24,9 @@ Config.LootSackLifetime = 300
 
 -- Combat
 Config.UnarmedDamage = 5
+Config.BaseAir = 15 -- seconds of air under water with no diving gear
+Config.AirRefillRate = 6 -- air comes back this many times faster than it runs out
+Config.DrownDamagePerSecond = 10
 
 -- Progression
 -- Levels run to 250 on a slow curve: quick at first, then a long grind.

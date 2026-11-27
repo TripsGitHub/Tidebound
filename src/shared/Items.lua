@@ -26,6 +26,9 @@ local Items = {
 	wood_boots = { name = "Wood Boots", kind = "armour", slot = "feet", order = 43, defense = 0.02 },
 	leather_bag = { name = "Leather Bag", kind = "armour", slot = "bag", order = 45, bagSize = 80 },
 	hide_pack = { name = "Hide Pack", kind = "armour", slot = "bag", order = 45.1, bagSize = 120 },
+	-- Diving gear: worn on the head, adds seconds of air under water.
+	aqua_mask = { name = "Diving Mask", kind = "armour", slot = "head", order = 44, defense = 0.02, air = 30 },
+	pearl_helm = { name = "Pearl Diving Helm", kind = "armour", slot = "head", order = 44.1, defense = 0.06, air = 75 },
 	explorer_pack = { name = "Explorer Pack", kind = "armour", slot = "bag", order = 45.2, bagSize = 160 },
 
 	-- Food -------------------------------------------------------------

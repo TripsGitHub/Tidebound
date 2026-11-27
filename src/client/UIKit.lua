@@ -230,7 +230,7 @@ function UIKit.title(parent: Instance, text: string, y: number?)
 	return UIKit.label({ Parent = parent, Position = UDim2.fromOffset(0, y or 6), Size = UDim2.new(1, 0, 0, 30), Text = text, TextScaled = false, TextSize = 30 })
 end
 
--- Screen scaling: every HUD size is in pixels tuned for a ~1600x900 window, so
+-- Screen scaling: every HUD size is in pixels tuned for a ~1280x720 window, so
 -- one UIScale on the ScreenGui shrinks it on small windows and phones and grows
 -- it a little on big monitors.
 local screenScale = 1
@@ -247,7 +247,7 @@ function UIKit.fitScreen(gui: ScreenGui)
 			return
 		end
 		local v = cam.ViewportSize
-		screenScale = math.clamp(math.min(v.X / 1600, v.Y / 900), 0.55, 1.3)
+		screenScale = math.clamp(math.min(v.X / 1280, v.Y / 720), 0.75, 1.3)
 		scale.Scale = screenScale
 	end
 	fit()

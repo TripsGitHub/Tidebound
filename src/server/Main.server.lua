@@ -20,6 +20,7 @@ local Shop = require(Systems.Shop)
 local Drops = require(Systems.Drops)
 local Save = require(Systems.Save)
 local Events = require(Systems.Events)
+local Oxygen = require(Systems.Oxygen)
 
 -- Characters are spawned by hand (see onPlayerAdded), once the world exists and the
 -- player's save has loaded; otherwise they drop in at the map's centre before the
@@ -30,6 +31,7 @@ WorldBuilder.build()
 Survival.start()
 Save.start()
 Events.start()
+Oxygen.start()
 
 Drops.setPickupCallback(function(player, itemId, amount)
 	Quests.record(player, "gather", itemId, amount)

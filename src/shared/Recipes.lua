@@ -17,6 +17,8 @@ local Recipes = {
 	{ id = "stone_helmet", tab = "Armour", level = 7, cost = { stone = 10, leather = 2 } },
 	{ id = "stone_legs", tab = "Armour", level = 8, cost = { stone = 14, leather = 3, sticky_slime = 1 } },
 	{ id = "stone_body", tab = "Armour", level = 8, cost = { stone = 18, leather = 4, sticky_slime = 2 } },
+	{ id = "aqua_mask", tab = "Armour", level = 6, cost = { leather = 4, sticky_slime = 6, stone = 4 } },
+	{ id = "pearl_helm", tab = "Armour", level = 15, cost = { silver_ore = 8, sticky_slime = 10, leather = 6 } },
 	{ id = "hide_pack", tab = "Armour", level = 8, cost = { leather = 10, sticky_slime = 3 } },
 	{ id = "explorer_pack", tab = "Armour", level = 14, cost = { leather = 16, gold_ore = 4, sticky_slime = 4 } },
 
