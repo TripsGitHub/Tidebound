@@ -47,7 +47,9 @@ function Oxygen.start()
 				if humanoid and head and humanoid.Health > 0 then
 					local max = maxAir(player)
 					local air = player:GetAttribute("Air") or max
-					local under = humanoid:GetState() == Enum.HumanoidStateType.Swimming and headUnderwater(head)
+					-- Only your head counts: standing or walking on the sea floor doesn't
+					-- give you air back.
+					local under = headUnderwater(head)
 					if under then
 						air = math.max(0, air - TICK)
 						if air <= 0 then

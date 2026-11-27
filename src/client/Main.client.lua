@@ -14,6 +14,7 @@ local UI = require(Client.UI)
 local InventoryScreen = require(Client.InventoryScreen)
 local Effects = require(Client.Effects)
 local BuildMode = require(Client.BuildMode)
+local Tutorial = require(Client.Tutorial)
 local Pointer = require(Client.Pointer)
 local Hover = require(Client.Hover)
 local Anim = require(Client.Anim)
@@ -44,6 +45,7 @@ local function equipSlot(index: number)
 	elseif item.kind == "food" or item.kind == "crate" then
 		-- Food heals straight from the hotbar; crates open.
 		Remotes.Eat:FireServer(id)
+		Tutorial.flag("ate")
 		Anim.play(player.Character, "eat")
 	else
 		hold(if id == equipped then nil else id)
@@ -74,6 +76,7 @@ UI.init({
 		UI.selectDrop(nil)
 	end,
 })
+task.spawn(Tutorial.start, UI.root :: ScreenGui)
 InventoryScreen.init(UI.root :: ScreenGui, {
 	onCraft = function(id)
 		Remotes.Craft:FireServer(id)
@@ -84,6 +87,7 @@ InventoryScreen.init(UI.root :: ScreenGui, {
 	onHold = hold,
 	onEat = function(id)
 		Remotes.Eat:FireServer(id)
+		Tutorial.flag("ate")
 		Anim.play(player.Character, "eat")
 	end,
 	onDrop = function(id)
@@ -131,9 +135,11 @@ local function primaryAction()
 		trySwing()
 	elseif item.kind == "food" or item.kind == "crate" then
 		Remotes.Eat:FireServer(equipped)
+		Tutorial.flag("ate")
 		Anim.play(player.Character, "eat")
 	elseif item.kind == "placeable" then
 		BuildMode.tryPlace()
+		Tutorial.flag("placed")
 	end
 end
 
@@ -249,6 +255,7 @@ Remotes.Inventory.OnClientEvent:Connect(function(items, newEquipped, armour, bag
 	equipped = newEquipped
 	UI.setInventory(items, newEquipped, armour, bagSize)
 	InventoryScreen.set(items, newEquipped, armour)
+	Tutorial.update(items, newEquipped)
 	BuildMode.setItem(newEquipped)
 	UI.setBuild(BuildMode.current())
 end)
@@ -266,6 +273,9 @@ Remotes.QuestState.OnClientEvent:Connect(UI.setQuests)
 Remotes.OpenPanel.OnClientEvent:Connect(function(name)
 	InventoryScreen.close()
 	UI.openPanel(name)
+	if name == "quests" then
+		Tutorial.flag("quests")
+	end
 end)
 Remotes.Swing.OnClientEvent:Connect(function(character)
 	if character then

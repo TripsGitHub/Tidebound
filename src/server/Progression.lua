@@ -39,6 +39,20 @@ function Progression.addXp(player: Player, amount: number)
 			text ..= "  Unlocked: " .. table.concat(unlocked, ", ")
 		end
 		Remotes.Notify:FireClient(player, text, "good")
+		-- Level rewards go straight into your bag (even if it's full), plus Shells.
+		local Inventory = require(script.Parent.Inventory)
+		local got = {}
+		for id, n in Config.rewardsFor(level) do
+			if Items[id] then
+				Inventory.add(player, id, n, true)
+				Remotes.PickedUp:FireClient(player, id, n)
+				table.insert(got, n .. " " .. Items[id].name)
+			end
+		end
+		player:SetAttribute("Shells", (player:GetAttribute("Shells") or 0) + level * 2)
+		if #got > 0 then
+			Remotes.Notify:FireClient(player, "Level reward: " .. table.concat(got, ", "), "good")
+		end
 	end
 	if level >= Config.MaxLevel then
 		xp = 0

@@ -33,16 +33,43 @@ Config.DrownDamagePerSecond = 10
 -- Levels run to 250 on a slow curve: quick at first, then a long grind.
 Config.MaxLevel = 250
 function Config.XpForLevel(level: number): number
-	-- XP needed to go from `level` to `level + 1`
-	return math.floor(15 + level * 3 + level * level * 0.12)
+	-- XP needed to go from `level` to `level + 1`. The first levels come quickly so
+	-- new players get going; the full curve kicks in by level 10.
+	local early = math.min(1, 0.45 + level * 0.055)
+	return math.floor((15 + level * 3 + level * level * 0.12) * early)
 end
 -- Recipes and ores are written on a 1-20 scale (see Recipes.lua and Ores.lua); this
--- spreads them over levels 1-200, leaving 200-250 for the very end of the game.
+-- spreads them over levels 1-200 on a curve, leaving 200-250 for the very end of the
+-- game. Wood gear stays in the first few levels (1-8), stone around 20-35, and the
+-- gaps widen from there.
 function Config.ScaleLevel(level: number): number
 	if level <= 1 then
 		return 1
 	end
-	return math.floor(1 + (level - 1) * 10.5)
+	return math.floor(1 + (level - 1) ^ 1.75 * 1.15 + 0.5)
+end
+
+-- Items you get for reaching a level, so the early game has something every step.
+-- Past level 20: a Supply Crate every 5 levels, plus Shells every level.
+Config.LevelRewards = {
+	[2] = { berries = 5, log = 5 },
+	[3] = { stick = 6, stone = 6 },
+	[4] = { leather = 3, cooked_meat = 2 },
+	[5] = { wood_sword = 1, supply_crate = 1 },
+	[6] = { log = 12, stone = 10 },
+	[7] = { leaves = 10, sticky_slime = 3 },
+	[8] = { leather_bag = 1 },
+	[10] = { stone_harvester = 1, supply_crate = 1 },
+	[12] = { cooked_meat = 5, leather = 5 },
+	[15] = { aqua_mask = 1, supply_crate = 1 },
+	[20] = { stone_sword = 1, supply_crate = 2 },
+}
+function Config.rewardsFor(level: number): { [string]: number }
+	local r = table.clone(Config.LevelRewards[level] or {})
+	if level > 20 and level % 5 == 0 then
+		r.supply_crate = (r.supply_crate or 0) + 1 + math.floor(level / 50)
+	end
+	return r
 end
 -- Hotbar slots grow with your level: 5 to start, up to 10.
 Config.HotbarSlots = { { 1, 5 }, { 25, 6 }, { 60, 7 }, { 100, 8 }, { 150, 9 }, { 200, 10 } }

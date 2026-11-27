@@ -783,11 +783,11 @@ local CAVE_NODES = {
 	lower = { { "SilverVein", 1 }, { "GoldVein", 1, 0.5 } },
 	deep = { { "GoldVein", 1 }, { "SunstoneVein", 1, 0.4 } },
 	-- Side pockets at the end of crawlways: usually the layer's better ore, rarely more.
-	pocket_lower = { { "GoldVein", 1, 0.6 }, { "DiamondCluster", 1, 0.12 } },
-	pocket_deep = { { "SunstoneVein", 1, 0.6 }, { "DiamondCluster", 1, 0.25 }, { "FractiteCluster", 1, 0.06 } },
+	pocket_lower = { { "GoldVein", 1, 0.65 }, { "DiamondCluster", 1, 0.17 } },
+	pocket_deep = { { "SunstoneVein", 1, 0.65 }, { "DiamondCluster", 1, 0.33 }, { "FractiteCluster", 1, 0.1 } },
 	-- The hidden crystal caves: the only place Amethyst grows.
-	crystal = { { "DiamondCluster", 1 }, { "FractiteCluster", 1, 0.45 }, { "AmethystGeode", 1, 0.2 } },
-	abyss = { { "SunstoneVein", 1 }, { "DiamondCluster", 1, 0.3 } },
+	crystal = { { "DiamondCluster", 1 }, { "FractiteCluster", 1, 0.6 }, { "AmethystGeode", 1, 0.3 } },
+	abyss = { { "SunstoneVein", 1 }, { "DiamondCluster", 1, 0.4 }, { "FractiteCluster", 1, 0.05 } },
 	lair = {},
 }
 -- Odd ores along the halls, by depth (and never the rare ones).
@@ -1030,13 +1030,17 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 end
 
 -- Cave seals, ladders and waterfalls ---------------------------------------------------
-local SEAL_NODE = { layer2 = "CaveSealLower", layer3 = "CaveSealDeep", crystal = "CaveSealCrystal", maw = "CaveSealMaw" }
+local SEAL_NODE = { layer2 = "CaveSealLower", layer2b = "CaveSealMid", layer3 = "CaveSealDeep", layer3b = "CaveSealAbyss", crystal = "CaveSealCrystal", maw = "CaveSealMaw" }
 local SEAL_GLOW = {
 	layer2 = Color3.fromRGB(150, 96, 44),
+	layer2b = Color3.fromRGB(150, 130, 60),
 	layer3 = Color3.fromRGB(60, 110, 150),
+	layer3b = Color3.fromRGB(40, 140, 120),
 	crystal = Color3.fromRGB(120, 80, 160),
 	maw = Color3.fromRGB(150, 40, 30),
 }
+
+local CAVE_SEAL_ROCK = Enum.Material.Rock
 
 -- A boulder of cracked rock jammed in the tunnel, with light leaking through the cracks.
 local function makeSeal(nodeFolder: Folder, b)
@@ -1077,6 +1081,40 @@ local function makeSeal(nodeFolder: Folder, b)
 	m:SetAttribute("MaxHP", def.hp)
 	m:SetAttribute("Depleted", false)
 	m.Parent = nodeFolder
+	-- Wall the tunnel off round the seal: a thick disc of rock across it, wider than
+	-- any bend or lobe, with a hole just smaller than the seal. Only the seal blocks
+	-- the hole, so breaking it is the only way through and nothing slips past.
+	local terrain = workspace.Terrain
+	local disc = look * CFrame.Angles(math.pi / 2, 0, 0)
+	terrain:FillCylinder(disc, 5, b.r + 11, CAVE_SEAL_ROCK)
+	terrain:FillBall(b.pos, size / 2 - 1.2, Enum.Material.Air)
+end
+
+-- Make sure a shaft really comes out at the surface: find the ground round the hole
+-- (not down the hole), then clear a clean round shaft from the cave up through it,
+-- with a wider mouth at the top. Waterfalls fill with water right up to the brim.
+local function openShaft(sh)
+	local terrain = workspace.Terrain
+	local x, z = sh.bottom.X, sh.bottom.Z
+	local surface = -math.huge
+	for k = 0, 7 do
+		local a = k / 8 * math.pi * 2
+		local hit = groundAt(x + math.cos(a) * (sh.r + 5), z + math.sin(a) * (sh.r + 5))
+		if hit and hit.Material ~= Enum.Material.Water then
+			surface = math.max(surface, hit.Position.Y)
+		end
+	end
+	if surface == -math.huge then
+		surface = sh.top.Y
+	end
+	sh.top = Vector3.new(x, surface, z)
+	local h = surface + 10 - sh.bottom.Y
+	terrain:FillCylinder(CFrame.new(x, sh.bottom.Y + h / 2, z), h, sh.r, Enum.Material.Air)
+	terrain:FillBall(Vector3.new(x, surface + 1, z), sh.r + 3, Enum.Material.Air)
+	if sh.kind == "waterfall" then
+		local wh = surface - 0.5 - (sh.bottom.Y + 1)
+		terrain:FillCylinder(CFrame.new(x, sh.bottom.Y + 1 + wh / 2, z), wh, sh.r - 0.5, Enum.Material.Water)
+	end
 end
 
 -- Ladders: a wooden ladder up the shaft with a frame round the top. Waterfalls: the
@@ -1087,7 +1125,7 @@ local function dressShaft(sh)
 	folder.Parent = workspace
 	local m = Instance.new("Model")
 	m.Name = if sh.kind == "ladder" then "Ladder" else "Waterfall"
-	local h = sh.top.Y - sh.bottom.Y + 3
+	local h = sh.top.Y - sh.bottom.Y + 6 -- sticks out of the hole so you can climb off
 	local mid = Vector3.new(sh.bottom.X, sh.bottom.Y - 1 + h / 2, sh.bottom.Z)
 	if sh.kind == "ladder" then
 		local truss = Instance.new("TrussPart")
@@ -1592,8 +1630,6 @@ function WorldBuilder.build()
 	end
 	table.move(network.chambers, 1, #network.chambers, #chambers + 1, chambers)
 	table.move(network.tunnels, 1, #network.tunnels, #tunnels + 1, tunnels)
-	tintCaveRock()
-	dressCaves(nodes, chambers, tunnels, network.pockets)
 	for _, b in network.barriers do
 		local boss = string.match(b.kind, "^gate_(.+)$")
 		if boss then
@@ -1602,6 +1638,11 @@ function WorldBuilder.build()
 			makeSeal(nodes, b)
 		end
 	end
+	for _, sh in network.shafts do
+		openShaft(sh)
+	end
+	tintCaveRock()
+	dressCaves(nodes, chambers, tunnels, network.pockets)
 	for _, sh in network.shafts do
 		dressShaft(sh)
 	end

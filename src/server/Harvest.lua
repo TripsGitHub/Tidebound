@@ -101,13 +101,19 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 	end
 end
 
-local function hitStructure(model: Model, item)
+local function hitStructure(player: Player, model: Model, item)
+	-- Bases are broken with weapons: harvesters and the rock can't damage them.
+	if item.swing ~= "slash" then
+		Remotes.Notify:FireClient(player, "Use a weapon to break structures", "warn")
+		return false
+	end
 	local hp = (model:GetAttribute("HP") or 0) - (item.damage or Config.UnarmedDamage)
 	model:SetAttribute("HP", hp)
 	Remotes.HitFeedback:FireAllClients(model)
 	if hp <= 0 then
 		model:Destroy()
 	end
+	return true
 end
 
 local function hitPlayer(attacker: Player, victimCharacter: Model, item)
@@ -177,8 +183,9 @@ function Harvest.onHit(player: Player, target: unknown)
 		hitNode(player, model, item, root.Position)
 	elseif kind == "structure" then
 		local at = model:GetBoundingBox().Position
-		hitStructure(model, item)
-		Remotes.Marker:FireClient(player, at, item.damage or Config.UnarmedDamage, "harvest", Inventory.getEquipped(player))
+		if hitStructure(player, model, item) then
+			Remotes.Marker:FireClient(player, at, item.damage or Config.UnarmedDamage, "hit", Inventory.getEquipped(player))
+		end
 	elseif kind == "animal" then
 		local at = model:GetBoundingBox().Position
 		Animals.damage(model, item.damage or Config.UnarmedDamage, player)

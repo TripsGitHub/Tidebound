@@ -251,10 +251,30 @@ local function loadCaves(data: Folder)
 	end
 end
 
--- Cave colours by depth: warm torch-lit brown up high, cold crystal blue deep down.
+-- Cave colours by depth, one clear band per layer, so a deep cave isn't one flat
+-- blue splat: torch-lit brown up top, amber, teal, deep blue, and dark red down in
+-- the lairs.
+local DEPTH_BANDS = {
+	{ -40, rgb(176, 128, 80) },
+	{ -80, rgb(190, 150, 70) },
+	{ -120, rgb(70, 150, 140) },
+	{ -165, rgb(80, 110, 190) },
+	{ -205, rgb(120, 90, 190) },
+	{ -1000, rgb(170, 70, 80) },
+}
 local function caveColour(y: number): Color3
-	local t = math.clamp((-y - 30) / 70, 0, 1)
-	return rgb(170, 120, 74):Lerp(rgb(90, 120, 210), t)
+	for i, band in DEPTH_BANDS do
+		if y > band[1] then
+			if i == 1 then
+				return band[2]
+			end
+			-- blend a little towards the band above near the boundary
+			local above = DEPTH_BANDS[i - 1]
+			local t = math.clamp((y - band[1]) / (above[1] - band[1]), 0, 1)
+			return band[2]:Lerp(above[2], t * 0.35)
+		end
+	end
+	return DEPTH_BANDS[#DEPTH_BANDS][2]
 end
 
 -- Each tunnel and room is drawn twice: a dark rim underneath (ZIndex 1) and the

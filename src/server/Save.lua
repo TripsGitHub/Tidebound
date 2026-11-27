@@ -100,7 +100,13 @@ end
 -- Loads the player's save into Inventory and Progression (call after their init).
 -- Yields. Returns true if the player is now saving normally.
 function Save.load(player: Player): boolean
+	task.delay(20, function()
+		if player.Parent and not player:GetAttribute("DataLoaded") then
+			player:SetAttribute("DataLoaded", true) -- saving is off; stop waiting
+		end
+	end)
 	if not store then
+		player:SetAttribute("DataLoaded", true)
 		Remotes.Notify:FireClient(player, "Saving is off on this server", "warn")
 		return false
 	end
@@ -154,6 +160,7 @@ function Save.load(player: Player): boolean
 		end
 	end
 	loaded[player] = true
+	player:SetAttribute("DataLoaded", true)
 	return true
 end
 

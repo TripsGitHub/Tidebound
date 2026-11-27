@@ -255,6 +255,11 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			add(s2, HALL_R, "hall")
 			table.insert(halls, s2)
 			barrier(s2, 14, HALL_R, "layer2")
+			-- A second, tougher seal further down the same hall: more layers to dig
+			-- through before the deep caves.
+			if #samples(s2) > 34 then
+				barrier(s2, #samples(s2) - 10, HALL_R, "layer2b")
+			end
 			local lower = s2[#s2]
 			chamber(lower - Vector3.new(0, HALL_R * 0.6, 0), 30, "lower")
 
@@ -264,6 +269,9 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			add(s3, HALL_R, "hall")
 			table.insert(halls, s3)
 			barrier(s3, 14, HALL_R, "layer3")
+			if #samples(s3) > 36 then
+				barrier(s3, #samples(s3) - 12, HALL_R, "layer3b")
+			end
 
 			-- Quick ways back up from the Upper Caves: a ladder shaft or a waterfall you
 			-- swim up, from the upper chamber's edge to a spot on the surface.
@@ -680,7 +688,8 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 	end
 	for _, rv in result.ravines do
 		if rv.shaft then
-			local top = SEA_FLOOR - 4
+			-- Right up through the trench floor into the open sea, so it always opens.
+			local top = SEA_FLOOR + 6
 			local bottom = rv.shaft.Y + BRANCH_R
 			terrain:FillCylinder(CFrame.new(rv.shaft.X, (top + bottom) / 2, rv.shaft.Z), top - bottom, BRANCH_R + 1, M.Water)
 		end

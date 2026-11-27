@@ -206,6 +206,11 @@ local function queueXpCheck()
 		xpCheckQueued = false
 		local level = player:GetAttribute("Level") or 1
 		local xp = player:GetAttribute("XP") or 0
+		-- Your save loading in isn't levelling up: just take the numbers.
+		if not player:GetAttribute("DataLoaded") then
+			lastLevel, lastXp = nil, nil
+			return
+		end
 		if lastLevel and lastXp then
 			local gained = if level > lastLevel then Config.XpForLevel(lastLevel) - lastXp + xp else xp - lastXp
 			if gained > 0 then
@@ -749,6 +754,9 @@ function UI.init(cb)
 	makePanel("quests", "Quest Board")
 	makePanel("shop", "Trader")
 
+	player:GetAttributeChangedSignal("DataLoaded"):Connect(function()
+		lastLevel, lastXp = player:GetAttribute("Level") or 1, player:GetAttribute("XP") or 0
+	end)
 	for _, attr in { "Hunger", "BagUsed", "BagSize", "Level", "XP" } do
 		player:GetAttributeChangedSignal(attr):Connect(updateStats)
 	end
