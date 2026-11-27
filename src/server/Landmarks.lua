@@ -271,6 +271,7 @@ function Landmarks.place(kind: string, centre: Vector3, groundAt, title: string?
 	local builder = BUILDERS[kind] or BUILDERS.default
 	local name, height = builder(m, centre, groundAt)
 	m.Name = title or name
+	m.WorldPivot = CFrame.new(centre)
 	nameSign(m, title or name, centre + Vector3.new(0, height + 6, 0))
 	m:SetAttribute("Landmark", title or name)
 	return m
