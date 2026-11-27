@@ -53,6 +53,7 @@ export type Result = {
 	hub: { pos: Vector3, r: number }?,
 	bossRooms: { { pos: Vector3, r: number, boss: string } },
 	barriers: { { pos: Vector3, dir: Vector3, r: number, kind: string } },
+	plugs: { { pos: Vector3, dir: Vector3, r: number, zones: string } }?,
 	shafts: { { bottom: Vector3, top: Vector3, kind: string, r: number } },
 	lobes: { { pos: Vector3, r: number } },
 	pillars: { { pos: Vector3, height: number, r: number } },
@@ -652,7 +653,7 @@ function Caves.fixLeaks(result: Result)
 		local o = x.owner
 		return string.format("%s%s r%d i%s seals%d @(%d,%d,%d)", o.kind or "", o.tier and ("chamber " .. o.tier) or "", x.r, tostring(x.i), if o.seals then #o.seals else -1, x.p.X, x.p.Y, x.p.Z)
 	end
-	for _ = 1, 200 do
+	local function collect()
 		-- Every carved ball, in a coarse grid.
 		local balls = {}
 		local tsamples = {}
@@ -686,6 +687,29 @@ function Caves.fixLeaks(result: Result)
 			grid[key] = grid[key] or {}
 			table.insert(grid[key], n)
 		end
+		return balls, grid, tsamples
+	end
+	local function near(balls, grid, a, n, fn)
+		local cx, cy, cz = math.floor(a.p.X / CELL), math.floor(a.p.Y / CELL), math.floor(a.p.Z / CELL)
+		for dx = -1, 1 do
+			for dy = -1, 1 do
+				for dz = -1, 1 do
+					for _, m in grid[(cx + dx) .. "," .. (cy + dy) .. "," .. (cz + dz)] or {} do
+						local b = balls[m]
+						if m > n and a.zone ~= b.zone and (a.p - b.p).Magnitude < a.r + b.r + WALL then
+							local span = math.ceil(2 * math.max(a.r, b.r) / STEP) + 2
+							local neighbours = a.owner == b.owner and a.i and b.i and math.abs(a.i - b.i) <= span * 3 -- a tunnel's own curve past its seal is plugged by the seal
+							if not neighbours then
+								fn(b)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	for _ = 1, 200 do
+		local balls, grid, tsamples = collect()
 		-- Find the leaks (each owner at most once a round: a fix moves things).
 		local leaks = {}
 		local seen = {}
@@ -829,8 +853,24 @@ function Caves.fixLeaks(result: Result)
 		end
 		task.wait()
 	end
-	for _, leak in lastLeakList do
-		warn(string.format("[Caves] still open after all rounds: zone %d [%s] and zone %d [%s]", leak[1].zone, what(leak[1]), leak[2].zone, what(leak[2])))
+	-- Whatever the rounds couldn't settle (fixes that undo each other) gets a plug: a
+	-- slab of rock right across the contact, carved last, so it can't be walked round.
+	local patches = {}
+	do
+		local balls, grid = collect()
+		for n, a in balls do
+			near(balls, grid, a, n, function(b)
+				local d = b.p - a.p
+				local at = a.p + d * (a.r / (a.r + b.r))
+				local r = math.min(a.r, b.r) + 3
+				for _, pt in patches do
+					if (pt.pos - at).Magnitude < r * 0.6 then
+						return
+					end
+				end
+				table.insert(patches, { pos = at, dir = if d.Magnitude > 0 then d.Unit else Vector3.xAxis, r = r, zones = a.zone .. "/" .. b.zone })
+			end)
+		end
 	end
 	-- Drop what was removed, and list the barriers where the seals ended up.
 	local function keep(list)
@@ -873,7 +913,11 @@ function Caves.fixLeaks(result: Result)
 			table.insert(result.barriers, { pos = s[i], dir = if dir.Magnitude > 0 then dir.Unit else Vector3.zAxis, r = seal.r, kind = seal.kind })
 		end
 	end
-	local summary = string.format("seals moved %d, side caves dropped %d, gaps left %d (+%d still open after 200 rounds)", moved, dropped, unresolved, lastLeaks)
+	result.plugs = patches
+	for _, pt in patches do
+		print(string.format("[Caves] plugged zones %s at (%d,%d,%d) r%d", pt.zones, pt.pos.X, pt.pos.Y, pt.pos.Z, pt.r))
+	end
+	local summary = string.format("seals moved %d, side caves dropped %d, gaps left %d, plugs %d (%d pairs were still open after 200 rounds)", moved, dropped, unresolved, #patches, lastLeaks)
 	workspace:SetAttribute("CaveSeals", summary)
 	print("[Caves] " .. summary)
 end
@@ -977,6 +1021,10 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 		local cf = CFrame.lookAt(room.pos, room.pos + room.facing)
 		terrain:FillBlock(cf, Vector3.new(room.size.Z, room.size.Y, room.size.X), M.Air)
 		terrain:FillBlock(cf - Vector3.new(0, room.size.Y / 2 + 1, 0), Vector3.new(room.size.Z, 2, room.size.X), M.Slate)
+	end
+	-- Rock slabs between bits of cave in different zones that the gap fixer couldn't part.
+	for _, pt in result.plugs or {} do
+		terrain:FillCylinder(CFrame.lookAt(pt.pos, pt.pos + pt.dir) * CFrame.Angles(-math.pi / 2, 0, 0), WALL, pt.r, M.Rock)
 	end
 
 	-- The ravines are open to the sea: a flat-floored trench with ragged walls, and a
