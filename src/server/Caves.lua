@@ -52,10 +52,35 @@ export type Result = {
 	spoke: { Vector3 }?,
 	hub: { pos: Vector3, r: number }?,
 	bossRooms: { { pos: Vector3, r: number, boss: string } },
+	barriers: { { pos: Vector3, dir: Vector3, r: number, kind: string } },
+	shafts: { { bottom: Vector3, top: Vector3, kind: string, r: number } },
+	lobes: { { pos: Vector3, r: number } },
+	pillars: { { pos: Vector3, height: number, r: number } },
+	crystalCaves: { Vector3 },
 }
 
-local HUB_Y = -165 -- the Maw's great cavern
-local BOSS_Y = -195 -- the boss lairs below it
+local HUB_Y = -175 -- the Maw's great cavern
+local BOSS_Y = -230 -- the boss lairs below it
+local BEDROCK_Y = -310 -- solid rock from the sea floor down to here, so no cave has a hollow underside
+Caves.BEDROCK_Y = BEDROCK_Y
+
+-- The layers. You break through a barrier to drop from one to the next (see
+-- WorldBuilder: CaveBarrier nodes), so the deeper ores take real tools to reach.
+--   1  Upper Caves  entrance to ~-32     open to everyone, common ores, torches
+--   2  Lower Caves  ~-32 to ~-64         behind a layer-2 barrier
+--   3  Deep Network ~-64 to ~-110        behind a layer-3 barrier; roots and links
+--   *  Crystal caves                     hidden off a few deep roots, behind a crystal barrier
+--   *  The Maw and boss lairs            under Maw Rock, behind the Maw barrier and keyed gates
+local function layerFloor(y: number): number
+	if y > UPPER_Y - 6 then
+		return UPPER_Y - 10
+	elseif y > LOWER_Y - 6 then
+		return LOWER_Y - 10
+	elseif y > DEEP_Y - 30 then
+		return DEEP_Y - 22
+	end
+	return y - 25
+end
 local BOSSES = { "CrawlerQueen", "CrystalWarden", "MagmaGolem" }
 
 local function tierAt(y: number): string
@@ -154,7 +179,7 @@ end
 -- islands: the scaled island list. groundAt(x, z) -> RaycastResult?
 -- canEnter(isl, x, z) -> true if that spot is dry, open land for an entrance.
 function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, number) -> RaycastResult?, canEnter: (any, number, number) -> boolean): Result
-	local result: Result = { chambers = {}, paths = {}, tunnels = {}, entrances = {}, exits = {}, pockets = {}, secretRooms = {}, ravines = {}, spoke = nil, hub = nil, bossRooms = {} }
+	local result: Result = { chambers = {}, paths = {}, tunnels = {}, entrances = {}, exits = {}, pockets = {}, secretRooms = {}, ravines = {}, spoke = nil, hub = nil, bossRooms = {}, barriers = {}, shafts = {}, lobes = {}, pillars = {}, crystalCaves = {} }
 	local roots = {}
 	local halls = {} -- main halls branches can grow from: { points, depth range }
 
@@ -164,6 +189,29 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	end
 	local function chamber(pos: Vector3, r: number, tier: string)
 		table.insert(result.chambers, { pos = pos, r = r, tier = tier })
+		-- Big chambers get a lumpy, one-off shape: a couple of side lobes, and maybe
+		-- rock pillars holding up the roof, so no two look the same.
+		if r >= 22 and tier ~= "pocket" then
+			for _ = 1, rng:NextInteger(1, 3) do
+				local a = rng:NextNumber(0, math.pi * 2)
+				local d = r * rng:NextNumber(0.45, 0.75)
+				table.insert(result.lobes, { pos = pos + Vector3.new(math.cos(a) * d, rng:NextNumber(-2, 4) + r * 0.3, math.sin(a) * d), r = r * rng:NextNumber(0.45, 0.7) })
+			end
+			if rng:NextNumber() < 0.45 then
+				for _ = 1, rng:NextInteger(1, 3) do
+					local a = rng:NextNumber(0, math.pi * 2)
+					local d = r * rng:NextNumber(0.3, 0.6)
+					table.insert(result.pillars, { pos = pos + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d), height = r * 1.6, r = rng:NextNumber(2.5, 5) })
+				end
+			end
+		end
+	end
+	-- A barrier plugging a hall at `pts[i]`, facing along the hall.
+	local function barrier(pts: { Vector3 }, i: number, r: number, kind: string)
+		local s = samples(pts)
+		i = math.clamp(i, 2, #s - 1)
+		local dir = s[i + 1] - s[i - 1]
+		table.insert(result.barriers, { pos = s[i], dir = if dir.Magnitude > 0 then dir.Unit else Vector3.zAxis, r = r, kind = kind })
 	end
 
 	-- A dry, flat, enterable spot on an island between `d0` and `d1` of its radius.
@@ -206,6 +254,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			table.insert(s2, 1, upper)
 			add(s2, HALL_R, "hall")
 			table.insert(halls, s2)
+			barrier(s2, 14, HALL_R, "layer2")
 			local lower = s2[#s2]
 			chamber(lower - Vector3.new(0, HALL_R * 0.6, 0), 30, "lower")
 
@@ -214,6 +263,28 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			table.insert(s3, root + Vector3.new(0, 8, 0))
 			add(s3, HALL_R, "hall")
 			table.insert(halls, s3)
+			barrier(s3, 14, HALL_R, "layer3")
+
+			-- Quick ways back up from the Upper Caves: a ladder shaft or a waterfall you
+			-- swim up, from the upper chamber's edge to a spot on the surface.
+			local upperC = upper - Vector3.new(0, HALL_R * 0.6, 0)
+			for k = 1, rng:NextInteger(1, 2) do
+				local a = rng:NextNumber(0, math.pi * 2)
+				local foot = upperC + Vector3.new(math.cos(a) * 18, 2, math.sin(a) * 18)
+				local hit = groundAt(foot.X, foot.Z)
+				if hit and hit.Position.Y > 4 and hit.Material ~= M.Water and canEnter(isl, foot.X, foot.Z) then
+					local kind = if k == 1 and rng:NextNumber() < 0.5 then "waterfall" else "ladder"
+					local r = if kind == "waterfall" then 6 else 4
+					table.insert(result.shafts, { bottom = foot, top = Vector3.new(foot.X, hit.Position.Y, foot.Z), kind = kind, r = r })
+					local pts = {}
+					for y = foot.Y, hit.Position.Y + 2, 3 do
+						table.insert(pts, Vector3.new(foot.X, y, foot.Z))
+					end
+					if #pts >= 2 then
+						add(pts, r, "shaft")
+					end
+				end
+			end
 
 			-- The mouth's fang ring has its gap on its left, so face it inwards: the gap
 			-- then opens the way the spiral runs (anticlockwise round the island).
@@ -312,6 +383,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			local bottom = Vector3.new(centre.X, SEA_FLOOR - 28, centre.Z)
 			local climb = wander(floor + Vector3.new(0, 8, 0), bottom, 10)
 			add(climb, BRANCH_R + 2, "ravine")
+			barrier(climb, 4, BRANCH_R + 2, "layer3")
 			result.ravines[#result.ravines].shaft = bottom
 		end
 	end
@@ -328,6 +400,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			table.insert(down, 1, root + Vector3.new(0, 8, 0))
 			add(down, HALL_R + 3, "hall")
 			table.insert(halls, down)
+			barrier(down, 10, HALL_R + 3, "maw")
 			for k = 0, 3 do
 				local a = k / 4 * math.pi * 2 + 0.4
 				chamber(centre + Vector3.new(math.cos(a) * 40, 0, math.sin(a) * 40), 46, "abyss")
@@ -343,26 +416,95 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 					local hall = wander(centre + Vector3.new(0, 8, 0), roots[j] + Vector3.new(0, 8, 0), 40)
 					add(hall, HALL_R + 1, "hall")
 					table.insert(halls, hall)
+					-- From the Deep Network side the Maw is sealed too.
+					barrier(hall, #samples(hall) - 12, HALL_R + 1, "maw")
 				end
 			end
+			-- Each lair is a long, winding way from the Maw, behind a gate that needs a
+			-- key, and opens into a huge arena.
 			for k, boss in BOSSES do
 				local a = k / #BOSSES * math.pi * 2 + 1
-				local lair = centre + Vector3.new(math.cos(a) * 170, BOSS_Y - HUB_Y, math.sin(a) * 170)
-				local way = wander(centre + Vector3.new(math.cos(a) * 60, 8, math.sin(a) * 60), lair + Vector3.new(0, 10, 0), 20)
+				local lair = centre + Vector3.new(math.cos(a) * 360, BOSS_Y - HUB_Y, math.sin(a) * 360)
+				local way = wander(centre + Vector3.new(math.cos(a) * 60, 8, math.sin(a) * 60), lair + Vector3.new(0, 10, 0), 60)
 				add(way, HALL_R + 1, "hall")
-				for q = -1, 1, 2 do
-					chamber(lair + Vector3.new(math.cos(a + q * 1.5) * 18, 0, math.sin(a + q * 1.5) * 18), 34, "lair")
+				table.insert(halls, way)
+				barrier(way, #samples(way) - 24, HALL_R + 1, "gate_" .. boss)
+				for q = 0, 3 do
+					local b = a + q * math.pi / 2
+					chamber(lair + Vector3.new(math.cos(b) * 34, 0, math.sin(b) * 34), 44, "lair")
 				end
-				chamber(lair, 40, "lair")
-				table.insert(result.bossRooms, { pos = lair, r = 40, boss = boss })
+				chamber(lair, 60, "lair")
+				table.insert(result.bossRooms, { pos = lair, r = 80, boss = boss })
 			end
 		end
 	end
 
+	-- Crystal caves: off a few islands' root caverns (never the spawn island or the
+	-- Maw), a long dark passage ends at a crystal barrier, and past it the way drops to
+	-- a grotto full of crystal. Nothing on the map points to them.
+	local candidates = {}
+	for i, isl in islands do
+		if i ~= 1 and not isl.hub and roots[i] and isl.r > 150 then
+			table.insert(candidates, i)
+		end
+	end
+	for _ = 1, math.min(4, #candidates) do
+		local i = table.remove(candidates, rng:NextInteger(1, #candidates))
+		local root = roots[i]
+		local a = rng:NextNumber(0, math.pi * 2)
+		local heading = Vector3.new(math.cos(a), 0, math.sin(a))
+		local passage = crooked(root + Vector3.new(0, 4, 0), heading, rng:NextNumber(160, 240), DEEP_Y - 14, DEEP_Y + 4)
+		add(passage, BRANCH_R, "branch")
+		local tip = passage[#passage]
+		local grotto = tip + heading * 70 + Vector3.new(0, -40, 0)
+		local drop = wander(tip, grotto + Vector3.new(0, 10, 0), 12)
+		table.insert(drop, 1, tip)
+		add(drop, BRANCH_R + 1, "branch")
+		barrier(drop, 3, BRANCH_R + 1, "crystal")
+		chamber(grotto, 34, "crystal")
+		for q = 0, 2 do
+			local b = a + q * 2.1
+			chamber(grotto + Vector3.new(math.cos(b) * 30, rng:NextNumber(-4, 4), math.sin(b) * 30), rng:NextNumber(18, 26), "crystal")
+		end
+		table.insert(result.crystalCaves, grotto)
+	end
+
 	-- Side branches off the halls: dead ends, crawlways into rare-ore pockets, and a
-	-- few secret rooms.
+	-- few secret rooms. They stay in their own layer, so they never get round a barrier.
+	-- Every tunnel so far goes in a coarse grid, so a new branch can check it doesn't
+	-- run into some other tunnel (that would open a way round a barrier).
+	local CELL = 32
+	local grid: { [string]: { { p: Vector3, id: number, i: number, r: number } } } = {}
+	local idOf = {}
+	for id, t in result.tunnels do
+		idOf[t.points] = id
+		for i, p in samples(t.points) do
+			local key = math.floor(p.X / CELL) .. "," .. math.floor(p.Y / CELL) .. "," .. math.floor(p.Z / CELL)
+			grid[key] = grid[key] or {}
+			table.insert(grid[key], { p = p, id = id, i = i, r = t.r })
+		end
+	end
+	local function clashes(points: { Vector3 }, r: number, ownId: number?, ownIndex: number): boolean
+		for _, p in samples(points) do
+			local cx, cy, cz = math.floor(p.X / CELL), math.floor(p.Y / CELL), math.floor(p.Z / CELL)
+			for dx = -1, 1 do
+				for dy = -1, 1 do
+					for dz = -1, 1 do
+						for _, q in grid[(cx + dx) .. "," .. (cy + dy) .. "," .. (cz + dz)] or {} do
+							if (q.id ~= ownId or math.abs(q.i - ownIndex) > 30) and (q.p - p).Magnitude < r + q.r + 6 then
+								return true
+							end
+						end
+					end
+				end
+			end
+		end
+		return false
+	end
+
 	local secrets = 0
 	for hi, hall in halls do
+		local ownId = idOf[hall]
 		local pts = samples(hall)
 		local count = math.clamp(math.floor(#pts * STEP / 140), 1, 6)
 		for _ = 1, count do
@@ -374,8 +516,13 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 				local side = Vector3.new(-dir.Z, 0, dir.X).Unit * (if rng:NextNumber() < 0.5 then 1 else -1)
 				local heading = yaw(side, rng:NextNumber(-0.5, 0.5))
 				local maxY = math.min(-34, at.Y + 12)
-				local minY = math.min(math.max(DEEP_Y - 20, at.Y - 25), maxY - 10) -- the Maw's halls run deeper than DEEP_Y
+				local minY = math.min(math.max(layerFloor(at.Y), at.Y - 25), maxY - 10)
 				local branch = crooked(at, heading, rng:NextNumber(70, 200), minY, maxY)
+				-- The first few points start inside the hall itself; check the rest.
+				local tail = { table.unpack(branch, 2) }
+				if #tail < 2 or clashes(tail, BRANCH_R, ownId, i) then
+					continue
+				end
 				add(branch, BRANCH_R, "branch")
 				local tip = branch[#branch]
 				local roll = rng:NextNumber()
@@ -393,7 +540,10 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 					secrets += 1
 				elseif roll < 0.5 and tier ~= "upper" then
 					-- A crawlway into a small pocket of rare ore.
-					local crawl = crooked(tip, yaw(heading, rng:NextNumber(-0.9, 0.9)), rng:NextNumber(30, 60), minY - 8, maxY)
+					local crawl = crooked(tip, yaw(heading, rng:NextNumber(-0.9, 0.9)), rng:NextNumber(30, 60), minY, maxY)
+					if clashes({ table.unpack(crawl, 2) }, CRAWL_R, nil, 0) then
+						continue
+					end
 					add(crawl, CRAWL_R, "crawl")
 					local pocket = crawl[#crawl] - Vector3.new(0, CRAWL_R * 0.4, 0)
 					chamber(pocket, 11, "pocket")
@@ -420,6 +570,27 @@ end
 -- chambers, 3. lay their flat floors, 4. bore every tunnel (through those floors
 -- where a tunnel leads on), 5. the secret rooms, 6. flood the ravines and their shafts.
 function Caves.carveAll(terrain: Terrain, result: Result)
+	-- Solid rock from the bottom of the sea floor down past the deepest lair, under the
+	-- whole network, so a cave never has a thin, lumpy shell for a floor.
+	local lo, hi = Vector3.new(math.huge, 0, math.huge), Vector3.new(-math.huge, 0, -math.huge)
+	for _, t in result.tunnels do
+		for _, p in t.points do
+			lo = Vector3.new(math.min(lo.X, p.X), 0, math.min(lo.Z, p.Z))
+			hi = Vector3.new(math.max(hi.X, p.X), 0, math.max(hi.Z, p.Z))
+		end
+	end
+	lo -= Vector3.new(160, 0, 160)
+	hi += Vector3.new(160, 0, 160)
+	local top = SEA_FLOOR - 6
+	local CHUNK = 1024
+	for x = lo.X, hi.X, CHUNK do
+		for z = lo.Z, hi.Z, CHUNK do
+			local w, d = math.min(CHUNK, hi.X - x), math.min(CHUNK, hi.Z - z)
+			terrain:FillBlock(CFrame.new(x + w / 2, (top + BEDROCK_Y) / 2, z + d / 2), Vector3.new(w, top - BEDROCK_Y, d), M.Rock)
+			task.wait()
+		end
+	end
+
 	local all = {}
 	for _, t in result.tunnels do
 		table.insert(all, { pts = samples(t.points), r = t.r })
@@ -434,6 +605,9 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 	end
 	for _, c in result.chambers do
 		shell(terrain, c.pos + Vector3.new(0, c.r * 0.45, 0), c.r)
+	end
+	for _, l in result.lobes do
+		shell(terrain, l.pos, l.r)
 	end
 	for _, room in result.secretRooms do
 		local pad = room.size / 2 + Vector3.one * 6
@@ -466,8 +640,17 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 	for _, c in result.chambers do
 		terrain:FillBall(c.pos + Vector3.new(0, c.r * 0.45, 0), c.r, M.Air)
 	end
+	for _, l in result.lobes do
+		terrain:FillBall(l.pos, l.r, M.Air)
+	end
 	for _, c in result.chambers do
 		terrain:FillCylinder(CFrame.new(c.pos - Vector3.new(0, 3, 0)), 6, c.r * 0.95, M.Rock)
+	end
+	-- Pillars from floor to roof, a little thicker at the ends.
+	for _, p in result.pillars do
+		terrain:FillCylinder(CFrame.new(p.pos + Vector3.new(0, p.height / 2, 0)), p.height, p.r, M.Rock)
+		terrain:FillBall(p.pos + Vector3.new(0, 1, 0), p.r * 1.6, M.Rock)
+		terrain:FillBall(p.pos + Vector3.new(0, p.height - 2, 0), p.r * 1.5, M.Rock)
 	end
 	for n, t in all do
 		for _, p in t.pts do
@@ -487,6 +670,13 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 	-- water shaft from the end of the climbing hall up into it.
 	for _, cut in ravineCuts do
 		terrain:FillBlock(cut.cf, cut.size, M.Water)
+	end
+	-- Waterfall shafts: a column of water you swim up to the surface.
+	for _, sh in result.shafts do
+		if sh.kind == "waterfall" then
+			local h = sh.top.Y - sh.bottom.Y
+			terrain:FillCylinder(CFrame.new(sh.bottom + Vector3.new(0, h / 2 + 1, 0)), h - 2, sh.r - 0.5, M.Water)
+		end
 	end
 	for _, rv in result.ravines do
 		if rv.shaft then
@@ -533,14 +723,17 @@ function Caves.verify(terrain: Terrain, result: Result)
 		end
 	end
 	local summary = string.format(
-		"solid samples %d of %d | %d tunnels, %d pockets, %d secret rooms, %d ravines, %d landmark exits",
+		"solid samples %d of %d | %d tunnels, %d pockets, %d secret rooms, %d ravines, %d landmark exits, %d barriers, %d shafts, %d crystal caves",
 		solid,
 		total,
 		#result.tunnels,
 		#result.pockets,
 		#result.secretRooms,
 		#result.ravines,
-		#result.exits
+		#result.exits,
+		#result.barriers,
+		#result.shafts,
+		#result.crystalCaves
 	)
 	workspace:SetAttribute("CaveCheck", summary)
 	print("[Caves] " .. summary)

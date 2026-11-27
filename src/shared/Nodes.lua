@@ -30,6 +30,44 @@ local Nodes = {
 			{ item = "coconut", min = 1, max = 2 },
 		},
 	},
+	-- Cave seals: cracked rock plugging the way down to the next cave layer. You need
+	-- a good enough harvester to break one, and it grows back after a while.
+	CaveSealLower = {
+		name = "Cave Seal (Lower Caves)",
+		material = "stone",
+		hp = 70,
+		minPower = 3,
+		respawn = 600,
+		xp = 40,
+		drops = { { item = "stone", min = 6, max = 9 } },
+	},
+	CaveSealDeep = {
+		name = "Cave Seal (Deep Network)",
+		material = "stone",
+		hp = 160,
+		minPower = 5,
+		respawn = 600,
+		xp = 90,
+		drops = { { item = "stone", min = 8, max = 12 }, { item = "gold_ore", min = 0, max = 1 } },
+	},
+	CaveSealCrystal = {
+		name = "Crystal Seal",
+		material = "stone",
+		hp = 260,
+		minPower = 6,
+		respawn = 900,
+		xp = 160,
+		drops = { { item = "stone", min = 8, max = 12 }, { item = "sunstone", min = 0, max = 2 } },
+	},
+	CaveSealMaw = {
+		name = "Maw Seal",
+		material = "stone",
+		hp = 400,
+		minPower = 7,
+		respawn = 900,
+		xp = 250,
+		drops = { { item = "stone", min = 10, max = 14 }, { item = "diamond", min = 0, max = 1 } },
+	},
 	-- The Sunfruit Giant on Sunfruit Isle: a huge palm you can chop down for a pile of
 	-- fruit and logs. Takes a long time to grow back.
 	SunfruitGiant = {

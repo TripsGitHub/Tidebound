@@ -773,20 +773,23 @@ end
 -- The advanced ores only grow underground (or come from world events, see Events.lua).
 -- Stone Shelf has its own hand-carved cave (IslandFields), and Caves.lua runs a
 -- network under the whole map. The deeper the chamber, the better the ore.
+-- { node, count, chance? }: chance is the odds that this entry appears at all.
+-- Each layer's chambers hold the same common ores; the good ones are out in the
+-- side pockets, and the end-game ones mostly in the hidden crystal caves.
 local CAVE_NODES = {
-	-- The open chambers on the main way down: common ores only.
-	upper = { { "SilverVein", 2 }, { "GoldVein", 1 } },
-	lower = { { "GoldVein", 2 }, { "SunstoneVein", 1 } },
-	deep = { { "SunstoneVein", 2 }, { "GoldVein", 1 } },
-	-- Rare ore only in the pockets at the end of the crawlways.
-	pocket_lower = { { "DiamondCluster", 2 } },
-	pocket_deep = { { "FractiteCluster", 1 }, { "AmethystGeode", 1 } },
-	-- The Maw and the boss lairs below it.
-	abyss = { { "SunstoneVein", 2 }, { "DiamondCluster", 1 } },
-	lair = { { "FractiteCluster", 1 }, { "AmethystGeode", 1 }, { "DiamondCluster", 1 } },
+	upper = { { "Boulder", 1 }, { "SilverVein", 1, 0.6 } },
+	lower = { { "SilverVein", 1 }, { "GoldVein", 1, 0.5 } },
+	deep = { { "GoldVein", 1 }, { "SunstoneVein", 1, 0.4 } },
+	-- Side pockets at the end of crawlways: usually the layer's better ore, rarely more.
+	pocket_lower = { { "GoldVein", 1, 0.6 }, { "DiamondCluster", 1, 0.12 } },
+	pocket_deep = { { "SunstoneVein", 1, 0.6 }, { "DiamondCluster", 1, 0.25 }, { "FractiteCluster", 1, 0.06 } },
+	-- The hidden crystal caves: the only place Amethyst grows.
+	crystal = { { "DiamondCluster", 1 }, { "FractiteCluster", 1, 0.45 }, { "AmethystGeode", 1, 0.2 } },
+	abyss = { { "SunstoneVein", 1 }, { "DiamondCluster", 1, 0.3 } },
+	lair = {},
 }
 -- Odd ores along the halls, by depth (and never the rare ones).
-local HALL_ORE = { upper = "SilverVein", lower = "GoldVein", deep = "SunstoneVein", abyss = "SunstoneVein" }
+local HALL_ORE = { upper = "SilverVein", lower = "SilverVein", deep = "GoldVein", abyss = "SunstoneVein" }
 local CRYSTAL_GLOW = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 255, 210) }
 local TORCH_GLOW = Color3.fromRGB(255, 170, 80)
 
@@ -921,13 +924,14 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 				local p, q = pts[i], pts[i + 1]
 				local tier = Caves.tierAt(p.Y)
 				local dir = Vector3.new(q.X - p.X, 0, q.Z - p.Z)
-				if tier == "upper" and dir.Magnitude > 0 then
+				local lit = tier == "upper" or (tier == "lower" and (i // every) % 2 == 0)
+				if lit and dir.Magnitude > 0 then
 					local side = Vector3.new(-dir.Z, 0, dir.X).Unit * (if (i // every) % 2 == 0 then 1 else -1)
 					local hit = workspace:Raycast(p, side * (t.r + 6), params)
 					if hit then
 						torch(decor, hit.Position, hit.Normal)
 					end
-				elseif rng:NextNumber() < 0.7 then
+				elseif tier ~= "lower" and rng:NextNumber() < 0.3 then
 					-- Not on a beat: some stretches get two clusters, some none.
 					for _ = 1, (if rng:NextNumber() < 0.3 then 2 else 1) do
 						local hit = workspace:Raycast(p, surfaceDir() * (t.r + 6), params)
@@ -937,7 +941,7 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 					end
 				end
 				sinceOre += every * 3
-				if t.kind == "hall" and sinceOre > 130 and p.Y < -15 then
+				if t.kind == "hall" and sinceOre > 280 and p.Y < -15 and HALL_ORE[tier] then
 					local hit = caveFloorAt(p.X, p.Z, p.Y + 2)
 					if hit and hit.Position.Y < p.Y and free(hit.Position, 40) then
 						spawnNode(nodeFolder, HALL_ORE[tier], hit.Position + Vector3.new(rng:NextNumber(-3, 3), 0, rng:NextNumber(-3, 3)))
@@ -955,6 +959,9 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 	local function oresIn(c, list)
 		local f, r = c.pos, c.r
 		for _, entry in list or {} do
+			if entry[3] and rng:NextNumber() > entry[3] then
+				continue
+			end
 			local made = 0
 			for _ = 1, entry[2] * 12 do
 				if made >= entry[2] then
@@ -979,7 +986,7 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 			for i = 1, 6 do
 				local a = i / 6 * math.pi * 2
 				local x, z = f.X + math.cos(a) * r * 0.75, f.Z + math.sin(a) * r * 0.75
-				if c.tier == "upper" then
+				if c.tier == "upper" or c.tier == "lower" then
 					local from = f + Vector3.new(0, 5, 0)
 					local hit = workspace:Raycast(from, Vector3.new(x - f.X, 0, z - f.Z).Unit * (r + 6), params)
 					if hit then
@@ -990,6 +997,15 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 					local hit = workspace:Raycast(centre, surfaceDir() * (r + 8), params)
 					if hit then
 						crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], c.tier ~= "lower" and rng:NextNumber() < 0.5, hit.Normal)
+					end
+				end
+			end
+			if c.tier == "crystal" then
+				-- A crystal cave glitters all over.
+				for _ = 1, rng:NextInteger(12, 18) do
+					local hit = workspace:Raycast(f + Vector3.new(0, r * 0.45, 0), surfaceDir() * (r + 8), params)
+					if hit then
+						crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], rng:NextNumber() < 0.6, hit.Normal)
 					end
 				end
 			end
@@ -1011,11 +1027,148 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 	end
 end
 
+-- Cave seals, ladders and waterfalls ---------------------------------------------------
+local SEAL_NODE = { layer2 = "CaveSealLower", layer3 = "CaveSealDeep", crystal = "CaveSealCrystal", maw = "CaveSealMaw" }
+local SEAL_GLOW = {
+	layer2 = Color3.fromRGB(255, 170, 80),
+	layer3 = Color3.fromRGB(120, 200, 255),
+	crystal = Color3.fromRGB(200, 140, 255),
+	maw = Color3.fromRGB(255, 70, 50),
+}
+
+-- A boulder of cracked rock jammed in the tunnel, with light leaking through the cracks.
+local function makeSeal(nodeFolder: Folder, b)
+	local nodeType = SEAL_NODE[b.kind]
+	local def = nodeType and Nodes[nodeType]
+	if not def then
+		return
+	end
+	local m = Instance.new("Model")
+	m.Name = nodeType
+	local size = b.r * 2 + 6
+	local look = CFrame.lookAt(b.pos, b.pos + b.dir)
+	local core = Props.part(m, { Name = "Seal", Shape = Enum.PartType.Ball, Size = Vector3.one * size, CFrame = look, Color = Color3.fromRGB(78, 72, 70), Material = Enum.Material.Slate })
+	-- Chunky slabs round it so it reads as stacked rock, not a ball.
+	for k = 1, 7 do
+		local a = k / 7 * math.pi * 2
+		Props.part(m, { Name = "Slab", Size = Vector3.new(size * 0.45, size * 0.38, 3), CFrame = look * CFrame.Angles(0, 0, a) * CFrame.new(0, size * 0.28, 0) * CFrame.new(0, 0, (if k % 2 == 0 then -1 else 1) * size * 0.42) * CFrame.Angles(rng:NextNumber(-0.3, 0.3), rng:NextNumber(-0.3, 0.3), 0), Color = Color3.fromRGB(96, 90, 86), Material = Enum.Material.Slate })
+	end
+	local glow = SEAL_GLOW[b.kind]
+	for side = -1, 1, 2 do
+		for k = 1, 4 do
+			local a = rng:NextNumber(0, math.pi * 2)
+			Props.part(m, { Name = "Crack", Size = Vector3.new(0.4, size * rng:NextNumber(0.25, 0.45), 0.3), CFrame = look * CFrame.new(0, 0, side * size * 0.49) * CFrame.Angles(0, 0, a) * CFrame.new(0, size * 0.12 * k / 2, 0), Color = glow, Material = Enum.Material.Neon, CanCollide = false })
+		end
+	end
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = glow, 18, 0.8
+	light.Parent = core
+	for _, p in m:GetDescendants() do
+		if p:IsA("BasePart") and not p.CanCollide then
+			p:SetAttribute("BaseCollide", false)
+		end
+	end
+	m.PrimaryPart = core
+	m:SetAttribute("NodeType", nodeType)
+	m:SetAttribute("DisplayName", def.name)
+	m:SetAttribute("HP", def.hp)
+	m:SetAttribute("MaxHP", def.hp)
+	m:SetAttribute("Depleted", false)
+	m.Parent = nodeFolder
+end
+
+-- Ladders: a wooden ladder up the shaft with a frame round the top. Waterfalls: the
+-- shaft is already full of water (Caves.carveAll); add the falling spray and a glow.
+local function dressShaft(sh)
+	local folder = workspace:FindFirstChild("CaveExits") or Instance.new("Folder")
+	folder.Name = "CaveExits"
+	folder.Parent = workspace
+	local m = Instance.new("Model")
+	m.Name = if sh.kind == "ladder" then "Ladder" else "Waterfall"
+	local h = sh.top.Y - sh.bottom.Y + 3
+	local mid = Vector3.new(sh.bottom.X, sh.bottom.Y - 1 + h / 2, sh.bottom.Z)
+	if sh.kind == "ladder" then
+		local truss = Instance.new("TrussPart")
+		truss.Name = "Rungs"
+		truss.Size = Vector3.new(2, math.floor(h / 2) * 2, 2)
+		truss.CFrame = CFrame.new(mid + Vector3.new(sh.r - 1.6, 0, 0))
+		truss.Color = Props.WOOD
+		truss.Material = Enum.Material.Wood
+		truss.Anchored = true
+		truss.Parent = m
+		for side = -1, 1, 2 do
+			Props.part(m, { Name = "Rail", Size = Vector3.new(0.5, h, 0.5), CFrame = CFrame.new(mid + Vector3.new(sh.r - 1.6, 0, side * 1.2)), Color = Props.WOOD_DARK, Material = Enum.Material.Wood })
+		end
+		-- A post frame and a lantern at the top so you can spot it from the surface.
+		for _, o in { Vector3.new(sh.r + 1, 0, sh.r + 1), Vector3.new(-sh.r - 1, 0, sh.r + 1), Vector3.new(sh.r + 1, 0, -sh.r - 1), Vector3.new(-sh.r - 1, 0, -sh.r - 1) } do
+			Props.part(m, { Name = "Post", Size = Vector3.new(0.8, 4, 0.8), CFrame = CFrame.new(sh.top + o + Vector3.new(0, 1.5, 0)), Color = Props.WOOD_DARK, Material = Enum.Material.Wood })
+		end
+		Props.torchPost(m, sh.top + Vector3.new(sh.r + 3, 0, 0), 5)
+	else
+		local spray = Props.part(m, { Name = "Spray", Size = Vector3.new(sh.r * 2 - 2, h, sh.r * 2 - 2), CFrame = CFrame.new(mid), Transparency = 1, CanCollide = false, CanQuery = false })
+		local e = Instance.new("ParticleEmitter")
+		e.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		e.Color = ColorSequence.new(Color3.fromRGB(220, 240, 255))
+		e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 1) })
+		e.Size = NumberSequence.new(3, 6)
+		e.Lifetime = NumberRange.new(1.5, 2.5)
+		e.Rate = 18
+		e.Speed = NumberRange.new(10, 16)
+		e.EmissionDirection = Enum.NormalId.Bottom
+		e.Parent = spray
+		local light = Instance.new("PointLight")
+		light.Color, light.Range, light.Brightness = Color3.fromRGB(150, 210, 255), 24, 0.8
+		light.Parent = spray
+		-- Mossy stones round the spring at the top.
+		for k = 0, 7 do
+			local a = k / 8 * math.pi * 2
+			Props.part(m, { Name = "Stone", Size = Vector3.new(rng:NextNumber(2, 3.5), rng:NextNumber(1.2, 2), rng:NextNumber(2, 3.5)), CFrame = CFrame.new(sh.top + Vector3.new(math.cos(a) * (sh.r + 1.5), 0.4, math.sin(a) * (sh.r + 1.5))) * CFrame.Angles(0, a, 0), Color = Color3.fromRGB(104, 112, 92), Material = Enum.Material.Slate })
+		end
+	end
+	m.WorldPivot = CFrame.new(sh.top)
+	m.Parent = folder
+end
+
+-- Each island's caves are its own rock: ice under Frost Isle, basalt under Ember, and so on.
+local CAVE_ROCK = {
+	snow = Enum.Material.Glacier,
+	ember = Enum.Material.Basalt,
+	marsh = Enum.Material.Mud,
+	mesa = Enum.Material.Sandstone,
+	crags = Enum.Material.Slate,
+	skull = Enum.Material.Basalt,
+	maw = Enum.Material.Basalt,
+	ruins = Enum.Material.Limestone,
+	fruit = Enum.Material.Limestone,
+	atoll = Enum.Material.Limestone,
+	hills = Enum.Material.Ground,
+}
+local function tintCaveRock()
+	local terrain = workspace.Terrain
+	for _, isl in ISLANDS do
+		local mat = CAVE_ROCK[isl.biome]
+		if mat then
+			-- In blocks small enough for ReplaceMaterial's region limit.
+			local r = isl.r + 40
+			local B = 160
+			for x = isl.x - r, isl.x + r, B do
+				for z = isl.z - r, isl.z + r, B do
+					for y = Caves.BEDROCK_Y, -8, B do
+						local region = Region3.new(Vector3.new(x, y, z), Vector3.new(x + B, math.min(y + B, -8), z + B)):ExpandToGrid(4)
+						terrain:ReplaceMaterial(region, 4, Enum.Material.Rock, mat)
+					end
+				end
+				task.wait()
+			end
+		end
+	end
+end
+
 -- Stone Shelf's hand-carved cave, in world coordinates.
 local function shelfCave(isl: Island): ({ any }, { any })
 	local H, V = MapScale.H, MapScale.V
 	local field = IslandFields.rock
-	local tiers = { chamber = "upper", vault = "lower", hollow = "deep" }
+	local tiers = { chamber = "upper", vault = "upper", hollow = "lower" } -- no seal on this cave, so nothing deep in it
 	local chambers, paths = {}, {}
 	for _, c in field.chambers do
 		table.insert(chambers, { pos = Vector3.new(isl.x + c[1] * H, c[4] * V, isl.z + c[2] * H), r = c[3] * H * 0.8, tier = tiers[c.name] })
@@ -1386,7 +1539,14 @@ function WorldBuilder.build()
 	end
 	table.move(network.chambers, 1, #network.chambers, #chambers + 1, chambers)
 	table.move(network.tunnels, 1, #network.tunnels, #tunnels + 1, tunnels)
+	tintCaveRock()
 	dressCaves(nodes, chambers, tunnels, network.pockets)
+	for _, b in network.barriers do
+		makeSeal(nodes, b)
+	end
+	for _, sh in network.shafts do
+		dressShaft(sh)
+	end
 	if network.hub then
 		-- The heart of the Maw: a giant crystal pillar from floor to roof, ringed by
 		-- torches, with a sign pointing the way down to the lairs.
