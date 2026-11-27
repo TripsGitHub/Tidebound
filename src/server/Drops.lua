@@ -10,6 +10,9 @@ local ItemModels = require(Shared.ItemModels)
 local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
 
+local Ores = require(Shared.Ores)
+local Tiers = require(Shared.Tiers)
+
 local Drops = {}
 local onPickedUp: ((Player, string, number) -> ())? = nil
 
@@ -74,6 +77,68 @@ function Drops.spawn(itemId: string, amount: number, position: Vector3, directio
 	return model
 end
 
+-- Loot priority: when something dies, whoever did the most damage to it gets first
+-- pick of what it dropped for 5-10 seconds (longer the rarer the item); after that
+-- anyone can take it.
+local oreRank = {}
+for i, ore in Ores do
+	oreRank[ore.item] = i
+end
+local tierRank = {}
+for i, tier in Tiers do
+	tierRank[tier.id] = i
+end
+local RARE = { key_fragment = 4, maw_key = 5, queen_fang = 5, warden_core = 5, golem_heart = 5, supply_crate = 2 }
+
+function Drops.prioritySeconds(itemId: string): number
+	local item = Items[itemId]
+	local bonus = RARE[itemId] or 0
+	if oreRank[itemId] then
+		bonus = math.max(bonus, math.ceil(oreRank[itemId] * 5 / #Ores))
+	end
+	if item and (item.kind == "tool" or item.kind == "armour") then
+		local tier = string.match(itemId, "^(%a+)_")
+		bonus = math.max(bonus, 1 + math.ceil((tierRank[tier or ""] or 1) * 4 / #Tiers))
+	end
+	return 5 + math.clamp(bonus, 0, 5)
+end
+
+-- Reserves a drop for `player` (no-op when player is nil).
+function Drops.reserve(model: Model?, player: Player?)
+	if not model or not player then
+		return
+	end
+	local itemId = model:GetAttribute("ItemId") :: string
+	model:SetAttribute("OwnerId", player.UserId)
+	model:SetAttribute("OwnerName", player.DisplayName)
+	model:SetAttribute("OwnerUntil", workspace:GetServerTimeNow() + Drops.prioritySeconds(itemId))
+end
+
+-- Who did the most damage, from a { [Player]: number } tally.
+function Drops.topDamager(tally: { [Player]: number }?): Player?
+	local best, most = nil, 0
+	for p, d in tally or {} do
+		if p.Parent and d > most then
+			best, most = p, d
+		end
+	end
+	return best
+end
+
+local function reservedFor(player: Player, model: Model): boolean
+	local owner = model:GetAttribute("OwnerId")
+	local untilT = model:GetAttribute("OwnerUntil")
+	if not owner or owner == player.UserId or not untilT then
+		return false
+	end
+	local left = untilT - workspace:GetServerTimeNow()
+	if left <= 0 then
+		return false
+	end
+	Remotes.Notify:FireClient(player, string.format("%s has first pick for %ds", model:GetAttribute("OwnerName") or "Someone", math.ceil(left)), "warn")
+	return true
+end
+
 local function validDrop(player: Player, drop: unknown): Model?
 	if typeof(drop) ~= "Instance" or not (drop :: Instance):IsA("Model") then
 		return nil
@@ -94,7 +159,7 @@ end
 
 function Drops.pickUp(player: Player, drop: unknown)
 	local model = validDrop(player, drop)
-	if not model then
+	if not model or reservedFor(player, model) then
 		return
 	end
 	local itemId = model:GetAttribute("ItemId") :: string
@@ -119,7 +184,7 @@ end
 -- Eat food straight off the ground.
 function Drops.eat(player: Player, drop: unknown, eatFn: (Player, string) -> boolean)
 	local model = validDrop(player, drop)
-	if not model then
+	if not model or reservedFor(player, model) then
 		return
 	end
 	local itemId = model:GetAttribute("ItemId") :: string

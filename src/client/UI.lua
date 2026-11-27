@@ -245,27 +245,52 @@ end
 
 -- Notices and pickup feed --------------------------------------------------------
 
-function UI.notify(text: string, style: string?)
-	-- Plain outlined words over the world, coloured by kind (red warning, green
-	-- good news), no box.
-	local color = if style == "warn" then C.bad elseif style == "good" then C.xp else C.text
-	-- Don't stack the same warning five times.
+function UI.notify(text: string, style: string?, iconItem: string?)
+	-- A small tan pill beside your character: a darker inner box with bold white
+	-- words, and the item it's about (or what you're holding) as an icon on the right.
 	for _, child in noticeList:GetChildren() do
-		if child:IsA("TextLabel") and child.Text == text then
+		if child:IsA("Frame") and child:GetAttribute("Text") == text then
 			child:SetAttribute("Born", os.clock())
 			return
 		end
 	end
-	local n = label({ Parent = noticeList, Size = UDim2.fromOffset(0, 28), AutomaticSize = Enum.AutomaticSize.X, TextColor3 = color, Text = text, TextScaled = false, TextSize = 24 })
-	n:SetAttribute("Born", os.clock())
+	local pill = new("Frame", { Parent = noticeList, Size = UDim2.fromOffset(0, 40), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = C.panel, BackgroundTransparency = 0.05 }, {
+		new("UICorner", { CornerRadius = UDim.new(0, 8) }),
+		new("UIStroke", { Color = C.rim, Thickness = 1.5, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+		new("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4), PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }),
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6) }),
+	})
+	pill:SetAttribute("Text", text)
+	pill:SetAttribute("Born", os.clock())
+	local inner = new("Frame", { Parent = pill, LayoutOrder = 1, Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = C.cardDark }, {
+		new("UICorner", { CornerRadius = UDim.new(0, 6) }),
+		new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }),
+	})
+	local words = label({ Parent = inner, Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 21, Font = Enum.Font.BuilderSansBold, TextColor3 = if style == "good" then Color3.fromRGB(220, 255, 200) else C.text })
+	local icon = iconItem or state.equipped
+	if icon and Items[icon] then
+		local holder = new("Frame", { Parent = pill, LayoutOrder = 2, Size = UDim2.fromOffset(32, 32), BackgroundTransparency = 1 })
+		Icons.make(icon, holder, UDim2.fromScale(1, 1))
+	end
+	local scale = new("UIScale", { Parent = pill, Scale = 0.6 })
+	TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	task.spawn(function()
-		while n.Parent and os.clock() - (n:GetAttribute("Born") :: number) < 2.5 do
+		while pill.Parent and os.clock() - (pill:GetAttribute("Born") :: number) < 2.5 do
 			task.wait(0.25)
 		end
-		local fade = TweenService:Create(n, TweenInfo.new(0.3), { TextTransparency = 1, TextStrokeTransparency = 1 })
-		fade:Play()
-		fade.Completed:Wait()
-		n:Destroy()
+		local fade = TweenInfo.new(0.3)
+		TweenService:Create(pill, fade, { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(inner, fade, { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(words, fade, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		for _, d in pill:GetDescendants() do
+			if d:IsA("UIStroke") then
+				TweenService:Create(d, fade, { Transparency = 1 }):Play()
+			elseif d:IsA("ViewportFrame") then
+				TweenService:Create(d, fade, { ImageTransparency = 1 }):Play()
+			end
+		end
+		task.wait(0.3)
+		pill:Destroy()
 	end)
 end
 
@@ -817,8 +842,9 @@ function UI.init(cb)
 	popupLayer = new("Frame", { Parent = gui, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 })
 
 	-- Notices (top centre, below the XP bar)
-	noticeList = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 108), Size = UDim2.fromOffset(600, 150), BackgroundTransparency = 1 }, {
-		new("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center }),
+	-- Notices float just right of your character (screen centre).
+	noticeList = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.5, 70, 0.5, -20), Size = UDim2.fromOffset(460, 180), BackgroundTransparency = 1 }, {
+		new("UIListLayout", { Padding = UDim.new(0, 5), HorizontalAlignment = Enum.HorizontalAlignment.Left, VerticalAlignment = Enum.VerticalAlignment.Center }),
 	})
 
 	-- Pickup feed (right middle)

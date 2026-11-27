@@ -655,13 +655,16 @@ function Animals.damage(model: Model, amount: number, attacker: Player)
 	end
 	local hp = (model:GetAttribute("HP") or 0) - amount
 	model:SetAttribute("HP", hp)
+	s.damageBy = s.damageBy or {}
+	s.damageBy[attacker] = (s.damageBy[attacker] or 0) + amount
 	if hp <= 0 then
 		states[model] = nil
 		local pos = model:GetPivot().Position + Vector3.new(0, 2, 0)
+		local top = Drops.topDamager(s.damageBy) or attacker
 		for _, line in s.def.loot or {} do
 			if not line[4] or rng:NextNumber() < line[4] then
 				for _ = 1, rng:NextInteger(line[2], line[3]) do
-					Drops.spawn(line[1], 1, pos)
+					Drops.reserve(Drops.spawn(line[1], 1, pos), top)
 				end
 			end
 		end

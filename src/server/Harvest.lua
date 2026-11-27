@@ -134,6 +134,9 @@ local function hitStructure(player: Player, model: Model, item)
 	return true
 end
 
+-- character -> { [Player]: damage } from other players, cleared when it's removed.
+Harvest.damageBy = setmetatable({}, { __mode = "k" }) :: { [Model]: { [Player]: number } }
+
 local function hitPlayer(attacker: Player, victimCharacter: Model, item)
 	local victim = Players:GetPlayerFromCharacter(victimCharacter)
 	local humanoid = victimCharacter:FindFirstChildOfClass("Humanoid")
@@ -146,6 +149,10 @@ local function hitPlayer(attacker: Player, victimCharacter: Model, item)
 	local defense = Inventory.defense(victim)
 	local dealt = (item.damage or Config.UnarmedDamage) * (1 - defense)
 	humanoid:TakeDamage(dealt)
+	-- Tally who hurt whom, for loot priority when they die (see Death.lua).
+	local tally = Harvest.damageBy[victimCharacter] or {}
+	tally[attacker] = (tally[attacker] or 0) + dealt
+	Harvest.damageBy[victimCharacter] = tally
 	Remotes.Marker:FireClient(attacker, victimCharacter:GetPivot().Position, dealt, "hit", Inventory.getEquipped(attacker))
 	Remotes.HitFeedback:FireAllClients(victimCharacter)
 end
