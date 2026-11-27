@@ -1,7 +1,10 @@
 -- Code-driven character animation: no uploaded animation assets needed.
 --
--- Every client animates every R15 character by turning its joints (Motor6D.C0) each
--- frame. The default Roblox Animate script is replaced by an empty one
+-- Every client animates every R15 character by setting each joint's Transform every
+-- frame, just before physics runs. That works for both kinds of R15 joint: classic
+-- Motor6Ds and the AnimationConstraints that Roblox's Avatar Joint Upgrade swaps in
+-- (their C0/C1 are read-only, so writing C0 silently did nothing on new avatars).
+-- The default Roblox Animate script is replaced by an empty one
 -- (src/character/Animate.client.lua), so this module owns the whole body:
 --   1. Locomotion: idle breathing, a walk/run cycle driven by how fast the character
 --      really moves, a jump/fall pose in the air, and a squash when landing.
@@ -201,7 +204,7 @@ type State = {
 }
 
 local states: { [Model]: State } = setmetatable({}, { __mode = "k" }) :: any
-local baseC0: { [Motor6D]: CFrame } = setmetatable({}, { __mode = "k" }) :: any
+local baseC0: { [Instance]: CFrame } = setmetatable({}, { __mode = "k" }) :: any
 
 local function stateOf(character: Model): State
 	local s = states[character]
@@ -212,12 +215,14 @@ local function stateOf(character: Model): State
 	return s
 end
 
-local function motorsOf(character: Model): { [string]: Motor6D }
+-- A joint is a Motor6D or (with the Avatar Joint Upgrade) an AnimationConstraint.
+-- Both have a writable Transform.
+local function motorsOf(character: Model): { [string]: any }
 	local out = {}
 	for joint, path in JOINTS do
 		local part = character:FindFirstChild(path[1])
 		local m = part and part:FindFirstChild(path[2])
-		if m and m:IsA("Motor6D") then
+		if m and (m:IsA("Motor6D") or m:IsA("AnimationConstraint")) then
 			out[joint] = m
 		end
 	end
@@ -341,20 +346,30 @@ local function sample(keys: { Key }, under: Pose, t: number, scale: number?, add
 	return out, false
 end
 
+local function jointFrame(motor: any): CFrame
+	-- The frame the Transform is applied in (C0 for a Motor6D, Attachment0 for a constraint).
+	if motor:IsA("Motor6D") then
+		return motor.C0
+	end
+	local a = motor.Attachment0
+	return if a then a.CFrame else CFrame.identity
+end
+
 local function apply(character: Model, pose: Pose)
 	local rootPos = get(pose, "RootPos")
 	for joint, motor in motorsOf(character) do
 		local base = baseC0[motor]
 		if not base then
-			base = motor.C0
+			base = jointFrame(motor)
 			baseC0[motor] = base
 		end
 		local v = get(pose, joint)
-		local cf = base * CFrame.Angles(math.rad(v.X), math.rad(v.Y), math.rad(v.Z))
+		local cf = CFrame.Angles(math.rad(v.X), math.rad(v.Y), math.rad(v.Z))
 		if joint == "Root" then
-			cf = CFrame.new(rootPos) * cf
+			-- RootPos is in the parent part's space; Transform works in the joint's frame.
+			cf = CFrame.new(base:VectorToObjectSpace(rootPos)) * cf
 		end
-		motor.C0 = cf
+		motor.Transform = cf
 	end
 end
 
@@ -536,7 +551,8 @@ end
 
 function Anim.start()
 	local last = os.clock()
-	RunService.RenderStepped:Connect(function()
+	-- PreSimulation runs after the Animator has written its own Transforms, so ours win.
+	RunService.PreSimulation:Connect(function()
 		local now = os.clock()
 		local dt = math.min(now - last, 0.1)
 		last = now
