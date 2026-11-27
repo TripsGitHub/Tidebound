@@ -150,7 +150,7 @@ floorParams.IgnoreWater = true
 local function floorAt(x: number, z: number): RaycastResult?
 	floorParams.FilterDescendantsInstances = { Workspace.Terrain }
 	local hit = Workspace:Raycast(Vector3.new(x, SURFACE_FLOOR + 30, z), Vector3.new(0, -140, 0), floorParams)
-	if hit and hit.Position.Y < SURFACE_FLOOR + 4 and (hit.Material == M.Sand or hit.Material == M.Ground or hit.Material == M.Mud or hit.Material == M.Sandstone or hit.Material == M.Rock or hit.Material == M.Slate or hit.Material == M.Limestone) then
+	if hit and hit.Position.Y < SURFACE_FLOOR + 4 and (hit.Material == M.Sand or hit.Material == M.Salt or hit.Material == M.Ground or hit.Material == M.Mud or hit.Material == M.Sandstone or hit.Material == M.Rock or hit.Material == M.Slate or hit.Material == M.Limestone) then
 		return hit
 	end
 	return nil

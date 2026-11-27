@@ -697,10 +697,10 @@ local function buildTerrain()
 	local terrain = workspace.Terrain
 	terrain:Clear()
 	terrain.WaterColor = Color3.fromRGB(64, 150, 160) -- bright turquoise shallows
-	terrain.WaterTransparency = 0.7
-	terrain.WaterReflectance = 0.6
-	terrain.WaterWaveSize = 0.12
-	terrain.WaterWaveSpeed = 8
+	terrain.WaterTransparency = 0.82 -- clear enough to see the sand shelf fall away
+	terrain.WaterReflectance = 1
+	terrain.WaterWaveSize = 0.16
+	terrain.WaterWaveSpeed = 10
 	-- Animated long grass (Roblox only grows it on Grass, so all green ground is Grass), like the footage. Not settable
 	-- from scripts on every engine version, so default.project.json sets it too.
 	pcall(function()
@@ -740,6 +740,17 @@ local function buildTerrain()
 
 	for _, isl in ISLANDS do
 		island(terrain, isl)
+	end
+
+	-- Wet sand: the strip of beach the waves reach is darker and smoother than the dry
+	-- sand above it (Salt is otherwise unused, so it's free to be "wet sand").
+	terrain:SetMaterialColor(Enum.Material.Salt, Color3.fromRGB(176, 150, 106))
+	for _, isl in ISLANDS do
+		local r = isl.r + 40
+		local region = Region3.new(Vector3.new(isl.x - r, -4, isl.z - r), Vector3.new(isl.x + r, 4, isl.z + r)):ExpandToGrid(4)
+		pcall(function()
+			terrain:ReplaceMaterial(region, 4, Enum.Material.Sand, Enum.Material.Salt)
+		end)
 	end
 end
 

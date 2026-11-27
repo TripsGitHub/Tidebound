@@ -18,6 +18,7 @@ local M = Enum.Material
 local LETTER = {
 	[M.Water] = ".",
 	[M.Sand] = "s",
+	[M.Salt] = "s", -- wet sand
 	[M.Grass] = "g",
 	[M.LeafyGrass] = "f",
 	[M.Rock] = "r",
