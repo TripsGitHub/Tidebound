@@ -139,7 +139,7 @@ local function attach(plr: Player, character: Model)
 		end
 		lastHealth = h.Health
 		local frac = math.clamp(h.Health / math.max(h.MaxHealth, 1), 0, 1)
-		hpFill.Size = UDim2.fromScale(frac, 1)
+		UIKit.slideBar(hpFill, frac)
 		hpFill.BackgroundColor3 = if frac > 0.5 then rgb(110, 210, 90) elseif frac > 0.25 then rgb(236, 180, 60) else rgb(232, 80, 70)
 		hpBack.Visible = true
 		shownAt = os.clock()

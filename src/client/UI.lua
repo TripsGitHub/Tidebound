@@ -100,6 +100,7 @@ function UI.hotbarIds(): { string }
 end
 
 local lastSelected: { [string]: boolean } = {}
+local SLOT = 66 -- hotbar slot size in pixels
 
 local function rebuildHotbar()
 	for _, c in hotbar:GetChildren() do
@@ -116,8 +117,8 @@ local function rebuildHotbar()
 		-- Round flat tan slot; the item's name sits above it, the stack count inside
 		-- at the bottom. All your slots always show, like Island Tribes; the held
 		-- item's slot gets a gold rim.
-		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(58, 72), BackgroundTransparency = 1 })
-		local size = 52
+		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(SLOT + 8, SLOT + 22), BackgroundTransparency = 1 })
+		local size = SLOT
 		local slot = new("TextButton", {
 			Parent = holder,
 			AnchorPoint = Vector2.new(0.5, 1),
@@ -129,12 +130,19 @@ local function rebuildHotbar()
 			AutoButtonColor = id ~= nil,
 		}, { UIKit.round(), stroke(if selected then C.star else C.rim, if selected then 3 else 2) })
 		if id then
-			Icons.make(id, slot, UDim2.fromScale(0.78, 0.78), UDim2.fromScale(0.11, 0.06))
+			local icon = Icons.make(id, slot, UDim2.fromScale(0.82, 0.82), UDim2.fromScale(0.09, 0.05))
+			if selected then
+				-- The held item turns slowly in its slot, rocking as it goes, over a soft
+				-- warm glow that breathes in and out.
+				Icons.spin(icon)
+				local glow = new("Frame", { Parent = slot, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.86, 0.86), BackgroundColor3 = C.star, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
+				TweenService:Create(glow, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.93, Size = UDim2.fromScale(0.96, 0.96) }):Play()
+			end
 			-- Long names shrink to fit the slot so neighbours never overlap.
 			local name = label({ Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 10, 0, 16), ZIndex = if selected then 3 else 1, Text = Items[id].name, TextScaled = true, TextStrokeTransparency = 0.4, TextColor3 = if selected then C.star else C.text })
-			new("UITextSizeConstraint", { Parent = name, MaxTextSize = 13 })
+			new("UITextSizeConstraint", { Parent = name, MaxTextSize = 15 })
 			if (state.items[id] or 0) > 1 then
-				label({ Parent = slot, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.fromOffset(40, 14), Text = tostring(state.items[id]), TextScaled = false, TextSize = 13, ZIndex = 3 })
+				label({ Parent = slot, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.fromOffset(44, 16), Text = tostring(state.items[id]), TextScaled = false, TextSize = 15, ZIndex = 3 })
 			end
 			if Favourites.has(id) then
 				label({ Parent = slot, Position = UDim2.fromOffset(2, 0), Size = UDim2.fromOffset(14, 14), Text = "★", TextColor3 = C.star, TextScaled = false, TextSize = 13, ZIndex = 3 })
@@ -179,14 +187,47 @@ local function setBar(name: string, value: number, max: number, textOverride: st
 		return
 	end
 	local ratio = if max > 0 then math.clamp(value / max, 0, 1) else 0
-	TweenService:Create(b.fill, TweenInfo.new(0.15), { Size = UDim2.fromScale(ratio, 1) }):Play()
+	UIKit.slideBar(b.fill, ratio)
 	b.text.Text = textOverride or tostring(math.ceil(value))
+end
+
+-- Food heals slowly (Survival.lua): the health still to come shows as a glowing green
+-- stretch past the end of the health bar, with "+N" and a little heart that beats.
+local pending: Frame? = nil
+local pendingText: TextLabel? = nil
+local function healthPending()
+	local b = bars.Health
+	if not b then
+		return
+	end
+	if not pending then
+		local back = b.fill.Parent :: Frame
+		pending = new("Frame", { Parent = back, Name = "Healing", Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.fromRGB(150, 236, 120), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = b.fill.ZIndex }, { UIKit.round() })
+		TweenService:Create(pending :: Frame, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.7 }):Play()
+		pendingText = label({ Parent = back, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(56, 18), Text = "", TextXAlignment = Enum.TextXAlignment.Right, TextScaled = false, TextSize = 14, TextColor3 = Color3.fromRGB(200, 255, 170), TextStrokeTransparency = 0.4, ZIndex = 10 })
+	end
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local pool = player:GetAttribute("HealPool") or 0
+	local p = pending :: Frame
+	if not humanoid or pool <= 0.05 then
+		p.Visible = false
+		;(pendingText :: TextLabel).Text = ""
+		return
+	end
+	local max = math.max(1, humanoid.MaxHealth)
+	local from = math.clamp(humanoid.Health / max, 0, 1)
+	local to = math.clamp((humanoid.Health + pool) / max, 0, 1)
+	p.Visible = true
+	p.Position = UDim2.fromScale(from, 0)
+	p.Size = UDim2.fromScale(to - from, 1)
+	;(pendingText :: TextLabel).Text = "♥ +" .. math.ceil(pool)
 end
 
 local function hookCharacter(character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	local function update()
 		setBar("Health", humanoid.Health, humanoid.MaxHealth)
+		healthPending()
 	end
 	humanoid.HealthChanged:Connect(update)
 	update()
@@ -386,7 +427,7 @@ local function showTarget(name: string?, hp: number?, maxHp: number?)
 	targetFrame.Visible = true
 	targetName.Text = name
 	targetHp.Text = tostring(math.max(0, math.ceil(hp)))
-	targetFill.Size = UDim2.fromScale(math.clamp(hp / maxHp, 0, 1), 1)
+	UIKit.slideBar(targetFill, hp / maxHp)
 end
 
 -- A tan pill in the pickup prompt. On keyboards it carries the key in a small box;
@@ -787,7 +828,7 @@ function UI.init(cb)
 	local shellsLabel = label({ Parent = shellsHolder, Position = UDim2.fromOffset(0, 54), Size = UDim2.new(1, 0, 0, 18), Text = "0", TextScaled = false, TextSize = 20 })
 
 	-- Hotbar (bottom centre)
-	hotbar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(8 * 62, 72), BackgroundTransparency = 1 }, {
+	hotbar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(8 * (SLOT + 12), SLOT + 22), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 
@@ -883,6 +924,7 @@ function UI.init(cb)
 		player:GetAttributeChangedSignal(attr):Connect(updateStats)
 	end
 	player:GetAttributeChangedSignal("Level"):Connect(rebuildHotbar)
+	player:GetAttributeChangedSignal("HealPool"):Connect(healthPending)
 	player:GetAttributeChangedSignal("Shells"):Connect(function()
 		shellsLabel.Text = tostring(player:GetAttribute("Shells") or 0)
 		refreshOpen()

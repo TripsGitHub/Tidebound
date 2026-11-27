@@ -56,8 +56,12 @@ function Appearance.setTool(player: Player, itemId: string?)
 	model:SetAttribute("ItemId", itemId)
 	-- Grip at the bottom of the fist. Axes and harvesters stand up out of the fist;
 	-- swords and clubs lean forward, blade out in front at about 40 degrees.
-	local tilt = if Items[itemId].swing == "slash" then -55 else -90
-	model:PivotTo(hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 + 0.1, 0) * CFrame.Angles(math.rad(tilt), 0, 0))
+	local slash = Items[itemId].swing == "slash"
+	local tilt = if slash then -55 else -90
+	-- Blades are modelled with their edges left and right; the strike comes down from
+	-- overhead, so turn the blade a quarter round its length to lead with the edge.
+	local edge = if slash then CFrame.Angles(0, math.rad(90), 0) else CFrame.identity
+	model:PivotTo(hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 + 0.1, 0) * CFrame.Angles(math.rad(tilt), 0, 0) * edge)
 	weldModel(model, hand)
 	model.Parent = character
 end

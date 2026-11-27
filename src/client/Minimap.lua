@@ -429,6 +429,34 @@ function Minimap.init(parent: ScreenGui)
 			setZoom(if sign == "+" then 1 else -1)
 		end)
 	end
+	-- Hide the map (button or M) and bring it back from the small tab left in its place.
+	local hidden = false
+	local tab = new("TextButton", { Parent = parent, Name = "MapTab", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -12), Size = UDim2.fromOffset(74, 26), BackgroundColor3 = rgb(40, 30, 20), BackgroundTransparency = 0.25, Text = "Map  [M]", TextColor3 = rgb(255, 250, 235), TextSize = 15, FontFace = UIKit.FontFace, Visible = false }, {
+		new("UICorner", { CornerRadius = UDim.new(0, 6) }),
+		new("UIStroke", { Color = rgb(236, 224, 190), Thickness = 1, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+	})
+	local function setHidden(h: boolean)
+		hidden = h
+		tab.Visible = h
+	end
+	Minimap.setHidden = setHidden
+	Minimap.isHidden = function()
+		return hidden
+	end
+	local hide = new("TextButton", { Parent = frame, Position = UDim2.fromOffset(4, 4), Size = UDim2.fromOffset(20, 20), BackgroundColor3 = rgb(40, 30, 20), BackgroundTransparency = 0.35, Text = "×", TextColor3 = rgb(255, 250, 235), TextSize = 18, FontFace = UIKit.FontFace, ZIndex = 12 }, {
+		new("UICorner", { CornerRadius = UDim.new(0, 5) }),
+	})
+	hide.MouseButton1Click:Connect(function()
+		setHidden(true)
+	end)
+	tab.MouseButton1Click:Connect(function()
+		setHidden(false)
+	end)
+	game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+		if not processed and input.KeyCode == Enum.KeyCode.M then
+			setHidden(not hidden)
+		end
+	end)
 	-- North marker on the top edge.
 	new("TextLabel", { Parent = frame, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Text = "N", TextColor3 = rgb(255, 250, 235), TextSize = 14, FontFace = UIKit.FontFace, TextStrokeTransparency = 0.2, ZIndex = 12 })
 	surfaceLayer, surfaceWorld = layer("Surface")
@@ -474,7 +502,7 @@ function Minimap.init(parent: ScreenGui)
 	RunService.RenderStepped:Connect(function(dt)
 		-- The inventory's craft panel sits where the map is: step aside while it's open.
 		local inventory = parent:FindFirstChild("Inventory") :: Frame?
-		frame.Visible = not (inventory and inventory.Visible)
+		frame.Visible = not hidden and not (inventory and inventory.Visible)
 		local character = player.Character
 		local hrp = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if not hrp then

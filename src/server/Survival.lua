@@ -13,6 +13,7 @@ local lastEat: { [Player]: number } = {}
 
 function Survival.reset(player: Player)
 	player:SetAttribute("Hunger", Config.MaxHunger)
+	player:SetAttribute("HealPool", 0)
 end
 
 -- Applies a food's effect. Returns true if the player could eat.
@@ -33,7 +34,9 @@ function Survival.consume(player: Player, itemId: string): boolean
 	local hunger = player:GetAttribute("Hunger") or 0
 	player:SetAttribute("Hunger", math.min(Config.MaxHunger, hunger + (item.hunger or 0)))
 	if item.heal then
-		humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + item.heal)
+		-- Food heals slowly, not all at once (so eating mid-fight isn't an instant
+		-- refill): it goes into a pool that trickles into health (see Survival.start).
+		player:SetAttribute("HealPool", math.min(humanoid.MaxHealth, (player:GetAttribute("HealPool") or 0) + item.heal))
 	end
 	if item.hurt then
 		humanoid:TakeDamage(item.hurt)
@@ -88,7 +91,30 @@ function Survival.removePlayer(player: Player)
 	lastEat[player] = nil
 end
 
+local HEAL_PER_SECOND = 2 -- how fast eaten food turns into health
+
 function Survival.start()
+	task.spawn(function()
+		while true do
+			local dt = task.wait(0.25)
+			for _, player in Players:GetPlayers() do
+				local pool = player:GetAttribute("HealPool") or 0
+				if pool > 0 then
+					local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+					if not humanoid or humanoid.Health <= 0 then
+						player:SetAttribute("HealPool", 0)
+					else
+						local room = humanoid.MaxHealth - humanoid.Health
+						local step = math.min(pool, HEAL_PER_SECOND * dt, room)
+						humanoid.Health += step
+						-- A full bar stops the trickle: the rest of the food is wasted.
+						local left = if room - step <= 0.01 then 0 else pool - step
+						player:SetAttribute("HealPool", if left < 0.01 then 0 else left)
+					end
+				end
+			end
+		end
+	end)
 	task.spawn(function()
 		while true do
 			local dt = task.wait(1)

@@ -95,7 +95,7 @@ function BossBar.init(root: ScreenGui)
 				title.Text = name .. (if best:GetAttribute("Enraged") then "  -  ENRAGED" else "")
 				title.TextColor3 = if best:GetAttribute("Enraged") then Color3.fromRGB(255, 120, 90) else C.text
 				hpText.Text = string.format("%d / %d", math.max(0, math.ceil(hp)), max)
-				fill.Size = UDim2.fromScale(math.clamp(hp / max, 0, 1), 1)
+				UIKit.slideBar(fill, hp / max)
 			else
 				shownKind = nil
 			end

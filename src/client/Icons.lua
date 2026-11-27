@@ -47,4 +47,28 @@ function Icons.make(itemId: string, parent: GuiObject, size: UDim2?, position: U
 	return vf
 end
 
+-- Slowly turns an icon's item round, with a gentle bob and a little tilt that rocks as
+-- it turns (the selected hotbar item). Stops by itself when the icon goes away.
+function Icons.spin(vf: ViewportFrame, speed: number?)
+	local camera = vf.CurrentCamera
+	if not camera then
+		return
+	end
+	local dist = camera.CFrame.Position.Magnitude
+	local t0 = os.clock()
+	local conn
+	conn = game:GetService("RunService").RenderStepped:Connect(function()
+		if not vf.Parent then
+			conn:Disconnect()
+			return
+		end
+		local t = os.clock() - t0
+		local a = t * (speed or 1.1)
+		local pitch = math.rad(8 + math.sin(t * 1.7) * 6)
+		local eye = Vector3.new(math.sin(a) * math.cos(pitch), math.sin(pitch), math.cos(a) * math.cos(pitch)) * dist
+		local bob = Vector3.new(0, math.sin(t * 2.4) * dist * 0.03, 0)
+		camera.CFrame = CFrame.lookAt(eye + bob, bob)
+	end)
+end
+
 return Icons

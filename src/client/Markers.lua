@@ -15,15 +15,17 @@ local RED = Color3.fromRGB(255, 70, 58)
 local GREEN = Color3.fromRGB(110, 230, 90)
 local FONT = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy)
 
--- A chunky number with a thick dark outline that punches in big, settles, hops
--- up and off to one side, then fades. A small icon of the tool you hit with sits
--- in front of it; your own damage and healing are just the number.
+-- A chunky number with a dark outline that appears, drifts straight up and fades out,
+-- smooth and the same every time: damage, healing and your own hurts all move alike,
+-- and the icon, number and outline fade together (one CanvasGroup).
+local RISE = 2.6 -- studs it drifts up
+local LIFE = 1.05 -- seconds on screen
 local function show(at: Vector3, amount: number, color: Color3, itemId: string?, _self: boolean)
 	local anchor = Instance.new("Part")
 	anchor.Anchored, anchor.CanCollide, anchor.CanQuery, anchor.CanTouch = true, false, false, false
 	anchor.Transparency = 1
 	anchor.Size = Vector3.one * 0.2
-	anchor.CFrame = CFrame.new(at + Vector3.new(math.random() * 1.6 - 0.8, 1.2, math.random() * 1.6 - 0.8))
+	anchor.CFrame = CFrame.new(at + Vector3.new(math.random() * 1.2 - 0.6, 1.2, math.random() * 1.2 - 0.6))
 	anchor.Parent = workspace.CurrentCamera
 	local gui = Instance.new("BillboardGui")
 	gui.Size = UDim2.fromOffset(140, 48)
@@ -31,30 +33,30 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	gui.LightInfluence = 0
 	gui.MaxDistance = 120
 	gui.Parent = anchor
-	local holder = Instance.new("Frame")
-	holder.BackgroundTransparency = 1
-	holder.AnchorPoint = Vector2.new(0.5, 0.5)
-	holder.Position = UDim2.fromScale(0.5, 0.5)
-	holder.Size = UDim2.fromScale(1, 1)
-	holder.Parent = gui
+	local group = Instance.new("CanvasGroup")
+	group.BackgroundTransparency = 1
+	group.AnchorPoint = Vector2.new(0.5, 0.5)
+	group.Position = UDim2.fromScale(0.5, 0.5)
+	group.Size = UDim2.fromScale(1, 1)
+	group.GroupTransparency = 0.15
+	group.Parent = gui
 	local scale = Instance.new("UIScale")
-	scale.Scale = 1.7
-	scale.Parent = holder
+	scale.Scale = 0.85
+	scale.Parent = group
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.VerticalAlignment = Enum.VerticalAlignment.Center
 	layout.Padding = UDim.new(0, 3)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = holder
-	local icon: ViewportFrame? = nil
+	layout.Parent = group
 	if itemId then
 		local holderIcon = Instance.new("Frame")
 		holderIcon.BackgroundTransparency = 1
 		holderIcon.Size = UDim2.fromOffset(26, 26)
 		holderIcon.LayoutOrder = 1
-		holderIcon.Parent = holder
-		icon = Icons.make(itemId, holderIcon, UDim2.fromOffset(26, 26), UDim2.fromOffset(0, 0))
+		holderIcon.Parent = group
+		Icons.make(itemId, holderIcon, UDim2.fromOffset(26, 26), UDim2.fromOffset(0, 0))
 	end
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
@@ -66,26 +68,18 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	label.TextColor3 = color
 	label.TextStrokeTransparency = 1
 	label.Text = (if color == GREEN then "+" else "") .. tostring(math.max(1, math.floor(amount + 0.5)))
-	label.Parent = holder
+	label.Parent = group
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.fromRGB(28, 10, 6)
 	stroke.Thickness = 3
 	stroke.Parent = label
 
-	-- Punch in, then hop up and sideways, then fade.
-	TweenService:Create(scale, TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	local side = (math.random() < 0.5 and -1 or 1) * (0.8 + math.random() * 0.8)
-	TweenService:Create(gui, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(side, 3, 0) }):Play()
-	task.delay(0.45, function()
-		local fade = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-		TweenService:Create(label, fade, { TextTransparency = 1 }):Play()
-		TweenService:Create(stroke, fade, { Transparency = 1 }):Play()
-		TweenService:Create(scale, fade, { Scale = 0.7 }):Play()
-		if icon then
-			TweenService:Create(icon, fade, { ImageTransparency = 1 }):Play()
-		end
-	end)
-	task.delay(0.85, function()
+	-- Grow in softly, drift up, and fade out together.
+	TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(group, TweenInfo.new(0.12), { GroupTransparency = 0 }):Play()
+	TweenService:Create(gui, TweenInfo.new(LIFE, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(0, RISE, 0) }):Play()
+	TweenService:Create(group, TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4), { GroupTransparency = 1 }):Play()
+	task.delay(LIFE + 0.05, function()
 		anchor:Destroy()
 	end)
 end
