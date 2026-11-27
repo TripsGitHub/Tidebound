@@ -1744,13 +1744,17 @@ local function decorate(isl: Island)
 	end
 end
 
-function WorldBuilder.build()
+-- bakeOnly: build just enough to make the map's terrain and cave network, then save
+-- them (WorldBake.bakeInStudio runs this from the command bar in edit mode).
+function WorldBuilder.build(bakeOnly: boolean?)
 	for _, child in workspace:GetChildren() do
 		if child.Name == "Baseplate" or child:IsA("SpawnLocation") or child.Name == "TestGround" then
 			child:Destroy()
 		end
 	end
-	setLighting()
+	if not bakeOnly then
+		setLighting()
+	end
 	workspace:SetAttribute("LoadingStep", "Raising the islands")
 	buildTerrain()
 
@@ -2090,6 +2094,11 @@ function WorldBuilder.build()
 		end
 	end
 	print("[World] camps and outposts: " .. table.concat(built, ", "))
+	-- Everything made of terrain is done by here.
+	if bakeOnly then
+		WorldBake.save(network)
+		return
+	end
 	Minimap.publish(ISLANDS, network, groundAt)
 	if game:GetService("RunService"):IsStudio() and workspace:GetAttribute("VerifyCaves") ~= false then
 		task.spawn(Caves.verify, workspace.Terrain, network)
@@ -2145,14 +2154,8 @@ function WorldBuilder.build()
 
 	workspace:SetAttribute("LoadingStep", "Almost there")
 	startDayNight()
-	-- In Studio, a map built from scratch is saved, ready to bake into the place.
-	if not WorldBake.baked and game:GetService("RunService"):IsStudio() then
-		local extent = 0
-		for _, isl in ISLANDS do
-			extent = math.max(extent, math.abs(isl.x) + isl.r, math.abs(isl.z) + isl.r)
-		end
-		local half = extent + 620
-		task.spawn(WorldBake.save, network, Vector3.new(-half, Caves.BEDROCK_Y - 16, -half), Vector3.new(half, 400, half))
+	if not WorldBake.baked then
+		warn("[World] this place has no baked map, so it was built from scratch (slow). In edit mode run: require(game.ServerScriptService.Server.WorldBake).bakeInStudio() and save the place.")
 	end
 end
 

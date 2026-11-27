@@ -133,8 +133,8 @@ end
 
 -- After a slow build in Studio: copies the terrain and the cave network into
 -- ServerStorage.WorldBake, ready to be copied into the place.
--- lo, hi: the corners of the world in studs.
-function WorldBake.save(network: any, lo: Vector3, hi: Vector3)
+-- lo, hi: the corners of the world in studs, to copy the terrain too (nil: network only).
+function WorldBake.save(network: any, lo: Vector3?, hi: Vector3?)
 	local old = bakeFolder()
 	if old then
 		old:Destroy()
@@ -152,15 +152,18 @@ function WorldBake.save(network: any, lo: Vector3, hi: Vector3)
 	end
 	f:SetAttribute("Chunks", n)
 	f:SetAttribute("Version", WorldBake.VERSION)
-	local ok, err = pcall(function()
+	local ok, err = true, nil
+	if lo and hi then
+		ok, err = pcall(function()
 		local a = Vector3int16.new(math.floor(lo.X / 4), math.floor(lo.Y / 4), math.floor(lo.Z / 4))
 		local b = Vector3int16.new(math.ceil(hi.X / 4), math.ceil(hi.Y / 4), math.ceil(hi.Z / 4))
 		local region = real:CopyRegion(Region3int16.new(a, b))
 		region.Name = "Terrain"
 		region.Parent = f
 	end)
+	end
 	f.Parent = ServerStorage
-	print(string.format("[WorldBake] saved: network %d chars in %d parts, terrain %s", #text, n, if ok then "copied" else "FAILED: " .. tostring(err)))
+	print(string.format("[WorldBake] saved: network %d chars in %d parts, terrain %s", #text, n, if lo == nil then "already in place" elseif ok then "copied" else "FAILED: " .. tostring(err)))
 end
 
 -- Run from the command bar (edit mode) after pasting ServerStorage.WorldBake: writes the
@@ -175,6 +178,61 @@ function WorldBake.install()
 	-- The region is big and the terrain now holds it: keep only the network text.
 	region:Destroy()
 	print("[WorldBake] installed version " .. tostring(f:GetAttribute("Version")) .. ": save the place")
+end
+
+-- The easy way to bake: run from the command bar in EDIT mode (not while playing):
+--   require(game.ServerScriptService.Server.WorldBake).bakeInStudio()
+-- Builds the islands, sea floor and caves straight into the place's terrain, saves the
+-- cave network beside it, and removes everything else the build made. Then save the place.
+function WorldBake.bakeInStudio()
+	assert(not game:GetService("RunService"):IsRunning(), "stop the game first: bake in edit mode")
+	local t0 = os.clock()
+	WorldBake.baked = false
+	local services = { workspace, game:GetService("Lighting"), game:GetService("ReplicatedStorage"), ServerStorage }
+	local before = {}
+	for _, s in services do
+		for _, c in s:GetChildren() do
+			before[c] = true
+		end
+	end
+	local attrs = workspace:GetAttributes()
+	-- The build clears the template's baseplate and spawn: keep them safe meanwhile.
+	local hold = {}
+	for _, c in workspace:GetChildren() do
+		if c.Name == "Baseplate" or c:IsA("SpawnLocation") or c.Name == "TestGround" then
+			hold[c] = c.Parent
+			c.Parent = nil
+		end
+	end
+	local old = bakeFolder()
+	if old then
+		old:Destroy()
+	end
+	local ok, err = pcall(function()
+		require(script.Parent.WorldBuilder).build(true)
+	end)
+	for _, s in services do
+		for _, c in s:GetChildren() do
+			if not before[c] and c.Name ~= "WorldBake" and c ~= workspace.Terrain and c ~= workspace.CurrentCamera then
+				c:Destroy()
+			end
+		end
+	end
+	for c, parent in hold do
+		c.Parent = parent
+	end
+	for name in workspace:GetAttributes() do
+		if attrs[name] == nil then
+			workspace:SetAttribute(name, nil)
+		end
+	end
+	if not ok then
+		warn("[WorldBake] build failed: " .. tostring(err))
+		return
+	end
+	real:SetAttribute("BakeVersion", WorldBake.VERSION)
+	WorldBake.baked = true
+	print(string.format("[WorldBake] baked version %d in %.0fs: save the place", WorldBake.VERSION, os.clock() - t0))
 end
 
 return WorldBake
