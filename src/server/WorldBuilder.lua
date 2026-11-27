@@ -1,6 +1,8 @@
--- Builds the test island when the server starts: Smooth Terrain island with beaches,
--- grass hills, rock cliffs and a snowy peak in an ocean, plus low-poly trees, rocks,
--- bushes, slime pools, boars, a quest board and a trader.
+-- Builds the world when the server starts: a ring of five outer islands (one biome
+-- each, Clover Island as the spawn) around a late-game middle island, in Smooth Terrain, plus trees, rocks,
+-- bushes, slime pools, boars, a quest board and a trader. Every island has a
+-- hand-designed shape (CloverIsland.lua, IslandFields.lua) with named zones that
+-- decide what grows where.
 -- (The hand-built v2 map replaces this in a later milestone.)
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +14,8 @@ local Nodes = require(Shared.Nodes)
 local Meshes = require(Shared.Meshes)
 local Remotes = require(Shared.Remotes)
 local Animals = require(script.Parent.Animals)
+local CloverIsland = require(script.Parent.CloverIsland)
+local IslandFields = require(script.Parent.IslandFields)
 
 local WorldBuilder = {}
 local rng = Random.new(1911)
@@ -185,69 +189,188 @@ local function makeNode(nodeType: string, cf: CFrame): Model
 end
 
 -- Terrain ------------------------------------------------------------------------
+-- Island Tribes-style layout: a ring of outer islands around a large middle island.
+-- Each outer island is one biome with its own main resource; better resources sit
+-- further out or in the middle, across water. Nothing is a safe island.
 
-local ISLAND_BLOBS = {
-	-- x, z, radius of grass
-	{ 0, 0, 105 },
-	{ 95, 55, 70 },
-	{ -85, -45, 80 },
-	{ 35, -105, 60 },
-	{ -55, 85, 55 },
+export type Island = {
+	name: string,
+	x: number,
+	z: number,
+	r: number, -- radius of the island's land (studs)
+	biome: string,
 }
-local ISLET = { 250, -130, 34 }
+
+local ISLANDS: { Island } = {
+	{ name = "Clover Island", x = 0, z = 320, r = 110, biome = "clover" }, -- spawn, south
+	{ name = "Pine Hills", x = -300, z = 90, r = 100, biome = "hills" },
+	{ name = "Stone Shelf", x = 300, z = 90, r = 110, biome = "rock" },
+	{ name = "Frost Isle", x = -190, z = -265, r = 95, biome = "snow" },
+	{ name = "Slime Marsh", x = 195, z = -265, r = 96, biome = "marsh" },
+	{ name = "Ember Isle", x = 0, z = 0, r = 115, biome = "ember" }, -- late game, middle
+}
+WorldBuilder.Islands = ISLANDS
+
+-- What grows where. `cluster` = trees per clump (min, max).
+local BIOME_NODES = {
+	-- Clover Island is zoned per leaf: { node, count, clump?, zone }.
+	clover = {
+		{ "Pine", 24, { 2, 4 }, zone = "pines" },
+		{ "Bush", 3, zone = "pines" },
+		{ "Boulder", 2, zone = "pines" },
+		{ "Boulder", 13, zone = "rocks" },
+		{ "Pine", 2, { 1, 1 }, zone = "rocks" },
+		{ "Palm", 14, { 1, 3 }, zone = "palms" },
+		{ "Bush", 3, zone = "palms" },
+		{ "Bush", 8, zone = "meadow" },
+		{ "Pine", 3, { 1, 2 }, zone = "meadow" },
+		{ "Boulder", 2, zone = "meadow" },
+		{ "Pine", 3, { 1, 2 }, zone = "centre" },
+		{ "Bush", 2, zone = "centre" },
+	},
+	-- The other islands are zoned too (see IslandFields.lua). "*" = anywhere.
+	hills = { -- wood: thick clumps in the western forest, open meadow to the south
+		{ "Pine", 30, { 2, 4 }, zone = "forest" },
+		{ "Bush", 3, zone = "forest" },
+		{ "Boulder", 3, zone = "forest" },
+		{ "Pine", 4, { 1, 2 }, zone = "meadow" },
+		{ "Bush", 8, zone = "meadow" },
+		{ "Palm", 5, { 1, 2 }, zone = "shore" },
+	},
+	rock = { -- stone: boulders all over the stepped cliffs
+		{ "Boulder", 16, zone = "cliffs" },
+		{ "Boulder", 3, zone = "slope" },
+		{ "Pine", 5, { 1, 2 }, zone = "slope" },
+		{ "Bush", 4, zone = "slope" },
+	},
+	snow = {
+		{ "Pine", 14, { 1, 3 }, zone = "slopes" },
+		{ "Boulder", 6, zone = "peak" },
+		{ "Boulder", 2, zone = "shore" },
+	},
+	marsh = { -- slime: pools on every islet
+		{ "SlimePool", 8, zone = "*" },
+		{ "Bush", 10, zone = "*" },
+		{ "Pine", 2, { 1, 1 }, zone = "heart" },
+	},
+	ember = {
+		{ "Boulder", 9, zone = "slopes" },
+		{ "Boulder", 3, zone = "camp" },
+	},
+}
+
+-- Spacing, in studs. Island Tribes keeps trees 20-40 studs apart with open ground
+-- between, so you can always see the next one.
+local CLUMP_SPACING = 30 -- between clumps of trees
+local IN_CLUMP_SPACING = 7 -- between trees in one clump
+local NODE_SPACING = 16 -- between any other nodes
+
+local function lerpColor(a: Color3, b: Color3, t: number)
+	return a:Lerp(b, t)
+end
+
+local function island(terrain: Terrain, isl: Island)
+	local x, z, r = isl.x, isl.z, isl.r
+	if isl.biome == "clover" then
+		CloverIsland.fill(terrain, x, z)
+		return
+	end
+	local field = IslandFields[isl.biome]
+	if field then
+		IslandFields.fill(field, terrain, x, z)
+		return
+	end
+	local top = if isl.biome == "beach" then "Sand" else "Grass"
+	-- Sand shelves stepping down into the water, then the beach.
+	for k = 4, 1, -1 do
+		terrain:FillCylinder(CFrame.new(x, 1.5 - k * 7 - 20, z), 40, r + 16 + k * 12, Enum.Material.Sand)
+	end
+	terrain:FillCylinder(CFrame.new(x, 1.5 - 20, z), 40, r + 16, Enum.Material.Sand)
+
+	local core = {
+		beach = Enum.Material.Grass,
+		hills = Enum.Material.Grass,
+		rock = Enum.Material.Rock,
+		snow = Enum.Material.Snow,
+		marsh = Enum.Material.LeafyGrass,
+		ember = Enum.Material.Basalt,
+	}
+	local coreR = if top == "Sand" then r * 0.5 else r
+	terrain:FillCylinder(CFrame.new(x, 3 - 20, z), 40, coreR, core[isl.biome])
+
+	if isl.biome == "hills" then
+		-- Rolling hills and a couple of inland lakes.
+		for _ = 1, 7 do
+			local a, d = rng:NextNumber(0, math.pi * 2), rng:NextNumber(0, r * 0.6)
+			local rad = rng:NextNumber(20, 38)
+			terrain:FillBall(Vector3.new(x + math.cos(a) * d, -rad * 0.6, z + math.sin(a) * d), rad, Enum.Material.Grass)
+		end
+		for _ = 1, 2 do
+			local a, d = rng:NextNumber(0, math.pi * 2), rng:NextNumber(r * 0.2, r * 0.5)
+			terrain:FillCylinder(CFrame.new(x + math.cos(a) * d, 1.6, z + math.sin(a) * d), 3, rng:NextNumber(10, 16), Enum.Material.Water)
+		end
+	elseif isl.biome == "rock" then
+		-- Steep rock cliffs along the coast, grass between.
+		terrain:FillCylinder(CFrame.new(x, 3.2 - 20, z), 40, r * 0.55, Enum.Material.Grass)
+		for _ = 1, 9 do
+			local a = rng:NextNumber(0, math.pi * 2)
+			local rad = rng:NextNumber(14, 22)
+			local d = r - rad * 0.35
+			terrain:FillBall(Vector3.new(x + math.cos(a) * d, -rad * 0.1, z + math.sin(a) * d), rad, Enum.Material.Rock)
+		end
+	elseif isl.biome == "snow" then
+		terrain:FillBall(Vector3.new(x, -16, z), 50, Enum.Material.Rock)
+		terrain:FillBall(Vector3.new(x, -4, z), 40, Enum.Material.Snow)
+	elseif isl.biome == "marsh" then
+		for _ = 1, 5 do
+			local a, d = rng:NextNumber(0, math.pi * 2), rng:NextNumber(0, r * 0.7)
+			terrain:FillCylinder(CFrame.new(x + math.cos(a) * d, 2.4, z + math.sin(a) * d), 2, rng:NextNumber(8, 14), Enum.Material.Mud)
+		end
+	elseif isl.biome == "ember" then
+		-- The late-game middle: a dark volcano ringed by cliffs.
+		for _ = 1, 10 do
+			local a = rng:NextNumber(0, math.pi * 2)
+			local rad = rng:NextNumber(16, 26)
+			local d = r - rad * 0.3
+			terrain:FillBall(Vector3.new(x + math.cos(a) * d, -rad * 0.05, z + math.sin(a) * d), rad, Enum.Material.Basalt)
+		end
+		terrain:FillBall(Vector3.new(x, -30, z), 70, Enum.Material.Basalt)
+		terrain:FillBall(Vector3.new(x, 26, z), 26, Enum.Material.Basalt)
+		terrain:FillCylinder(CFrame.new(x, 50, z), 6, 9, Enum.Material.CrackedLava)
+	end
+end
 
 local function buildTerrain()
 	local terrain = workspace.Terrain
 	terrain:Clear()
-	terrain.WaterColor = Color3.fromRGB(38, 140, 170)
+	terrain.WaterColor = Color3.fromRGB(30, 98, 112)
 	terrain.WaterTransparency = 0.6
 	terrain.WaterWaveSize = 0.12
 	terrain.WaterWaveSpeed = 8
-	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(106, 158, 70))
-	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(218, 196, 140))
-	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(110, 110, 116))
+	-- Animated long grass on Grass/LeafyGrass, like the footage. Not settable
+	-- from scripts on every engine version, so default.project.json sets it too.
+	pcall(function()
+		(terrain :: any).Decoration = true
+	end)
+	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(118, 126, 58))
+	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(92, 102, 50))
+	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(198, 178, 130))
+	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(84, 80, 74))
+	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(44, 42, 46))
+	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(74, 62, 46))
+	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(112, 88, 60))
+	terrain:SetMaterialColor(Enum.Material.Snow, Color3.fromRGB(236, 242, 246))
+	terrain:SetMaterialColor(Enum.Material.Glacier, Color3.fromRGB(176, 214, 232))
+	terrain:SetMaterialColor(Enum.Material.Slate, Color3.fromRGB(74, 74, 78))
+	terrain:SetMaterialColor(Enum.Material.CrackedLava, Color3.fromRGB(240, 100, 36))
 
 	-- Ocean and sea floor
-	terrain:FillBlock(CFrame.new(0, -18, 0), Vector3.new(1200, 36, 1200), Enum.Material.Water)
-	terrain:FillBlock(CFrame.new(0, -40, 0), Vector3.new(1200, 8, 1200), Enum.Material.Sand)
+	terrain:FillBlock(CFrame.new(0, -18, 0), Vector3.new(1400, 36, 1400), Enum.Material.Water)
+	terrain:FillBlock(CFrame.new(0, -40, 0), Vector3.new(1400, 8, 1400), Enum.Material.Sand)
 
-	local blobs = table.clone(ISLAND_BLOBS)
-	table.insert(blobs, ISLET)
-	-- Sand shelves stepping down into the water, then the beach, then grass.
-	for _, b in blobs do
-		local x, z, r = b[1], b[2], b[3]
-		for k = 4, 1, -1 do
-			local top = 1.5 - k * 7
-			terrain:FillCylinder(CFrame.new(x, top - 20, z), 40, r + 18 + k * 12, Enum.Material.Sand)
-		end
-		terrain:FillCylinder(CFrame.new(x, 1.5 - 20, z), 40, r + 18, Enum.Material.Sand)
+	for _, isl in ISLANDS do
+		island(terrain, isl)
 	end
-	for _, b in blobs do
-		terrain:FillCylinder(CFrame.new(b[1], 3 - 20, b[2]), 40, b[3], Enum.Material.Grass)
-	end
-
-	-- Rolling grass hills
-	for _ = 1, 14 do
-		local b = ISLAND_BLOBS[rng:NextInteger(1, #ISLAND_BLOBS)]
-		local a = rng:NextNumber(0, math.pi * 2)
-		local d = rng:NextNumber(0, b[3] * 0.6)
-		local radius = rng:NextNumber(16, 34)
-		terrain:FillBall(Vector3.new(b[1] + math.cos(a) * d, -radius * 0.62, b[2] + math.sin(a) * d), radius, Enum.Material.Grass)
-	end
-
-	-- Rocky cliffs along the coast
-	for _ = 1, 10 do
-		local b = ISLAND_BLOBS[rng:NextInteger(1, #ISLAND_BLOBS)]
-		local a = rng:NextNumber(0, math.pi * 2)
-		local radius = rng:NextNumber(10, 18)
-		local d = b[3] - radius * 0.3
-		terrain:FillBall(Vector3.new(b[1] + math.cos(a) * d, -radius * 0.25, b[2] + math.sin(a) * d), radius, Enum.Material.Rock)
-	end
-
-	-- Snowy peak in the north-west
-	terrain:FillBall(Vector3.new(-95, -12, -60), 46, Enum.Material.Grass)
-	terrain:FillBall(Vector3.new(-95, 0, -60), 34, Enum.Material.Rock)
-	terrain:FillBall(Vector3.new(-95, 14, -60), 22, Enum.Material.Snow)
 end
 
 local function groundAt(x: number, z: number): RaycastResult?
@@ -258,50 +381,139 @@ local function groundAt(x: number, z: number): RaycastResult?
 	return workspace:Raycast(Vector3.new(x, 300, z), Vector3.new(0, -600, 0), params)
 end
 
-local ALLOWED = {
-	Pine = { [Enum.Material.Grass] = true, [Enum.Material.Snow] = true },
-	Palm = { [Enum.Material.Sand] = true },
-	Boulder = { [Enum.Material.Grass] = true, [Enum.Material.Rock] = true, [Enum.Material.Snow] = true },
-	Bush = { [Enum.Material.Grass] = true },
-	SlimePool = { [Enum.Material.Grass] = true },
-}
+local NO_GROW = { [Enum.Material.Water] = true, [Enum.Material.CrackedLava] = true, [Enum.Material.Mud] = true }
 
-local function scatter(nodeFolder: Folder, nodeType: string, count: number, taken: { Vector3 })
-	local made, tries = 0, 0
-	local blobs = table.clone(ISLAND_BLOBS)
-	table.insert(blobs, ISLET)
-	while made < count and tries < count * 40 do
-		tries += 1
-		local b = blobs[rng:NextInteger(1, #blobs)]
-		local a = rng:NextNumber(0, math.pi * 2)
-		local d = math.sqrt(rng:NextNumber()) * (b[3] + 16)
-		local hit = groundAt(b[1] + math.cos(a) * d, b[2] + math.sin(a) * d)
-		if hit and ALLOWED[nodeType][hit.Material] and hit.Position.Y > 0.5 and hit.Normal.Y > 0.8 then
-			local pos = hit.Position
-			local clear = true
+local function spawnNode(nodeFolder: Folder, nodeType: string, pos: Vector3)
+	local model = makeNode(nodeType, CFrame.new(pos - Vector3.new(0, 0.3, 0)))
+	model.Name = nodeType
+	model:SetAttribute("NodeType", nodeType)
+	model:SetAttribute("DisplayName", Nodes[nodeType].name)
+	model:SetAttribute("HP", Nodes[nodeType].hp)
+	model:SetAttribute("MaxHP", Nodes[nodeType].hp)
+	model:SetAttribute("Depleted", false)
+	model.Parent = nodeFolder
+end
+
+-- A spot on this island that is dry, not too steep, and `spacing` away from everything taken.
+local function findSpot(
+	isl: Island,
+	taken: { Vector3 },
+	spacing: number,
+	near: Vector3?,
+	nearRadius: number?,
+	zone: string?
+): Vector3?
+	for _ = 1, 30 do
+		local px, pz
+		if near then
+			local a = rng:NextNumber(0, math.pi * 2)
+			local d = rng:NextNumber(spacing, nearRadius or spacing * 1.4)
+			px, pz = near.X + math.cos(a) * d, near.Z + math.sin(a) * d
+		else
+			local a = rng:NextNumber(0, math.pi * 2)
+			local d = math.sqrt(rng:NextNumber()) * (isl.r + 10)
+			px, pz = isl.x + math.cos(a) * d, isl.z + math.sin(a) * d
+		end
+		local zoneOk = true
+		local rx, rz = px - isl.x, pz - isl.z
+		local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
+		if field then
+			zoneOk = field.canGrow(rx, rz) and (zone == nil or zone == "*" or field.zoneAt(rx, rz) == zone)
+		end
+		local hit = zoneOk and groundAt(px, pz)
+		if hit and not NO_GROW[hit.Material] and hit.Position.Y > 0.8 and hit.Normal.Y > 0.8 then
+			local ok = true
 			for _, other in taken do
-				if (other - pos).Magnitude < 10 then
-					clear = false
+				if (other - hit.Position).Magnitude < spacing then
+					ok = false
 					break
 				end
 			end
-			if clear then
-				table.insert(taken, pos)
-				local model = makeNode(nodeType, CFrame.new(pos - Vector3.new(0, 0.3, 0)))
-				model.Name = nodeType
-				model:SetAttribute("NodeType", nodeType)
-				model:SetAttribute("DisplayName", Nodes[nodeType].name)
-				model:SetAttribute("HP", Nodes[nodeType].hp)
-				model:SetAttribute("MaxHP", Nodes[nodeType].hp)
-				model:SetAttribute("Depleted", false)
-				model.Parent = nodeFolder
-				made += 1
+			if ok then
+				return hit.Position
+			end
+		end
+	end
+	return nil
+end
+
+local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
+	for _, entry in BIOME_NODES[isl.biome] do
+		local nodeType, count, clump, zone = entry[1], entry[2], entry[3], entry.zone
+		local made = 0
+		for _ = 1, count * 3 do
+			if made >= count then
+				break
+			end
+			if clump then
+				-- Trees grow alone or in small clumps, with open ground between clumps.
+				local centre = findSpot(isl, taken, if zone then CLUMP_SPACING * 0.75 else CLUMP_SPACING, nil, nil, zone)
+				if centre then
+					local size = rng:NextInteger(clump[1], clump[2])
+					local clumpTaken = {}
+					spawnNode(nodeFolder, nodeType, centre)
+					table.insert(clumpTaken, centre)
+					made += 1
+					for _ = 2, size do
+						if made >= count then
+							break
+						end
+						local spot = findSpot(isl, clumpTaken, IN_CLUMP_SPACING, centre, IN_CLUMP_SPACING * 1.6, zone)
+						if spot then
+							spawnNode(nodeFolder, nodeType, spot)
+							table.insert(clumpTaken, spot)
+							made += 1
+						end
+					end
+					for _, p in clumpTaken do
+						table.insert(taken, p)
+					end
+				end
+			else
+				local spot = findSpot(isl, taken, if zone then NODE_SPACING * 0.75 else NODE_SPACING, nil, nil, zone)
+				if spot then
+					spawnNode(nodeFolder, nodeType, spot)
+					table.insert(taken, spot)
+					made += 1
+				end
 			end
 		end
 	end
 end
 
 -- Landmarks ----------------------------------------------------------------------
+
+-- A ring of pale fang-shaped rocks round the cave mouth on Stone Shelf, so the
+-- entrance reads from across the water.
+local function makeCaveMouth(centre: Vector3, facing: Vector3)
+	local m = Instance.new("Model")
+	m.Name = "CaveMouth"
+	local look = CFrame.lookAt(centre, centre + Vector3.new(facing.X, 0, facing.Z))
+	for k = 0, 8 do
+		local a = math.rad(-150 + k * 37.5)
+		local offset = Vector3.new(math.cos(a) * 9.5, 0, math.sin(a) * 6 - 3)
+		local base = look * CFrame.new(offset)
+		local hit = groundAt(base.X, base.Z)
+		local y = if hit then hit.Position.Y else base.Y
+		local h = if k % 2 == 0 then 7 else 10
+		part(m, {
+			Name = "Fang",
+			Size = Vector3.new(2.6, h, 2.6),
+			CFrame = CFrame.new(base.X, y + h / 2 - 1, base.Z) * CFrame.Angles(math.rad(rng:NextNumber(-12, 12)), a, math.rad(rng:NextNumber(-12, 12))),
+			Color = Color3.fromRGB(232, 228, 214),
+			Material = Enum.Material.Limestone,
+		})
+		local tip = part(m, {
+			Name = "FangTip",
+			Size = Vector3.new(1.4, h * 0.45, 1.4),
+			CFrame = CFrame.new(base.X, y + h + h * 0.18 - 1, base.Z) * CFrame.Angles(0, a + 0.4, 0),
+			Color = Color3.fromRGB(244, 240, 228),
+			Material = Enum.Material.Limestone,
+		})
+		tip.CanCollide = false
+	end
+	m.Parent = workspace
+end
 
 local function sign(text: string, adornee: BasePart, height: number)
 	local gui = Instance.new("BillboardGui")
@@ -365,22 +577,46 @@ local function makeTrader(cf: CFrame)
 	m.Parent = workspace
 end
 
-local function setLighting()
-	Lighting.Brightness = 2.4
-	Lighting.Ambient = Color3.fromRGB(90, 90, 100)
-	Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 136)
-	Lighting.EnvironmentDiffuseScale = 0.5
-	Lighting.GlobalShadows = true
-	Lighting.ClockTime = 9
-	if not Lighting:FindFirstChildOfClass("Atmosphere") then
-		local a = Instance.new("Atmosphere")
-		a.Density = 0.3
-		a.Offset = 0.1
-		a.Color = Color3.fromRGB(198, 220, 236)
-		a.Decay = Color3.fromRGB(110, 150, 180)
-		a.Haze = 1.2
-		a.Parent = Lighting
+-- Island Tribes' look comes mostly from Roblox's own lighting: warm low sun, thick
+-- golden haze over the sea, bloom and sun rays, and slightly muted, contrasty
+-- colour. Lighting.Technology = Future is set in default.project.json (it can't be
+-- set from a script).
+local function lightingEffect(className: string, props: { [string]: any })
+	local e = Lighting:FindFirstChildOfClass(className) or Instance.new(className)
+	for k, v in props do
+		(e :: any)[k] = v
 	end
+	e.Parent = Lighting
+end
+
+local function setLighting()
+	Lighting.Brightness = 3
+	Lighting.Ambient = Color3.fromRGB(46, 42, 40)
+	Lighting.OutdoorAmbient = Color3.fromRGB(104, 96, 86)
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
+	Lighting.ExposureCompensation = -0.1
+	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = 0.25
+	Lighting.ClockTime = 15.5
+	Lighting.GeographicLatitude = 30
+	lightingEffect("Atmosphere", {
+		Density = 0.36,
+		Offset = 0.25,
+		Color = Color3.fromRGB(214, 200, 168),
+		Decay = Color3.fromRGB(120, 112, 98),
+		Glare = 0.4,
+		Haze = 1.8,
+	})
+	lightingEffect("BloomEffect", { Intensity = 0.6, Size = 30, Threshold = 1.6 })
+	lightingEffect("SunRaysEffect", { Intensity = 0.06, Spread = 0.7 })
+	lightingEffect("ColorCorrectionEffect", {
+		Brightness = -0.02,
+		Contrast = 0.12,
+		Saturation = -0.12,
+		TintColor = Color3.fromRGB(255, 244, 226),
+	})
+	lightingEffect("DepthOfFieldEffect", { FarIntensity = 0.12, FocusDistance = 120, InFocusRadius = 140, NearIntensity = 0 })
 end
 
 -- Day and night: a full cycle every Config.DayLengthSeconds.
@@ -412,9 +648,11 @@ function WorldBuilder.build()
 	end
 	task.wait(0.2)
 
-	-- Spawn on the south beach.
-	local spawnHit = groundAt(0, 116)
-	local spawnPos = if spawnHit then spawnHit.Position else Vector3.new(0, 3, 116)
+	-- Spawn on the stem of Clover Island.
+	local home = ISLANDS[1]
+	local sx, sz = home.x + CloverIsland.Spawn.X, home.z + CloverIsland.Spawn.Y
+	local spawnHit = groundAt(sx, sz)
+	local spawnPos = if spawnHit then spawnHit.Position else Vector3.new(sx, 3, sz)
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "TideboundSpawn"
 	spawn.Anchored = true
@@ -433,8 +671,8 @@ function WorldBuilder.build()
 	folder("LootSacks")
 
 	-- Quest board and trader just inland from the spawn, facing it.
-	local boardHit = groundAt(-12, 96)
-	local traderHit = groundAt(12, 96)
+	local boardHit = groundAt(home.x + CloverIsland.Board.X, home.z + CloverIsland.Board.Y)
+	local traderHit = groundAt(home.x + CloverIsland.Trader.X, home.z + CloverIsland.Trader.Y)
 	local taken = { spawnPos }
 	if boardHit then
 		makeQuestBoard(CFrame.lookAt(boardHit.Position, Vector3.new(spawnPos.X, boardHit.Position.Y, spawnPos.Z)))
@@ -447,17 +685,22 @@ function WorldBuilder.build()
 	-- Keep a clearing around the spawn.
 	for i = 0, 7 do
 		local a = i / 8 * math.pi * 2
-		table.insert(taken, spawnPos + Vector3.new(math.cos(a) * 8, 0, math.sin(a) * 8))
+		table.insert(taken, spawnPos + Vector3.new(math.cos(a) * 10, 0, math.sin(a) * 10))
 	end
 
-	scatter(nodes, "Pine", 55, taken)
-	scatter(nodes, "Palm", 26, taken)
-	scatter(nodes, "Boulder", 30, taken)
-	scatter(nodes, "Bush", 26, taken)
-	scatter(nodes, "SlimePool", 6, taken)
+	for _, isl in ISLANDS do
+		populate(nodes, isl, taken)
+	end
 
-	Animals.spawnHerd("Boar", Vector3.new(60, 0, 30), 3)
-	Animals.spawnHerd("Boar", Vector3.new(-40, 0, 40), 3)
+	-- Stone Shelf's cave mouth faces north.
+	local shelf = ISLANDS[3]
+	local mouth = IslandFields.rock.caveMouth
+	makeCaveMouth(Vector3.new(shelf.x + mouth.X, 3, shelf.z + mouth.Y), Vector3.new(0, 0, -1))
+
+	-- Boars roam the two grassy islands.
+	Animals.spawnHerd("Boar", Vector3.new(home.x + CloverIsland.Herd.X, 0, home.z + CloverIsland.Herd.Y), 3)
+	local hills = ISLANDS[2]
+	Animals.spawnHerd("Boar", Vector3.new(hills.x - 20, 0, hills.z + 45), 4) -- Pine Hills' meadow
 	Animals.start()
 
 	startDayNight()

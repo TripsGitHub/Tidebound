@@ -5,9 +5,9 @@ local Structures = {
 	Campfire = { size = Vector3.new(9, 2.4, 9), hp = 120 },
 	WoodBase = { size = Vector3.new(16, 1.4, 16), hp = 600 },
 	StoneBase = { size = Vector3.new(16, 1.6, 16), hp = 1800 },
-	WoodWall = { size = Vector3.new(8, 9, 1.2), hp = 300 },
-	StoneWall = { size = Vector3.new(8, 9, 2), hp = 900 },
-	WoodGate = { size = Vector3.new(8, 9, 1.2), hp = 250 },
+	WoodWall = { size = Vector3.new(8, 14, 1.2), hp = 300 },
+	StoneWall = { size = Vector3.new(8, 14, 2), hp = 900 },
+	WoodGate = { size = Vector3.new(8, 14, 1.2), hp = 250 },
 }
 
 function Structures.snap(position: Vector3): Vector3

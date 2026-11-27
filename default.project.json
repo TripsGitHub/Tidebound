@@ -2,6 +2,19 @@
   "name": "Tidebound",
   "tree": {
     "$className": "DataModel",
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future"
+      }
+    },
+    "Workspace": {
+      "$properties": {},
+      "Terrain": {
+        "$properties": {
+          "Decoration": true
+        }
+      }
+    },
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
