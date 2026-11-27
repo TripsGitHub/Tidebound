@@ -209,4 +209,40 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	return result
 end
 
+-- Studio self-test: walks every tunnel in short legs with PathfindingService and
+-- checks the tunnel centre is open air. Writes a summary to workspace's CaveCheck
+-- attribute (and the Output) so a broken carve shows up straight away.
+function Caves.verify(terrain: Terrain, result: Result)
+	local PathfindingService = game:GetService("PathfindingService")
+	local solid, legs, bad = 0, 0, 0
+	local firstBad
+	for pi, path in result.paths do
+		local pts = samples(path)
+		for _, p in pts do
+			local region = Region3.new(p - Vector3.one * 2, p + Vector3.one * 2):ExpandToGrid(4)
+			local mats, occ = terrain:ReadVoxels(region, 4)
+			if mats[1][1][1] ~= M.Air and mats[1][1][1] ~= M.Water and occ[1][1][1] > 0.5 then
+				solid += 1
+			end
+		end
+		local stride = 15
+		for i = 1, #pts - 1, stride do
+			local a, b = pts[i], pts[math.min(i + stride, #pts)]
+			local pf = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true })
+			local ok = pcall(function()
+				pf:ComputeAsync(a - Vector3.new(0, TUNNEL_R - 2, 0), b - Vector3.new(0, TUNNEL_R - 2, 0))
+			end)
+			legs += 1
+			if not ok or pf.Status ~= Enum.PathStatus.Success then
+				bad += 1
+				firstBad = firstBad or string.format("path %d leg %d at (%d,%d,%d)", pi, i, a.X, a.Y, a.Z)
+			end
+		end
+		task.wait()
+	end
+	local summary = string.format("solid samples %d, legs %d, blocked %d%s", solid, legs, bad, if firstBad then "; first " .. firstBad else "")
+	workspace:SetAttribute("CaveCheck", summary)
+	print("[Caves] " .. summary)
+end
+
 return Caves

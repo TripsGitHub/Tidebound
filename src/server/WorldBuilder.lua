@@ -972,6 +972,9 @@ function WorldBuilder.build()
 	table.move(network.chambers, 1, #network.chambers, #chambers + 1, chambers)
 	table.move(network.paths, 1, #network.paths, #paths + 1, paths)
 	dressCaves(nodes, chambers, paths)
+	if game:GetService("RunService"):IsStudio() and workspace:GetAttribute("VerifyCaves") ~= false then
+		task.spawn(Caves.verify, workspace.Terrain, network)
+	end
 
 	-- Boars roam the two grassy islands.
 	Animals.spawnHerd("Boar", Vector3.new(home.x + CloverIsland.Herd.X * H, 0, home.z + CloverIsland.Herd.Y * H), 5)
