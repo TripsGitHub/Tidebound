@@ -62,7 +62,7 @@ UI.init({
 		InventoryScreen.toggle()
 	end,
 	onCancelBuild = function()
-		hold(nil)
+		Remotes.CancelBuild:FireServer()
 	end,
 	onPickupDrop = function(target)
 		Remotes.PickUp:FireServer(target)
@@ -205,6 +205,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		tryEatDrop()
 	elseif input.KeyCode == Enum.KeyCode.R then
 		BuildMode.rotate()
+	elseif input.KeyCode == Enum.KeyCode.RightBracket then
+		BuildMode.resize(1)
+	elseif input.KeyCode == Enum.KeyCode.LeftBracket then
+		BuildMode.resize(-1)
+	elseif input.KeyCode == Enum.KeyCode.X and BuildMode.current() then
+		Remotes.CancelBuild:FireServer()
 	elseif input.KeyCode == Enum.KeyCode.Escape then
 		InventoryScreen.close()
 		UI.closePanels()
@@ -236,6 +242,10 @@ end)
 -- From the server -------------------------------------------------------------------
 
 Remotes.Inventory.OnClientEvent:Connect(function(items, newEquipped, armour, bagSize)
+	-- Just crafted a buildable: close the bag so you can place it straight away.
+	if newEquipped and newEquipped ~= equipped and Items[newEquipped] and Items[newEquipped].kind == "placeable" and InventoryScreen.isOpen() then
+		InventoryScreen.close()
+	end
 	equipped = newEquipped
 	UI.setInventory(items, newEquipped, armour, bagSize)
 	InventoryScreen.set(items, newEquipped, armour)

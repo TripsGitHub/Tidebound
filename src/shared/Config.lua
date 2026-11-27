@@ -15,6 +15,7 @@ Config.HeldScale = 1.3 -- tools in your hand are drawn this much bigger
 Config.PickupRange = 10 -- how far you can pick up dropped items from
 Config.BuildRange = 28 -- how far away you can place a structure
 Config.GridSize = 2 -- structures snap to this grid
+Config.MaxStructures = 150 -- per player; saved and rebuilt when you come back
 Config.SpawnNoBuildRadius = 25 -- nobody can build right on top of the spawn
 
 -- Drops

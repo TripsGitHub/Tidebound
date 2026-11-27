@@ -89,6 +89,7 @@ end
 
 Players.PlayerRemoving:Connect(function(player)
 	Save.leave(player) -- snapshots first, so this must come before removePlayer
+	Crafting.removePlayer(player)
 	Inventory.removePlayer(player)
 	Quests.removePlayer(player)
 	Harvest.removePlayer(player)
@@ -100,6 +101,7 @@ Remotes.Hit.OnServerEvent:Connect(Harvest.onHit)
 Remotes.Craft.OnServerEvent:Connect(Crafting.onCraft)
 Remotes.Eat.OnServerEvent:Connect(Survival.eat)
 Remotes.Place.OnServerEvent:Connect(Building.onPlace)
+Remotes.CancelBuild.OnServerEvent:Connect(Crafting.cancelBuild)
 Remotes.ClaimQuest.OnServerEvent:Connect(Quests.claim)
 Remotes.Buy.OnServerEvent:Connect(Shop.onBuy)
 Remotes.PickUp.OnServerEvent:Connect(Drops.pickUp)

@@ -744,7 +744,7 @@ function UI.init(cb)
 	UIKit.closeButton({ Parent = buildBar, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 40), Size = UDim2.fromOffset(56, 24), TextScaled = false, TextSize = 20 }, function()
 		callbacks.onCancelBuild()
 	end)
-	label({ Parent = buildBar, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 68), Size = UDim2.fromOffset(300, 18), Text = "Click to place  ·  R to rotate", TextScaled = false, TextSize = 16 })
+	label({ Parent = buildBar, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 68), Size = UDim2.fromOffset(440, 18), Text = "Click to place  ·  R rotate  ·  [ ] floor size  ·  X cancel", TextScaled = false, TextSize = 16 })
 
 	makePanel("quests", "Quest Board")
 	makePanel("shop", "Trader")

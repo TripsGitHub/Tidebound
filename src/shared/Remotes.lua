@@ -22,6 +22,7 @@ local NAMES = {
 	"PickUp", -- (dropModel)
 	"EatDrop", -- (dropModel)
 	"Place", -- (itemId, position, rotation)
+	"CancelBuild", -- () put the buildable away; refunds it if it was just crafted
 	"ClaimQuest", -- (questId)
 	"Buy", -- (shopEntryId)
 }

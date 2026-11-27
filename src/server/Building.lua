@@ -11,6 +11,7 @@ local Meshes = require(Shared.Meshes)
 local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
 local Quests = require(script.Parent.Quests)
+local Crafting = require(script.Parent.Crafting)
 
 local Building = {}
 
@@ -29,6 +30,8 @@ local function part(model: Model, solid: boolean, props): Part
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	p.CanQuery = solid
+	-- Only the flat core collides: no logs or boulders sticking out to climb on.
+	p.CanCollide = solid
 	for key, value in props do
 		(p :: any)[key] = value
 	end
@@ -189,12 +192,51 @@ local function dressWithMesh(model: Model, core: BasePart, structure: string, cf
 	mesh:Destroy()
 end
 
-function Building.onPlace(player: Player, itemId: unknown, position: unknown, rotation: unknown)
+local function ownedCount(userId: number): number
+	local n = 0
+	for _, m in workspace.Structures:GetChildren() do
+		if m:GetAttribute("OwnerId") == userId then
+			n += 1
+		end
+	end
+	return n
+end
+
+-- Builds the structure at cf, owned by userId. No checks: callers check first.
+local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, cf: CFrame, tiles: number, hp: number?): Model
+	local item = Items[itemId]
+	local def = Structures[item.structure]
+	local size = Structures.sizeFor(item.structure, tiles)
+	local model = Instance.new("Model")
+	model.Name = item.structure
+	local core = builders[item.structure](model, cf, size, ownerPlayer)
+	model.PrimaryPart = core
+	dressWithMesh(model, core, item.structure, cf, size)
+	local maxHp = def.hp * (if Structures.isFloor(item.structure) then tiles * tiles else 1)
+	model:SetAttribute("StructureType", item.structure)
+	model:SetAttribute("ItemId", itemId)
+	model:SetAttribute("Tiles", tiles)
+	model:SetAttribute("DisplayName", item.name)
+	model:SetAttribute("HP", math.min(hp or maxHp, maxHp))
+	model:SetAttribute("MaxHP", maxHp)
+	model:SetAttribute("OwnerId", ownerId)
+	model.Parent = workspace.Structures
+	return model
+end
+
+local function blocked(cf: CFrame, size: Vector3): boolean
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Include
+	overlap.FilterDescendantsInstances = { workspace.Structures, workspace.Nodes }
+	return #workspace:GetPartBoundsInBox(cf, size - Vector3.new(0.3, 0.3, 0.3), overlap) > 0
+end
+
+function Building.onPlace(player: Player, itemId: unknown, position: unknown, rotation: unknown, tiles: unknown)
 	if type(itemId) ~= "string" or typeof(position) ~= "Vector3" or type(rotation) ~= "number" then
 		return
 	end
 	local item = Items[itemId]
-	if not item or item.kind ~= "placeable" or Inventory.count(player, itemId) < 1 then
+	if not item or item.kind ~= "placeable" then
 		return
 	end
 	local def = Structures[item.structure]
@@ -203,8 +245,19 @@ function Building.onPlace(player: Player, itemId: unknown, position: unknown, ro
 	if not def or not builder or not root then
 		return
 	end
+	local n = if Structures.isFloor(item.structure) and type(tiles) == "number" then math.clamp(math.floor(tiles), 1, Structures.MAX_TILES) else 1
+	local cost = n * n
+	if Inventory.count(player, itemId) < cost then
+		Remotes.Notify:FireClient(player, "You need " .. cost .. " " .. item.name .. " for that size", "warn")
+		return
+	end
+	if ownedCount(player.UserId) >= Config.MaxStructures then
+		Remotes.Notify:FireClient(player, "Base is at its size limit (" .. Config.MaxStructures .. " pieces)", "warn")
+		return
+	end
+	local size = Structures.sizeFor(item.structure, n)
 	local pos = position :: Vector3
-	if (pos - root.Position).Magnitude > Config.BuildRange then
+	if (pos - root.Position).Magnitude > Config.BuildRange + size.X / 2 then
 		Remotes.Notify:FireClient(player, "Too far away", "warn")
 		return
 	end
@@ -231,32 +284,99 @@ function Building.onPlace(player: Player, itemId: unknown, position: unknown, ro
 		return
 	end
 
+	-- Walls on a floor's edge: the ray can slip past the floor's rim, so if the
+	-- client put it on top of one of the floors there, trust that height.
+	local groundY = hit.Position.Y
+	if pos.Y > groundY + 0.5 then
+		for _, m in workspace.Structures:GetChildren() do
+			local st = m:GetAttribute("StructureType")
+			local core = m:IsA("Model") and m.PrimaryPart
+			if st and core and Structures.isFloor(st) then
+				local top = core.Position.Y + core.Size.Y / 2
+				local rel = core.CFrame:PointToObjectSpace(pos)
+				if math.abs(top - pos.Y) < 0.6 and math.abs(rel.X) <= core.Size.X / 2 + 1 and math.abs(rel.Z) <= core.Size.Z / 2 + 1 then
+					groundY = top
+					break
+				end
+			end
+		end
+	end
 	local rot = Structures.snapRotation(rotation :: number)
-	local cf = CFrame.new(snapped.X, hit.Position.Y + def.size.Y / 2, snapped.Z) * CFrame.Angles(0, math.rad(rot), 0)
-
-	local overlap = OverlapParams.new()
-	overlap.FilterType = Enum.RaycastFilterType.Include
-	overlap.FilterDescendantsInstances = { workspace.Structures, workspace.Nodes }
-	if #workspace:GetPartBoundsInBox(cf, def.size - Vector3.new(0.3, 0.3, 0.3), overlap) > 0 then
+	local cf = CFrame.new(snapped.X, groundY + size.Y / 2, snapped.Z) * CFrame.Angles(0, math.rad(rot), 0)
+	if blocked(cf, size) then
 		Remotes.Notify:FireClient(player, "Something is in the way", "warn")
 		return
 	end
 
-	if not Inventory.take(player, itemId, 1) then
+	if not Inventory.take(player, itemId, cost) then
 		return
 	end
-	local model = Instance.new("Model")
-	model.Name = item.structure
-	local core = builder(model, cf, def.size, player)
-	model.PrimaryPart = core
-	dressWithMesh(model, core, item.structure, cf, def.size)
-	model:SetAttribute("StructureType", item.structure)
-	model:SetAttribute("DisplayName", item.name)
-	model:SetAttribute("HP", def.hp)
-	model:SetAttribute("MaxHP", def.hp)
-	model:SetAttribute("OwnerId", player.UserId)
-	model.Parent = workspace.Structures
+	construct(player.UserId, player, itemId, cf, n)
+	Crafting.placed(player, itemId)
 	Quests.record(player, "build", nil, 1)
+end
+
+-- Saving bases: every piece you own, as plain numbers, so it can be rebuilt on any
+-- server when you come back.
+function Building.export(player: Player): { any }
+	local list = {}
+	for _, m in workspace.Structures:GetChildren() do
+		local itemId = m:GetAttribute("ItemId")
+		if m:GetAttribute("OwnerId") == player.UserId and itemId and m:IsA("Model") and m.PrimaryPart then
+			local cf = m.PrimaryPart.CFrame
+			if Structures.isFloor(m:GetAttribute("StructureType")) or m:GetAttribute("StructureType") == "Campfire" then
+				-- cores of floors/campfires are offset down from the build centre
+				cf = cf * CFrame.new(0, if m:GetAttribute("StructureType") == "Campfire" then (Structures.sizeFor("Campfire").Y / 2 - 0.2) else 0.15, 0)
+			end
+			local _, ry = cf:ToOrientation()
+			table.insert(list, {
+				i = itemId,
+				x = math.round(cf.X * 10) / 10,
+				y = math.round(cf.Y * 10) / 10,
+				z = math.round(cf.Z * 10) / 10,
+				r = Structures.snapRotation(math.deg(ry)),
+				n = m:GetAttribute("Tiles") or 1,
+				hp = math.floor(m:GetAttribute("HP") or 0),
+			})
+			if #list >= Config.MaxStructures then
+				break
+			end
+		end
+	end
+	return list
+end
+
+-- Rebuild a saved base. Pieces already standing (you came back to the same server)
+-- or now blocked by something are skipped.
+function Building.restore(player: Player, list: any)
+	if type(list) ~= "table" then
+		return
+	end
+	workspace:WaitForChild("Structures")
+	local mine: { [string]: boolean } = {}
+	for _, m in workspace.Structures:GetChildren() do
+		if m:GetAttribute("OwnerId") == player.UserId and m:IsA("Model") and m.PrimaryPart then
+			local p = m.PrimaryPart.Position
+			mine[math.round(p.X) .. "," .. math.round(p.Z) .. "," .. tostring(m:GetAttribute("ItemId"))] = true
+		end
+	end
+	local count = 0
+	for _, e in list do
+		if count >= Config.MaxStructures then
+			break
+		end
+		local item = type(e) == "table" and Items[e.i]
+		if item and item.kind == "placeable" and Structures[item.structure] and type(e.x) == "number" then
+			local key = math.round(e.x) .. "," .. math.round(e.z) .. "," .. e.i
+			local n = if Structures.isFloor(item.structure) then math.clamp(tonumber(e.n) or 1, 1, Structures.MAX_TILES) else 1
+			local size = Structures.sizeFor(item.structure, n)
+			local cf = CFrame.new(e.x, e.y, e.z) * CFrame.Angles(0, math.rad(tonumber(e.r) or 0), 0)
+			if not mine[key] and not blocked(cf, size) then
+				construct(player.UserId, player, e.i, cf, n, if (tonumber(e.hp) or 0) > 0 then e.hp else nil)
+				count += 1
+			end
+		end
+	end
 end
 
 return Building

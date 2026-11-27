@@ -22,6 +22,7 @@ local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
 local Progression = require(script.Parent.Progression)
 local Quests = require(script.Parent.Quests)
+local Building = require(script.Parent.Building)
 
 local Save = {}
 
@@ -92,6 +93,7 @@ local function snapshot(player: Player): { [string]: any }?
 		xp = prog.xp,
 		shells = prog.shells,
 		quests = Quests.export(player),
+		builds = Building.export(player),
 	}
 end
 
@@ -147,6 +149,9 @@ function Save.load(player: Player): boolean
 		Inventory.load(player, data)
 		Progression.load(player, data)
 		Quests.load(player, data.quests)
+		if data.builds then
+			task.defer(Building.restore, player, data.builds)
+		end
 	end
 	loaded[player] = true
 	return true
