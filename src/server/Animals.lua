@@ -413,12 +413,12 @@ end
 
 -- Cave animals can't look for the ground from the sky (that finds the island above
 -- them), so they feel for the floor just under where they are.
-local function floorNear(x: number, y: number, z: number): (Vector3?, Enum.Material?)
+local function floorNear(x: number, y: number, z: number, reach: number?): (Vector3?, Enum.Material?)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { workspace.Terrain }
 	params.IgnoreWater = false
-	local hit = workspace:Raycast(Vector3.new(x, y + 5, z), Vector3.new(0, -14, 0), params)
+	local hit = workspace:Raycast(Vector3.new(x, y + 5, z), Vector3.new(0, -(reach or 14), 0), params)
 	if hit then
 		return hit.Position, hit.Material, hit.Normal
 	end
@@ -778,11 +778,17 @@ end
 
 function Animals.spawnHerd(kind: string, center: Vector3, count: number)
 	local cave = AnimalDefs[kind].cave
+	-- A boss's lair centre is the middle of a huge hall, so look a long way down for
+	-- its floor, and keep trying until it finds one.
+	local reach = if AnimalDefs[kind].boss then 140 else nil
 	for _ = 1, count do
-		local x, z = center.X + rng:NextNumber(-20, 20), center.Z + rng:NextNumber(-20, 20)
-		local pos = if cave then floorNear(x, center.Y, z) else groundAt(x, z)
-		if pos then
-			spawnAnimal(kind, pos)
+		for _ = 1, (if reach then 12 else 1) do
+			local x, z = center.X + rng:NextNumber(-20, 20), center.Z + rng:NextNumber(-20, 20)
+			local pos, mat = if cave then floorNear(x, center.Y, z, reach) else groundAt(x, z)
+			if pos and (not reach or (mat ~= Enum.Material.Water and mat ~= Enum.Material.CrackedLava)) then
+				spawnAnimal(kind, pos)
+				break
+			end
 		end
 	end
 end

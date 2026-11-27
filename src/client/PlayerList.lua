@@ -122,6 +122,13 @@ function PlayerList.init(gui: ScreenGui)
 	for _, plr in Players:GetPlayers() do
 		add(plr)
 	end
+	-- Tuck away while the inventory screen is open (it covers the right side).
+	local inv = gui:FindFirstChild("Inventory")
+	if inv then
+		inv:GetPropertyChangedSignal("Visible"):Connect(function()
+			board.Visible = not inv.Visible
+		end)
+	end
 	Players.PlayerAdded:Connect(add)
 	Players.PlayerRemoving:Connect(remove)
 	UserInputService.InputBegan:Connect(function(input, processed)
