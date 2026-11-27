@@ -69,16 +69,15 @@ local ANIMS: { [string]: { Key } } = {
 		{ t = 0.24, pose = { RightShoulder = V(22, 0, 6), RightElbow = V(12, 0, 0), Waist = V(-6, 5, 0), Neck = V(-3, 0, 0) } },
 		{ t = 0.4 },
 	},
-	-- Weapon slash (clubs and swords): the arm winds out to the right with the
-	-- weapon pointing sideways, then twists across so it sweeps flat in front, and
-	-- the body turns with it. The swing trail is drawn during the sweep (see
-	-- Effects.swing). About 0.42s, the same rhythm as the chop.
+	-- Weapon strike (clubs and swords): raise the blade up over the shoulder, then
+	-- bring it down forward in front of you with a small lunge, and recover. The
+	-- swing trail is drawn during the strike (see Effects.swing). About 0.45s.
 	slash = {
 		{ t = 0 },
-		{ t = 0.1, pose = { RightShoulder = V(45, -70, 40), RightElbow = V(20, 0, 0), Waist = V(0, -24, 0), Neck = V(0, 8, 0) } },
-		{ t = 0.18, pose = { RightShoulder = V(55, 55, -30), RightElbow = V(8, 0, 0), Waist = V(-5, 24, 0), Neck = V(-3, -8, 0) } },
-		{ t = 0.26, pose = { RightShoulder = V(48, 62, -38), RightElbow = V(16, 0, 0), Waist = V(-3, 18, 0), Neck = V(-2, -5, 0) } },
-		{ t = 0.42 },
+		{ t = 0.12, pose = { RightShoulder = V(172, 0, -10), RightElbow = V(34, 0, 0), Waist = V(8, -10, 0), Neck = V(5, 0, 0), RootPos = V(0, 0.05, 0) } },
+		{ t = 0.2, pose = { RightShoulder = V(62, 0, 2), RightElbow = V(0, 0, 0), Waist = V(-16, 6, 0), Neck = V(-8, 0, 0), Root = V(-4, 0, 0), RootPos = V(0, -0.12, -0.25) } },
+		{ t = 0.28, pose = { RightShoulder = V(44, 0, 4), RightElbow = V(8, 0, 0), Waist = V(-11, 4, 0), Neck = V(-5, 0, 0), RootPos = V(0, -0.08, -0.15) } },
+		{ t = 0.45 },
 	},
 	-- Bring food to the mouth and chew twice.
 	eat = {

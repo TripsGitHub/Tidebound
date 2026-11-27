@@ -54,8 +54,10 @@ function Appearance.setTool(player: Player, itemId: string?)
 	model:ScaleTo(Config.HeldScale) -- scales around the grip
 	model.Name = "HeldItem"
 	model:SetAttribute("ItemId", itemId)
-	-- Grip at the bottom of the fist, tool pointing forward and slightly up.
-	model:PivotTo(hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 + 0.1, 0) * CFrame.Angles(math.rad(-90), 0, 0))
+	-- Grip at the bottom of the fist. Axes and harvesters stand up out of the fist;
+	-- swords and clubs lean forward, blade out in front at about 40 degrees.
+	local tilt = if Items[itemId].swing == "slash" then -55 else -90
+	model:PivotTo(hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 + 0.1, 0) * CFrame.Angles(math.rad(tilt), 0, 0))
 	weldModel(model, hand)
 	model.Parent = character
 end

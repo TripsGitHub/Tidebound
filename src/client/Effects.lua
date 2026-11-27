@@ -36,7 +36,7 @@ end
 -- A crescent trail behind the tip of the held item, only while the arm is moving
 -- fast. Weapons get a bright cyan arc; tools a faint white one.
 local TRAIL = {
-	slash = { color = Color3.fromRGB(110, 236, 255), from = 0.08, to = 0.26, alpha = 0.15 },
+	slash = { color = Color3.fromRGB(110, 236, 255), from = 0.11, to = 0.25, alpha = 0.15 },
 	swing = { color = Color3.fromRGB(255, 255, 255), from = 0.08, to = 0.2, alpha = 0.55 },
 }
 local trails: { [Model]: Trail } = setmetatable({}, { __mode = "k" }) :: any
