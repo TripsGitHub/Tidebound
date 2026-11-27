@@ -438,7 +438,7 @@ local ISLANDS: { Island } = {
 	{ name = "Skull Key", x = 480, z = 330, r = 34, biome = "skull", ring = false },
 	{ name = "Gull Rock", x = -480, z = 330, r = 28, biome = "rockcay", ring = false },
 	{ name = "Sunfruit Isle", x = -340, z = 270, r = 66, biome = "fruit" }, -- fruit palms and ponds, near the start
-	{ name = "Maw Rock", x = 0, z = 160, r = 52, biome = "maw", ring = false, hub = true }, -- the way down to the Maw
+	{ name = "Maw Rock", x = 0, z = 160, r = 58, biome = "maw", ring = false, hub = true }, -- the way down to the Maw
 	-- Nameless islands: no name on the map, no cave, one hand-built outpost each
 	-- (see Outposts.lua). Always after the named ones.
 	{ name = "Isle 1", x = -150, z = -45, r = 30, biome = "isle1", nameless = true, outpost = "stoneCircle" },
