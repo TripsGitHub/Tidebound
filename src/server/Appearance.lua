@@ -52,6 +52,7 @@ function Appearance.setTool(player: Player, itemId: string?)
 	local model = ItemModels.build(itemId)
 	model:ScaleTo(Config.HeldScale) -- scales around the grip
 	model.Name = "HeldItem"
+	model:SetAttribute("ItemId", itemId)
 	-- Grip at the bottom of the fist, tool pointing forward and slightly up.
 	model:PivotTo(hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 + 0.1, 0) * CFrame.Angles(math.rad(-90), 0, 0))
 	weldModel(model, hand)
