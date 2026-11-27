@@ -99,7 +99,7 @@ local function update()
 	if player.Character then
 		table.insert(exclude, player.Character)
 	end
-	local hit = Pointer.cast(exclude, 90)
+	local hit = Pointer.cast(exclude, 120)
 	local model, kind = classify(hit and hit.Instance)
 	if model and kind then
 		local info: Info = { target = model, kind = kind, inRange = false }

@@ -42,6 +42,8 @@ local function equipSlot(index: number)
 	if item.kind == "armour" then
 		-- Armour on the hotbar: click to put it on or take it off.
 		Remotes.Wear:FireServer(id)
+	elseif item.kind == "raft" then
+		Remotes.Eat:FireServer(id) -- launches it at the shore
 	elseif item.kind == "food" or item.kind == "crate" then
 		-- Food heals straight from the hotbar; crates open.
 		Remotes.Eat:FireServer(id)
@@ -90,8 +92,10 @@ InventoryScreen.init(UI.root :: ScreenGui, {
 	onHold = hold,
 	onEat = function(id)
 		Remotes.Eat:FireServer(id)
-		Tutorial.flag("ate")
-		Anim.play(player.Character, "eat")
+		if Items[id] and Items[id].kind ~= "raft" then
+			Tutorial.flag("ate")
+			Anim.play(player.Character, "eat")
+		end
 	end,
 	onDrop = function(id)
 		Remotes.Drop:FireServer(id)
@@ -122,6 +126,20 @@ local function trySwing()
 	end
 	nextSwing = now + item.cooldown
 	local info = Hover.get()
+	if item.ranged then
+		local target = if info.target and (info.kind == "animal" or info.kind == "player") then info.target else nil
+		local exclude: { Instance } = { workspace.CurrentCamera }
+		if player.Character then
+			table.insert(exclude, player.Character)
+		end
+		local hit = Pointer.cast(exclude, 400)
+		local ray = Pointer.ray()
+		Remotes.Hit:FireServer(target, if hit then hit.Position else ray.Origin + ray.Direction * 400)
+		if target then
+			UI.targetHit(target)
+		end
+		return
+	end
 	if info.target and info.kind ~= "drop" and info.inRange then
 		Remotes.Hit:FireServer(info.target)
 		UI.targetHit(info.target)
@@ -139,6 +157,8 @@ local function primaryAction()
 	if item.kind == "tool" then
 		holdingClick = true
 		trySwing()
+	elseif item.kind == "raft" then
+		Remotes.Eat:FireServer(equipped)
 	elseif item.kind == "food" or item.kind == "crate" then
 		Remotes.Eat:FireServer(equipped)
 		Tutorial.flag("ate")
@@ -299,6 +319,7 @@ Remotes.OpenPanel.OnClientEvent:Connect(function(name)
 		Tutorial.flag("quests")
 	end
 end)
+Remotes.Arrow.OnClientEvent:Connect(Effects.arrow)
 Remotes.Swing.OnClientEvent:Connect(function(character)
 	if character then
 		task.spawn(Effects.swing, character)

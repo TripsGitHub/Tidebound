@@ -40,7 +40,7 @@ local function canOpen(player: Player, model: Model): boolean
 end
 
 local function send(player: Player, model: Model)
-	Remotes.ChestState:FireClient(player, model, contents[model] or {}, Config.ChestCapacity)
+	Remotes.ChestState:FireClient(player, model, contents[model] or {}, model:GetAttribute("Capacity") or Config.ChestCapacity)
 end
 
 local function refreshViewers(model: Model)
@@ -69,7 +69,7 @@ function Chests.setup(model: Model, saved: any)
 	if c then
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.ActionText = "Open"
-		prompt.ObjectText = "Storage Chest"
+		prompt.ObjectText = model:GetAttribute("DisplayName") or "Storage Chest"
 		prompt.MaxActivationDistance = 10
 		prompt.RequiresLineOfSight = false
 		prompt.Parent = c
@@ -124,7 +124,7 @@ function Chests.onMove(player: Player, model: unknown, itemId: unknown, dir: unk
 	end
 	if dir == "put" then
 		local have = Inventory.count(player, itemId)
-		local n = math.min(have, Config.ChestCapacity - total(box))
+		local n = math.min(have, (model:GetAttribute("Capacity") or Config.ChestCapacity) - total(box))
 		if n <= 0 then
 			Remotes.Notify:FireClient(player, if have > 0 then "The chest is full" else "You don't have that", "warn")
 		elseif Inventory.take(player, itemId, n) then

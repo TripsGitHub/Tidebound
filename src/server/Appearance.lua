@@ -57,7 +57,7 @@ function Appearance.setTool(player: Player, itemId: string?)
 	-- Grip at the bottom of the fist. Axes and harvesters stand up out of the fist;
 	-- swords and clubs lean forward, blade out in front at about 40 degrees.
 	local slash = Items[itemId].swing == "slash"
-	local tilt = if slash then -55 else -90
+	local tilt = if slash then -55 elseif Items[itemId].swing == "shoot" then 0 else -90
 	-- Blades are modelled with their edges left and right; the strike comes down from
 	-- overhead, so turn the blade a quarter round its length to lead with the edge.
 	local edge = if slash then CFrame.Angles(0, math.rad(90), 0) else CFrame.identity
@@ -79,6 +79,7 @@ local SLOT_PARTS = {
 		{ names = { "RightFoot", "Right Leg" }, offset = CFrame.new(0, 0, -0.1), scale = 1, half = "right", foot = true },
 	},
 	bag = { { names = { "UpperTorso", "Torso" }, offset = CFrame.new(0, 0.1, 0.95), scale = 1 } },
+	shield = { { names = { "LeftLowerArm", "Left Arm" }, offset = CFrame.new(-0.35, 0, 0), scale = 1 } },
 }
 
 local function simplePiece(itemId: string, attach: BasePart, spec): Model
@@ -87,7 +88,11 @@ local function simplePiece(itemId: string, attach: BasePart, spec): Model
 	local model = ItemModels.build(itemId)
 	local color = model.PrimaryPart.Color
 	local material = model.PrimaryPart.Material
-	if item.slot ~= "bag" then
+	if item.slot == "shield" then
+		-- Strapped to the outside of the forearm, facing out to the side.
+		model:ScaleTo(0.9)
+		model:PivotTo(attach.CFrame * spec.offset * CFrame.Angles(0, math.rad(90), 0))
+	elseif item.slot ~= "bag" then
 		model:ClearAllChildren()
 		local shell = Instance.new("Part")
 		shell.Color = color

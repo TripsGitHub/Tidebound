@@ -4,6 +4,7 @@
 --   "armour"    worn in a slot (head, body, legs, feet, bag)
 --   "food"      eat it
 --   "placeable" build it
+--   "raft"      put it in the water and ride it
 --   "resource"  crafting material
 -- gather: how much each hit gathers from each material (missing = can't)
 -- damage: damage to players, animals and structures
@@ -173,13 +174,6 @@ for _, tier in Tiers.extra do
 		}
 	end
 end
-for id, item in Items do
-	if type(item) == "table" and item.kind == "armour" and item.defense then
-		local tier = string.match(id, "^(%a+)_")
-		local vs = Items.ARMOUR_VS[tier or ""] or { mob = 1, player = 1 }
-		item.vsMob, item.vsPlayer = vs.mob, vs.player
-	end
-end
 
 -- Bars: raw metal ore smelted in a campfire (Smelting.lua). Metal gear is made from
 -- bars, not raw ore.
@@ -187,6 +181,63 @@ Items.silver_bar = { name = "Silver Bar", kind = "resource", order = 61.1, descr
 Items.gold_bar = { name = "Gold Bar", kind = "resource", order = 61.2, description = "Gold Ore smelted in a campfire. Used for Gold gear." }
 Items.sunsteel_bar = { name = "Sunsteel Bar", kind = "resource", order = 61.3, description = "Sunstone smelted in a campfire. Used for Sunsteel gear." }
 Items.BAR_FOR = { silver_ore = "silver_bar", gold_ore = "gold_bar", sunstone = "sunsteel_bar" }
+
+-- Round 7 gear ---------------------------------------------------------------------
+-- Lights, beds, traps and ladders for your base.
+Items.torch = { name = "Torch", kind = "placeable", order = 37, structure = "Torch", description = "A tall torch on a stake. Lights up your base at night." }
+Items.lamp = { name = "Lantern Post", kind = "placeable", order = 37.1, structure = "Lamp", description = "A glass lantern hung on a post: a bigger, steadier light than a torch." }
+Items.bed = { name = "Bed", kind = "placeable", order = 37.2, structure = "Bed", description = "Sleep here once and you'll wake up here when you die." }
+Items.spike_trap = { name = "Spike Trap", kind = "placeable", order = 37.3, structure = "SpikeTrap", description = "Hidden spikes that hurt anyone but you (and your tribe) who steps on them, beasts included." }
+Items.ladder = { name = "Ladder", kind = "placeable", order = 37.4, structure = "Ladder", description = "Climb up walls and cliffs." }
+
+-- Walls and chests made from each ore, tougher (and roomier) the rarer the ore.
+Items.ORE_BUILD = {}
+for _, tier in Tiers.list do
+	if tier.rank >= 3 then
+		local wall, chest = tier.id .. "_wall", tier.id .. "_chest"
+		Items[wall] = { name = tier.name .. " Wall", kind = "placeable", order = 35 + tier.rank * 0.01, structure = (tier.name:gsub("%s", "")) .. "Wall", tier = tier.id, description = "A wall of " .. tier.name .. ". Much harder to break than stone." }
+		Items[chest] = { name = tier.name .. " Chest", kind = "placeable", order = 36 + tier.rank * 0.01, structure = (tier.name:gsub("%s", "")) .. "Chest", tier = tier.id, description = "A " .. tier.name .. "-bound chest: holds more and takes a beating." }
+		table.insert(Items.ORE_BUILD, tier.id)
+	end
+end
+-- Carts: storage on wheels, from wood up to gold.
+Items.CARTS = { "wood", "stone", "silver", "gold" }
+for i, t in Items.CARTS do
+	local tier = Tiers.get(t) :: any
+	Items[t .. "_cart"] = { name = tier.name .. " Cart", kind = "placeable", order = 36.5 + i * 0.01, structure = tier.name .. "Cart", tier = t, description = "A cart to keep things in. Better carts hold more." }
+end
+
+-- Shields: worn on the off arm, one for every tool tier.
+for _, tier in Tiers.list do
+	Items[tier.id .. "_shield"] = { name = tier.name .. " Shield", kind = "armour", slot = "shield", order = 44.5 + tier.rank * 0.01, defense = round(0.03 + 0.012 * tier.rank), tier = tier.id, description = "Blocks a share of every hit while you wear it." }
+end
+
+-- Bows shoot arrows (each shot uses one) at anything in sight.
+Items.arrow = { name = "Arrow", kind = "resource", order = 62, description = "Ammunition for bows. Each shot uses one." }
+Items.BOWS = { wood = { 14, 70 }, silver = { 24, 85 }, gold = { 32, 95 }, diamond = { 44, 110 } }
+for t, spec in Items.BOWS do
+	local tier = Tiers.get(t) :: any
+	Items[t .. "_bow"] = { name = tier.name .. " Bow", kind = "tool", swing = "shoot", ranged = true, range = spec[2], damage = spec[1], cooldown = 0.9, gather = {}, order = 3.5 + tier.rank * 0.1, tier = t, description = "Shoots arrows up to " .. spec[2] .. " studs. Each shot uses an Arrow." }
+end
+
+-- Rafts: drop one in the water and ride it.
+Items.RAFTS = {
+	log_raft = { name = "Log Raft", speed = 16, hp = 120, order = 38 },
+	sail_raft = { name = "Sail Raft", speed = 26, hp = 180, order = 38.1 },
+	gold_raft = { name = "Gilded Raft", speed = 36, hp = 320, order = 38.2 },
+}
+for id, r in Items.RAFTS do
+	Items[id] = { name = r.name, kind = "raft", order = r.order, description = "Use it at the shore to put it in the water, then sit on it and sail. Top speed " .. r.speed .. "." }
+end
+
+-- Armour strength against beasts vs other players, by material (see ARMOUR_VS).
+for id, item in Items do
+	if type(item) == "table" and item.kind == "armour" and item.defense then
+		local tier = string.match(id, "^(%a+)_")
+		local vs = Items.ARMOUR_VS[tier or ""] or { mob = 1, player = 1 }
+		item.vsMob, item.vsPlayer = vs.mob, vs.player
+	end
+end
 
 -- A bag for every ore tier, each one bigger than the last (after the Leather Bag,
 -- Hide Pack and Explorer Pack). Recipes are in Recipes.lua.

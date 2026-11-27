@@ -500,6 +500,177 @@ function builders.pearl_helm(m)
 	return core
 end
 
+-- Round 7 gear --------------------------------------------------------------------
+
+local function tierColour(id: string): (Color3, Color3)
+	local tier = Tiers.get(id) :: any
+	if tier then
+		return tier.plate, tier.trim
+	end
+	return C.wood, C.woodDark
+end
+
+local function tierMaterial(id: string): Enum.Material
+	local tier = Tiers.get(id) :: any
+	local style = tier and tier.style
+	if style == "metal" then
+		return Enum.Material.Metal
+	elseif style == "crystal" then
+		return Enum.Material.Glass
+	elseif style == "stone" then
+		return Enum.Material.Slate
+	end
+	return Enum.Material.WoodPlanks
+end
+
+function builders.torch(m)
+	local core = part(m, Vector3.new(0.25, 2.4, 0.25), CFrame.new(0, -0.3, 0), C.woodDark, Enum.Material.Wood)
+	part(m, Vector3.new(0.45, 0.4, 0.45), CFrame.new(0, 0.95, 0), C.leather, Enum.Material.Fabric)
+	part(m, Vector3.new(0.4, 0.6, 0.4), CFrame.new(0, 1.4, 0), Color3.fromRGB(255, 160, 60), Enum.Material.Neon, Enum.PartType.Ball)
+	return core
+end
+
+function builders.lamp(m)
+	local core = part(m, Vector3.new(0.25, 2.6, 0.25), CFrame.new(-0.5, 0, 0), C.woodDark, Enum.Material.Wood)
+	part(m, Vector3.new(1, 0.2, 0.2), CFrame.new(-0.1, 1.2, 0), C.woodDark, Enum.Material.Wood)
+	part(m, Vector3.new(0.6, 0.7, 0.6), CFrame.new(0.3, 0.7, 0), Color3.fromRGB(255, 214, 140), Enum.Material.Neon)
+	part(m, Vector3.new(0.7, 0.12, 0.7), CFrame.new(0.3, 1.08, 0), Color3.fromRGB(60, 56, 52), Enum.Material.Metal)
+	part(m, Vector3.new(0.7, 0.12, 0.7), CFrame.new(0.3, 0.32, 0), Color3.fromRGB(60, 56, 52), Enum.Material.Metal)
+	return core
+end
+
+function builders.bed(m)
+	local core = part(m, Vector3.new(1.4, 0.4, 2.6), CFrame.new(0, -0.2, 0), C.wood, Enum.Material.WoodPlanks)
+	part(m, Vector3.new(1.3, 0.3, 2.4), CFrame.new(0, 0.12, 0), Color3.fromRGB(196, 170, 124), Enum.Material.Fabric)
+	part(m, Vector3.new(1.32, 0.32, 1.4), CFrame.new(0, 0.16, 0.45), Color3.fromRGB(150, 64, 52), Enum.Material.Fabric)
+	part(m, Vector3.new(1, 0.3, 0.55), CFrame.new(0, 0.35, -0.85), Color3.fromRGB(238, 230, 210), Enum.Material.Fabric)
+	return core
+end
+
+function builders.spike_trap(m)
+	local core = part(m, Vector3.new(2.2, 0.2, 2.2), CFrame.new(0, -0.3, 0), C.woodDark, Enum.Material.WoodPlanks)
+	for x = -1, 1 do
+		for z = -1, 1 do
+			part(m, Vector3.new(0.16, 0.8, 0.16), CFrame.new(x * 0.65, 0.15, z * 0.65) * CFrame.Angles(0, math.rad(45), math.rad(x * 6)), Color3.fromRGB(160, 156, 150), Enum.Material.Metal)
+		end
+	end
+	return core
+end
+
+function builders.ladder(m)
+	local core = part(m, Vector3.new(0.2, 2.6, 0.2), CFrame.new(-0.5, 0, 0), C.wood, Enum.Material.Wood)
+	part(m, Vector3.new(0.2, 2.6, 0.2), CFrame.new(0.5, 0, 0), C.wood, Enum.Material.Wood)
+	for i = -2, 2 do
+		part(m, Vector3.new(1, 0.14, 0.14), CFrame.new(0, i * 0.5, 0), C.woodLight, Enum.Material.Wood)
+	end
+	return core
+end
+
+for _, t in Items.ORE_BUILD do
+	builders[t .. "_wall"] = function(m)
+		local plate, trim = tierColour(t)
+		local mat = tierMaterial(t)
+		local core = part(m, Vector3.new(2, 2.2, 0.5), CFrame.new(), plate, mat)
+		part(m, Vector3.new(2.15, 0.25, 0.6), CFrame.new(0, 0.95, 0), trim, Enum.Material.Metal)
+		part(m, Vector3.new(2.15, 0.25, 0.6), CFrame.new(0, -0.95, 0), trim, Enum.Material.Metal)
+		return core
+	end
+	builders[t .. "_chest"] = function(m)
+		local plate, trim = tierColour(t)
+		local core = part(m, Vector3.new(2.4, 1.4, 1.6), CFrame.new(), C.woodDark, Enum.Material.WoodPlanks)
+		part(m, Vector3.new(2.5, 0.5, 1.7), CFrame.new(0, 0.9, 0), plate, tierMaterial(t))
+		for _, x in { -0.8, 0.8 } do
+			part(m, Vector3.new(0.22, 1.95, 1.75), CFrame.new(x, 0.25, 0), trim, Enum.Material.Metal)
+		end
+		part(m, Vector3.new(0.4, 0.45, 0.15), CFrame.new(0, 0.6, -0.85), plate, Enum.Material.Metal)
+		return core
+	end
+end
+
+for _, t in Items.CARTS do
+	builders[t .. "_cart"] = function(m)
+		local plate, trim = tierColour(t)
+		local core = part(m, Vector3.new(2.2, 1, 1.4), CFrame.new(0, 0.2, 0), C.wood, Enum.Material.WoodPlanks)
+		part(m, Vector3.new(2.3, 0.15, 1.5), CFrame.new(0, 0.72, 0), plate, tierMaterial(t))
+		for _, x in { -0.7, 0.7 } do
+			for _, z in { -0.78, 0.78 } do
+				part(m, Vector3.new(0.18, 0.8, 0.8), CFrame.new(x, -0.35, z) * CFrame.Angles(0, math.rad(90), 0), trim, Enum.Material.Metal, Enum.PartType.Cylinder)
+			end
+		end
+		part(m, Vector3.new(1.2, 0.12, 0.12), CFrame.new(1.6, 0.1, 0), C.woodDark, Enum.Material.Wood)
+		return core
+	end
+end
+
+for _, tier in Tiers.list do
+	builders[tier.id .. "_shield"] = function(m)
+		local core = part(m, Vector3.new(0.25, 1.9, 1.9), CFrame.Angles(0, math.rad(90), 0), tier.plate, tierMaterial(tier.id), Enum.PartType.Cylinder)
+		part(m, Vector3.new(0.2, 2.1, 2.1), CFrame.new(0, 0, 0.03) * CFrame.Angles(0, math.rad(90), 0), tier.trim, Enum.Material.Metal, Enum.PartType.Cylinder)
+		part(m, Vector3.new(0.5, 0.5, 0.5), CFrame.new(0, 0, -0.18), tier.accent, if tier.glow then Enum.Material.Neon else Enum.Material.Metal, Enum.PartType.Ball)
+		return core
+	end
+end
+
+for t in Items.BOWS do
+	builders[t .. "_bow"] = function(m)
+		local plate, trim = tierColour(t)
+		local mat = if t == "wood" then Enum.Material.Wood else tierMaterial(t)
+		local core = part(m, Vector3.new(0.22, 0.6, 0.22), CFrame.new(), C.leather, Enum.Material.Fabric)
+		-- Each limb is three short segments bending back, so it reads as a curve.
+		for _, dir in { 1, -1 } do
+			local cf = CFrame.new(0, 0.3 * dir, 0)
+			for i = 1, 3 do
+				local seg = 0.55
+				cf = cf * CFrame.Angles(math.rad(-14 * dir), 0, 0) * CFrame.new(0, seg / 2 * dir, 0)
+				part(m, Vector3.new(0.16, seg, 0.16), cf, if i == 3 then trim else plate, mat)
+				cf = cf * CFrame.new(0, seg / 2 * dir, 0)
+			end
+		end
+		part(m, Vector3.new(0.04, 2.5, 0.04), CFrame.new(0, 0, 0.62), Color3.fromRGB(236, 230, 214), Enum.Material.Fabric)
+		return core
+	end
+end
+
+function builders.arrow(m)
+	local core = part(m, Vector3.new(0.1, 2, 0.1), CFrame.new(), C.woodLight, Enum.Material.Wood)
+	part(m, Vector3.new(0.22, 0.3, 0.22), CFrame.new(0, 1.1, 0), C.stoneDark, Enum.Material.Slate)
+	part(m, Vector3.new(0.02, 0.4, 0.3), CFrame.new(0, -0.8, 0), Color3.fromRGB(236, 232, 224), Enum.Material.Fabric)
+	part(m, Vector3.new(0.3, 0.4, 0.02), CFrame.new(0, -0.8, 0), Color3.fromRGB(196, 72, 56), Enum.Material.Fabric)
+	return core
+end
+
+local function raftLogs(m: Model, n: number, color: Color3): BasePart
+	local core
+	for i = 1, n do
+		local x = (i - (n + 1) / 2) * 0.45
+		local p = part(m, Vector3.new(2.6, 0.44, 0.44), CFrame.new(0, 0, x), color:Lerp(Color3.new(0, 0, 0), (i % 2) * 0.08), Enum.Material.Wood, Enum.PartType.Cylinder)
+		core = core or p
+	end
+	part(m, Vector3.new(0.2, 0.2, n * 0.45 + 0.1), CFrame.new(-0.9, 0.18, 0), C.leather, Enum.Material.Fabric)
+	part(m, Vector3.new(0.2, 0.2, n * 0.45 + 0.1), CFrame.new(0.9, 0.18, 0), C.leather, Enum.Material.Fabric)
+	return core
+end
+
+function builders.log_raft(m)
+	return raftLogs(m, 5, C.wood)
+end
+
+function builders.sail_raft(m)
+	local core = raftLogs(m, 5, C.woodLight)
+	part(m, Vector3.new(0.15, 2.4, 0.15), CFrame.new(0, 1.2, 0), C.woodDark, Enum.Material.Wood)
+	part(m, Vector3.new(0.05, 1.6, 1.5), CFrame.new(0.1, 1.4, 0), Color3.fromRGB(238, 228, 200), Enum.Material.Fabric)
+	return core
+end
+
+function builders.gold_raft(m)
+	local core = raftLogs(m, 6, C.woodDark)
+	part(m, Vector3.new(2.7, 0.12, 0.12), CFrame.new(0, 0.26, -1.4), Color3.fromRGB(236, 192, 72), Enum.Material.Metal)
+	part(m, Vector3.new(2.7, 0.12, 0.12), CFrame.new(0, 0.26, 1.4), Color3.fromRGB(236, 192, 72), Enum.Material.Metal)
+	part(m, Vector3.new(0.15, 2.6, 0.15), CFrame.new(0, 1.3, 0), C.woodDark, Enum.Material.Wood)
+	part(m, Vector3.new(0.05, 1.7, 1.7), CFrame.new(0.1, 1.5, 0), Color3.fromRGB(176, 52, 48), Enum.Material.Fabric)
+	return core
+end
+
 -- Public -------------------------------------------------------------------------
 
 -- Returns a new Model for the item, with PrimaryPart set. Every part is anchored,

@@ -43,6 +43,24 @@ local Recipes = {
 	{ id = "stone_base", tab = "Buildables", level = 8, cost = { stone = 50, sticky_slime = 4 } },
 	{ id = "large_stone_base", tab = "Buildables", level = 12, cost = { stone = 90, sticky_slime = 8, silver_bar = 4 } },
 	{ id = "stone_wall", tab = "Buildables", level = 8, cost = { stone = 14, sticky_slime = 2 } },
+
+	-- Round 7: lights, beds, traps, ladders, carts, rafts, shields, bows
+	{ id = "torch", tab = "Buildables", level = 2, cost = { stick = 3, leaves = 2, log = 1 } },
+	{ id = "ladder", tab = "Buildables", level = 3, cost = { log = 4, stick = 6 } },
+	{ id = "bed", tab = "Buildables", level = 3, cost = { log = 8, leaves = 10, leather = 3 } },
+	{ id = "spike_trap", tab = "Buildables", level = 5, cost = { log = 4, stone = 8 } },
+	{ id = "lamp", tab = "Buildables", level = 9, cost = { log = 3, silver_bar = 1, sticky_slime = 2 } },
+	{ id = "wood_cart", tab = "Buildables", level = 3, cost = { log = 14, stick = 6 } },
+	{ id = "stone_cart", tab = "Buildables", level = 7, cost = { log = 10, stone = 16 } },
+	{ id = "silver_cart", tab = "Buildables", level = 9, cost = { log = 10, silver_bar = 8 } },
+	{ id = "gold_cart", tab = "Buildables", level = 11, cost = { log = 12, gold_bar = 8 } },
+	{ id = "log_raft", tab = "Buildables", level = 2, cost = { log = 10, leaves = 6 } },
+	{ id = "sail_raft", tab = "Buildables", level = 8, cost = { log = 14, leather = 6, sticky_slime = 3 } },
+	{ id = "gold_raft", tab = "Buildables", level = 12, cost = { log = 18, leather = 8, gold_bar = 6 } },
+	{ id = "wood_shield", tab = "Armour", level = 2, cost = { log = 6, leather = 1 } },
+	{ id = "stone_shield", tab = "Armour", level = 6, cost = { stone = 10, log = 4, leather = 2 } },
+	{ id = "wood_bow", tab = "Tools", level = 3, cost = { log = 3, stick = 4, leather = 1 } },
+	{ id = "arrow", tab = "Tools", level = 3, amount = 10, cost = { stick = 3, stone = 2, leaves = 2 } },
 }
 
 -- Every tier from Silver up: a harvester and sword first (the harvester mines the next
@@ -74,6 +92,13 @@ for i, ore in Ores do
 	table.insert(Recipes, { id = t .. "_legs", tab = "Armour", level = L2, cost = cost(12, { leather = 3 }, 4) })
 	table.insert(Recipes, { id = t .. "_body", tab = "Armour", level = L2, cost = cost(15, { leather = 4 }, 6) })
 	table.insert(Recipes, { id = t .. "_bag", tab = "Armour", level = L2, cost = cost(10, { leather = 6, sticky_slime = 2 }, 4) })
+	table.insert(Recipes, { id = t .. "_shield", tab = "Armour", level = L, cost = cost(9, { leather = 2, log = 2 }, 3) })
+	table.insert(Recipes, { id = t .. "_wall", tab = "Buildables", level = L, cost = cost(10, { stone = 6 }) })
+	table.insert(Recipes, { id = t .. "_chest", tab = "Buildables", level = L, cost = cost(8, { log = 8 }) })
+	local Items = require(script.Parent.Items)
+	if Items[t .. "_bow"] then
+		table.insert(Recipes, { id = t .. "_bow", tab = "Tools", level = L, cost = cost(7, { log = 2, leather = 2 }, 2) })
+	end
 end
 
 -- Recipes above are on a 1-20 scale; spread them over the real level range.

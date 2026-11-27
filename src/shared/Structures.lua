@@ -13,6 +13,28 @@ local Structures = {
 	Chest = { size = Vector3.new(5, 3.4, 3.4), hp = 260 },
 }
 
+-- Round 7: lights, bed, trap, ladder, ore walls and chests, carts.
+Structures.Torch = { size = Vector3.new(1.6, 7, 1.6), hp = 40, small = true }
+Structures.Lamp = { size = Vector3.new(2.4, 9, 2.4), hp = 90, small = true }
+Structures.Bed = { size = Vector3.new(4.4, 2, 8), hp = 150 }
+Structures.SpikeTrap = { size = Vector3.new(6, 0.8, 6), hp = 160, trap = true }
+Structures.Ladder = { size = Vector3.new(3.2, 16, 1), hp = 120 }
+Structures.Chest.chest = Config.ChestCapacity
+do
+	local Tiers = require(script.Parent.Tiers)
+	for _, tier in Tiers.list do
+		if tier.rank >= 3 then
+			local name = tier.name:gsub("%s", "")
+			Structures[name .. "Wall"] = { size = Vector3.new(8, 18, 1.8), hp = math.floor(900 * (1 + (tier.rank - 2) * 0.55)), tier = tier.id, wall = true }
+			Structures[name .. "Chest"] = { size = Vector3.new(5, 3.4, 3.4), hp = 260 + tier.rank * 220, tier = tier.id, chest = Config.ChestCapacity + (tier.rank - 2) * 150 }
+		end
+	end
+	for i, t in { "wood", "stone", "silver", "gold" } do
+		local tier = Tiers.get(t) :: any
+		Structures[tier.name .. "Cart"] = { size = Vector3.new(6, 4.4, 4), hp = 200 + i * 150, tier = t, chest = 250 + i * 150, cart = true }
+	end
+end
+
 function Structures.snap(position: Vector3): Vector3
 	local g = Config.GridSize
 	return Vector3.new(math.round(position.X / g) * g, position.Y, math.round(position.Z / g) * g)

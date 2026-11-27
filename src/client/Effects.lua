@@ -449,4 +449,56 @@ function Effects.worldFx(kind: string, a: any, b: any, c: any)
 	end
 end
 
+-- An arrow from a bow: flies in a shallow arc, then sticks where it landed for a moment.
+function Effects.arrow(character: Model?, from: Vector3, to: Vector3, hit: boolean)
+	if character then
+		Anim.play(character, "shoot")
+	end
+	local arrow = Instance.new("Model")
+	arrow.Name = "Arrow"
+	local shaft = Instance.new("Part")
+	shaft.Size = Vector3.new(0.12, 0.12, 2.4)
+	shaft.Color = Color3.fromRGB(178, 136, 92)
+	shaft.Material = Enum.Material.Wood
+	local tip = Instance.new("Part")
+	tip.Size = Vector3.new(0.24, 0.24, 0.4)
+	tip.Color = Color3.fromRGB(98, 98, 104)
+	tip.Material = Enum.Material.Slate
+	local fletch = Instance.new("Part")
+	fletch.Size = Vector3.new(0.04, 0.4, 0.5)
+	fletch.Color = Color3.fromRGB(236, 232, 224)
+	fletch.Material = Enum.Material.Fabric
+	for _, p in { shaft, tip, fletch } do
+		p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+		p.Parent = arrow
+	end
+	arrow.Parent = workspace
+	local dist = (to - from).Magnitude
+	local duration = math.max(0.08, dist / 140)
+	local lift = dist * 0.04
+	local function place(t: number)
+		local pos = from:Lerp(to, t) + Vector3.new(0, math.sin(t * math.pi) * lift, 0)
+		local ahead = from:Lerp(to, math.min(1, t + 0.02)) + Vector3.new(0, math.sin(math.min(1, t + 0.02) * math.pi) * lift, 0)
+		local cf = if (ahead - pos).Magnitude > 1e-3 then CFrame.lookAt(pos, ahead) else CFrame.new(pos)
+		shaft.CFrame = cf
+		tip.CFrame = cf * CFrame.new(0, 0, -1.3)
+		fletch.CFrame = cf * CFrame.new(0, 0, 1)
+	end
+	place(0)
+	local start = os.clock()
+	local conn
+	conn = RunService.RenderStepped:Connect(function()
+		local t = math.min(1, (os.clock() - start) / duration)
+		place(t)
+		if t >= 1 then
+			conn:Disconnect()
+			if hit then
+				arrow:Destroy()
+			else
+				Debris:AddItem(arrow, 4)
+			end
+		end
+	end)
+end
+
 return Effects

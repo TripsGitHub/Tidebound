@@ -79,6 +79,14 @@ local ANIMS: { [string]: { Key } } = {
 		{ t = 0.28, pose = { RightShoulder = V(44, 0, 4), RightElbow = V(8, 0, 0), Waist = V(-11, 4, 0), Neck = V(-5, 0, 0), RootPos = V(0, -0.08, -0.15) } },
 		{ t = 0.45 },
 	},
+	-- Bow: raise it level, draw the string back to the cheek, loose.
+	shoot = {
+		{ t = 0 },
+		{ t = 0.12, pose = { RightShoulder = V(90, 0, 0), RightElbow = V(10, 0, 0), Waist = V(0, -30, 0), Neck = V(0, 25, 0) } },
+		{ t = 0.3, pose = { RightShoulder = V(90, 0, 0), RightElbow = V(18, 0, 0), Waist = V(0, -34, 0), Neck = V(0, 28, 0), RootPos = V(0, 0, 0.06) } },
+		{ t = 0.36, pose = { RightShoulder = V(96, 0, 0), RightElbow = V(4, 0, 0), Waist = V(0, -30, 0), Neck = V(0, 25, 0) } },
+		{ t = 0.6 },
+	},
 	-- Bring food to the mouth and chew twice.
 	eat = {
 		{ t = 0 },

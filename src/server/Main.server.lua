@@ -13,6 +13,7 @@ local Progression = require(Systems.Progression)
 local Quests = require(Systems.Quests)
 local Harvest = require(Systems.Harvest)
 local Survival = require(Systems.Survival)
+local Rafts = require(Systems.Rafts)
 local Crafting = require(Systems.Crafting)
 local Building = require(Systems.Building)
 local Death = require(Systems.Death)
@@ -30,6 +31,7 @@ Players.CharacterAutoLoads = false
 WorldBuilder.build()
 Survival.start()
 require(Systems.Smelting).start()
+Rafts.start()
 Save.start()
 Events.start()
 Oxygen.start()
@@ -46,6 +48,27 @@ local function onCharacterAdded(player: Player, character: Model)
 	character:WaitForChild("RightHand", 5)
 	character:WaitForChild("UpperTorso", 2)
 	Inventory.reapplyAppearance(player)
+	-- Wake up at your bed, if you've slept in one and it's still standing.
+	local bedAt = player:GetAttribute("BedAt")
+	if typeof(bedAt) == "Vector3" then
+		local bed = nil
+		for _, s in workspace.Structures:GetChildren() do
+			if s:GetAttribute("StructureType") == "Bed" and (s:GetPivot().Position - bedAt).Magnitude < 8 then
+				bed = s
+				break
+			end
+		end
+		if bed then
+			task.defer(function()
+				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if root then
+					character:PivotTo(CFrame.new(bedAt))
+				end
+			end)
+		else
+			player:SetAttribute("BedAt", nil)
+		end
+	end
 	if not Inventory.getEquipped(player) then
 		Inventory.setEquipped(player, "rock")
 	end
@@ -95,12 +118,19 @@ Players.PlayerRemoving:Connect(function(player)
 	Quests.removePlayer(player)
 	Harvest.removePlayer(player)
 	Survival.removePlayer(player)
+	Rafts.removePlayer(player)
 end)
 
 -- Requests from clients. Every handler double-checks what it's given.
 Remotes.Hit.OnServerEvent:Connect(Harvest.onHit)
 Remotes.Craft.OnServerEvent:Connect(Crafting.onCraft)
-Remotes.Eat.OnServerEvent:Connect(Survival.eat)
+Remotes.Eat.OnServerEvent:Connect(function(player, itemId)
+	if type(itemId) == "string" and Items[itemId] and Items[itemId].kind == "raft" then
+		Rafts.launch(player, itemId)
+	else
+		Survival.eat(player, itemId)
+	end
+end)
 Remotes.Place.OnServerEvent:Connect(Building.onPlace)
 Remotes.CancelBuild.OnServerEvent:Connect(Crafting.cancelBuild)
 Remotes.ClaimQuest.OnServerEvent:Connect(Quests.claim)

@@ -71,7 +71,9 @@ end
 -- One line that says what an item is for, for the inspect box.
 local function describe(id: string): string
 	local item = Items[id]
-	if item.kind == "tool" then
+	if item.ranged then
+		return "Shoots for " .. (item.damage or 0) .. ", range " .. (item.range or 0) .. " (uses Arrows)"
+	elseif item.kind == "tool" then
 		return "Hits for " .. (item.damage or 0)
 	elseif item.kind == "armour" then
 		if item.bagSize then
@@ -84,6 +86,9 @@ local function describe(id: string): string
 		return "Build it on your land"
 	elseif item.kind == "crate" then
 		return "Open it for random loot"
+	elseif item.kind == "raft" then
+		local spec = Items.RAFTS[id]
+		return "Sail at speed " .. (spec and spec.speed or 0) .. " (use at the shore)"
 	end
 	return "Used for crafting"
 end
@@ -268,6 +273,10 @@ local function bagCard(id: string)
 		end)
 	elseif item.kind == "crate" then
 		act(1, "Open", function()
+			callbacks.onEat(id)
+		end)
+	elseif item.kind == "raft" then
+		act(1, "Launch", function()
 			callbacks.onEat(id)
 		end)
 	end

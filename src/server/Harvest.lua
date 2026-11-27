@@ -190,7 +190,81 @@ local function hitPlayer(attacker: Player, victimCharacter: Model, item)
 	Remotes.HitFeedback:FireAllClients(victimCharacter)
 end
 
-function Harvest.onHit(player: Player, target: unknown)
+-- Bows: each shot uses an Arrow and reaches item.range studs, if nothing's in the way.
+-- Arrows hurt beasts, bosses and players, not nodes or buildings.
+local function shoot(player: Player, itemId: string, item, target: unknown, aim: unknown)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not root or not humanoid or humanoid.Health <= 0 then
+		return
+	end
+	local now = os.clock()
+	if (nextSwing[player] or 0) > now then
+		return
+	end
+	if Inventory.count(player, "arrow") < 1 then
+		warnOnce(player, "arrows", "You need Arrows to shoot (craft them in Tools)")
+		return
+	end
+	nextSwing[player] = now + item.cooldown * 0.9
+	Inventory.takeAll(player, { arrow = 1 })
+	local from = root.Position + Vector3.new(0, 1.2, 0)
+	local model = if typeof(target) == "Instance" and (target :: Instance):IsA("Model") then target :: Model else nil
+	local kind = nil
+	if model then
+		if model.Parent == workspace:FindFirstChild("Animals") then
+			kind = "animal"
+		elseif Players:GetPlayerFromCharacter(model) then
+			kind = "player"
+		end
+	end
+	local to: Vector3
+	if kind and model then
+		to = model:GetBoundingBox().Position
+		if (to - from).Magnitude > item.range + 6 then
+			kind = nil
+		else
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = { character, workspace:FindFirstChild("Drops") :: Instance }
+			local hit = workspace:Raycast(from, to - from, params)
+			if hit and not hit.Instance:IsDescendantOf(model) then
+				to = hit.Position
+				kind = nil
+			end
+		end
+	elseif typeof(aim) == "Vector3" then
+		to = from + ((aim :: Vector3) - from).Unit * math.min(((aim :: Vector3) - from).Magnitude, item.range)
+	else
+		to = from + root.CFrame.LookVector * item.range
+	end
+	Remotes.Arrow:FireAllClients(character, from, to, kind ~= nil)
+	if not kind or not model then
+		return
+	end
+	local delay = (to - from).Magnitude / 140
+	task.delay(delay, function()
+		if not model.Parent then
+			return
+		end
+		if kind == "animal" then
+			Animals.damage(model, item.damage, player)
+			Remotes.Marker:FireClient(player, model:GetBoundingBox().Position, item.damage, "hit", itemId)
+			Remotes.HitFeedback:FireAllClients(model)
+		else
+			hitPlayer(player, model, item)
+		end
+	end)
+end
+
+function Harvest.onHit(player: Player, target: unknown, aim: unknown)
+	local equippedId = Inventory.getEquipped(player)
+	local equippedItem = equippedId and Items[equippedId]
+	if equippedItem and equippedItem.ranged then
+		shoot(player, equippedId :: string, equippedItem, target, aim)
+		return
+	end
 	if typeof(target) ~= "Instance" or not (target :: Instance):IsA("Model") then
 		return
 	end

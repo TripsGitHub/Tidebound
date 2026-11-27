@@ -159,6 +159,189 @@ function builders.Campfire(model: Model, cf: CFrame, size: Vector3)
 	return core
 end
 
+-- Round 7 structures -----------------------------------------------------------
+local Tiers = require(Shared.Tiers)
+
+-- A torch on a stake: wrapped head, a flame and a warm light.
+function builders.Torch(model: Model, cf: CFrame, size: Vector3)
+	local core = part(model, true, { Name = "Core", Size = Vector3.new(0.7, size.Y, 0.7), CFrame = cf, Color = WOOD_DARK, Material = Enum.Material.Wood })
+	local head = part(model, false, { Name = "Head", Size = Vector3.new(1, 1.1, 1), CFrame = cf * CFrame.new(0, size.Y / 2 - 0.3, 0), Color = Color3.fromRGB(120, 86, 52), Material = Enum.Material.Fabric })
+	local fire = Instance.new("Fire")
+	fire.Size, fire.Heat = 3, 6
+	fire.Parent = head
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness, light.Shadows = Color3.fromRGB(255, 170, 90), 26, 1.8, true
+	light.Parent = head
+	return core
+end
+
+-- A lantern hung from the arm of a post: glass box with a steady glow.
+function builders.Lamp(model: Model, cf: CFrame, size: Vector3)
+	local core = part(model, true, { Name = "Core", Size = Vector3.new(0.8, size.Y, 0.8), CFrame = cf, Color = WOOD_DARK, Material = Enum.Material.Wood })
+	part(model, false, { Name = "Arm", Size = Vector3.new(0.4, 0.4, 2.2), CFrame = cf * CFrame.new(0, size.Y / 2 - 0.4, -0.9), Color = WOOD_DARK, Material = Enum.Material.Wood })
+	local glass = part(model, false, { Name = "Lantern", Size = Vector3.new(1.1, 1.4, 1.1), CFrame = cf * CFrame.new(0, size.Y / 2 - 1.5, -1.8), Color = Color3.fromRGB(255, 214, 140), Material = Enum.Material.Neon, Transparency = 0.25 })
+	part(model, false, { Name = "Cap", Size = Vector3.new(1.4, 0.3, 1.4), CFrame = glass.CFrame * CFrame.new(0, 0.85, 0), Color = Color3.fromRGB(60, 56, 54), Material = Enum.Material.Metal })
+	part(model, false, { Name = "Cap", Size = Vector3.new(1.3, 0.25, 1.3), CFrame = glass.CFrame * CFrame.new(0, -0.8, 0), Color = Color3.fromRGB(60, 56, 54), Material = Enum.Material.Metal })
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness, light.Shadows = Color3.fromRGB(255, 200, 130), 40, 2, true
+	light.Parent = glass
+	return core
+end
+
+-- A low wooden bed with a straw mattress, a pillow and a hide blanket.
+function builders.Bed(model: Model, cf: CFrame, size: Vector3, owner: Player?)
+	local core = part(model, true, { Name = "Core", Size = Vector3.new(size.X, 1, size.Z), CFrame = cf * CFrame.new(0, -size.Y / 2 + 0.5, 0), Color = WOOD, Material = Enum.Material.WoodPlanks })
+	part(model, false, { Name = "Mattress", Size = Vector3.new(size.X - 0.4, 0.6, size.Z - 0.4), CFrame = cf * CFrame.new(0, -size.Y / 2 + 1.3, 0), Color = Color3.fromRGB(214, 190, 130), Material = Enum.Material.Fabric })
+	part(model, false, { Name = "Pillow", Size = Vector3.new(size.X - 1.2, 0.5, 1.4), CFrame = cf * CFrame.new(0, -size.Y / 2 + 1.8, size.Z / 2 - 1.2), Color = Color3.fromRGB(240, 232, 214), Material = Enum.Material.Fabric })
+	part(model, false, { Name = "Blanket", Size = Vector3.new(size.X - 0.2, 0.2, size.Z * 0.55), CFrame = cf * CFrame.new(0, -size.Y / 2 + 1.7, -size.Z * 0.18), Color = Color3.fromRGB(150, 82, 56), Material = Enum.Material.Fabric })
+	part(model, false, { Name = "Headboard", Size = Vector3.new(size.X, 2.4, 0.5), CFrame = cf * CFrame.new(0, -size.Y / 2 + 1.2, size.Z / 2 - 0.25), Color = WOOD_DARK, Material = Enum.Material.Wood })
+	-- Sleeping in it sets where you wake up after dying.
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.ActionText = "Set spawn here"
+	prompt.ObjectText = "Bed"
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = core
+	prompt.Triggered:Connect(function(who)
+		if who.UserId ~= model:GetAttribute("OwnerId") then
+			Remotes.Notify:FireClient(who, "That bed isn't yours", "warn")
+			return
+		end
+		who:SetAttribute("BedAt", core.Position + Vector3.new(0, 4, 0))
+		Remotes.Notify:FireClient(who, "You'll wake up here when you die", "good")
+	end)
+	if owner then
+		owner:SetAttribute("BedAt", core.Position + Vector3.new(0, 4, 0))
+	end
+	return core
+end
+
+-- A wooden frame of sharpened stakes, low to the ground. Bites anyone but its owner.
+function builders.SpikeTrap(model: Model, cf: CFrame, size: Vector3)
+	local core = part(model, true, { Name = "Core", Size = size, CFrame = cf, Color = WOOD_DARK, Material = Enum.Material.Wood, CanCollide = false })
+	core.CanTouch = true
+	for x = -2, 2, 1 do
+		for z = -2, 2, 1 do
+			if (x + z) % 2 == 0 then
+				part(model, false, { Name = "Spike", Size = Vector3.new(0.35, 1.4, 0.35), CFrame = cf * CFrame.new(x * 1.1, 0.6, z * 1.1) * CFrame.Angles(0, math.rad(45), 0), Color = Color3.fromRGB(196, 184, 160), Material = Enum.Material.Wood })
+			end
+		end
+	end
+	local last: { [Instance]: number } = {}
+	core.Touched:Connect(function(hit)
+		local m = hit:FindFirstAncestorOfClass("Model")
+		local hum = m and m:FindFirstChildOfClass("Humanoid")
+		if not hum or hum.Health <= 0 then
+			return
+		end
+		local who = Players:GetPlayerFromCharacter(m)
+		if who and who.UserId == model:GetAttribute("OwnerId") then
+			return
+		end
+		if (last[m :: Model] or 0) + 1 > os.clock() then
+			return
+		end
+		last[m :: Model] = os.clock()
+		hum:TakeDamage(12)
+	end)
+	-- Beasts are moved by script, so Touched doesn't see them: check for them instead.
+	task.spawn(function()
+		local Animals = require(script.Parent.Animals)
+		local params = OverlapParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		while model.Parent do
+			task.wait(0.5)
+			local animals = workspace:FindFirstChild("Animals")
+			local owner = Players:GetPlayerByUserId(model:GetAttribute("OwnerId") or 0)
+			if animals and owner then
+				params.FilterDescendantsInstances = { animals }
+				local seen = {}
+				for _, p in workspace:GetPartBoundsInBox(core.CFrame, core.Size + Vector3.new(0, 4, 0), params) do
+					local a = p:FindFirstAncestorOfClass("Model")
+					while a and a.Parent ~= animals do
+						a = a:FindFirstAncestorOfClass("Model")
+					end
+					if a and not seen[a] and (last[a] or 0) + 1 <= os.clock() then
+						seen[a] = true
+						last[a] = os.clock()
+						Animals.damage(a, 12, owner)
+					end
+				end
+			end
+		end
+	end)
+	return core
+end
+
+-- A climbable ladder (a truss inside, so the character climbs it).
+function builders.Ladder(model: Model, cf: CFrame, size: Vector3)
+	local core = Instance.new("TrussPart")
+	core.Name = "Core"
+	core.Anchored = true
+	core.Size = Vector3.new(2, size.Y, 2)
+	core.CFrame = cf
+	core.Transparency = 1
+	core.Parent = model
+	for sx = -1, 1, 2 do
+		part(model, false, { Name = "Rail", Size = Vector3.new(0.4, size.Y, 0.4), CFrame = cf * CFrame.new(sx * 1.3, 0, 0), Color = WOOD_DARK, Material = Enum.Material.Wood })
+	end
+	for y = -size.Y / 2 + 1, size.Y / 2 - 0.5, 1.6 do
+		part(model, false, { Name = "Rung", Size = Vector3.new(2.6, 0.3, 0.3), CFrame = cf * CFrame.new(0, y, 0), Color = WOOD, Material = Enum.Material.Wood })
+	end
+	return core :: any
+end
+
+-- Ore walls: a stone wall faced with plates of the ore, with a rim along the top.
+-- Ore chests and carts: the wooden chest bound in the ore.
+for name, def in Structures do
+	if type(def) ~= "table" or not def.tier then
+		continue
+	end
+	local tier = Tiers.get(def.tier) :: any
+	if def.wall then
+		builders[name] = function(model: Model, cf: CFrame, size: Vector3)
+			local core = part(model, true, { Name = "Core", Size = size - Vector3.new(0.3, 0.3, 0.4), CFrame = cf, Color = STONE_DARK, Material = Enum.Material.Slate })
+			for row = 0, 3 do
+				for col = 0, 1 do
+					local y = -size.Y / 2 + 2.3 + row * 4.4
+					local x = -size.X / 4 + col * size.X / 2 + (if row % 2 == 0 then 0 else 0.4)
+					for side = -1, 1, 2 do
+						part(model, false, { Name = "Plate", Size = Vector3.new(size.X / 2 - 0.5, 4, 0.25), CFrame = cf * CFrame.new(x, y, side * (size.Z / 2 - 0.05)), Color = if (row + col) % 2 == 0 then tier.plate else tier.plate:Lerp(tier.trim, 0.3), Material = Enum.Material.Metal })
+					end
+				end
+			end
+			part(model, false, { Name = "Rim", Size = Vector3.new(size.X + 0.2, 0.6, size.Z + 0.3), CFrame = cf * CFrame.new(0, size.Y / 2 - 0.3, 0), Color = tier.trim, Material = Enum.Material.Metal })
+			if tier.glow then
+				part(model, false, { Name = "Glow", Size = Vector3.new(size.X - 1, 0.2, size.Z + 0.35), CFrame = cf * CFrame.new(0, size.Y / 2 - 0.75, 0), Color = tier.accent, Material = Enum.Material.Neon })
+			end
+			return core
+		end
+	elseif def.chest and not def.cart then
+		builders[name] = function(model: Model, cf: CFrame, size: Vector3)
+			local core = builders.Chest(model, cf, size)
+			for _, p in model:GetChildren() do
+				if p:IsA("BasePart") and (p.Name == "Band" or p.Name == "Lock") then
+					p.Color = if p.Name == "Lock" then tier.accent else tier.plate
+				end
+			end
+			return core
+		end
+	elseif def.cart then
+		builders[name] = function(model: Model, cf: CFrame, size: Vector3)
+			local boxH = size.Y * 0.55
+			local core = part(model, true, { Name = "Core", Size = Vector3.new(size.X, boxH, size.Z), CFrame = cf * CFrame.new(0, size.Y / 2 - boxH / 2, 0), Color = WOOD, Material = Enum.Material.WoodPlanks })
+			for sx = -1, 1, 2 do
+				for sz = -1, 1, 2 do
+					part(model, false, { Name = "Wheel", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 2.2, 2.2), CFrame = cf * CFrame.new(sx * (size.X / 2 - 1.2), -size.Y / 2 + 1.1, sz * (size.Z / 2 + 0.2)) * CFrame.Angles(0, math.rad(90), 0), Color = WOOD_DARK, Material = Enum.Material.Wood })
+									end
+			end
+			part(model, false, { Name = "Rim", Size = Vector3.new(size.X + 0.2, 0.3, size.Z + 0.2), CFrame = cf * CFrame.new(0, size.Y / 2 - 0.15, 0), Color = if def.tier == "wood" then WOOD_DARK else tier.plate, Material = if def.tier == "wood" then Enum.Material.Wood else Enum.Material.Metal })
+			part(model, false, { Name = "Handle", Size = Vector3.new(0.3, 0.3, 3), CFrame = cf * CFrame.new(-size.X / 2 - 1.2, 0, 0) * CFrame.Angles(0, math.rad(90), 0), Color = WOOD_DARK, Material = Enum.Material.Wood })
+			return core
+		end
+	end
+end
+
 local function characterList(): { Instance }
 	local list = {}
 	for _, p in Players:GetPlayers() do
@@ -226,7 +409,8 @@ local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, 
 	model:SetAttribute("HP", math.min(hp or maxHp, maxHp))
 	model:SetAttribute("MaxHP", maxHp)
 	model:SetAttribute("OwnerId", ownerId)
-	if item.structure == "Chest" then
+	if def.chest then
+		model:SetAttribute("Capacity", def.chest)
 		Chests.setup(model, stored)
 	end
 	model.Parent = workspace.Structures
@@ -407,8 +591,8 @@ end
 local function buildCf(m: Model): CFrame
 	local cf = (m.PrimaryPart :: BasePart).CFrame
 	local st = m:GetAttribute("StructureType")
-	if st == "Chest" then
-		local size = Structures.sizeFor("Chest")
+	if st and Structures[st] and Structures[st].chest and not Structures[st].cart then
+		local size = Structures.sizeFor(st)
 		cf = cf * CFrame.new(0, size.Y / 2 - size.Y * 0.34, 0)
 	elseif st == "Campfire" then
 		cf = cf * CFrame.new(0, Structures.sizeFor("Campfire").Y / 2 - 0.2, 0)
@@ -483,7 +667,7 @@ function Building.export(player: Player): any
 					z = round1(rel.Z),
 					r = Structures.snapRotation(math.deg(ry)),
 					hp = math.floor(m:GetAttribute("HP") or 0),
-					c = if st == "Chest" then Chests.export(m) else nil,
+					c = if Structures[st] and Structures[st].chest then Chests.export(m) else nil,
 				})
 				if #list >= Config.MaxStructures then
 					break

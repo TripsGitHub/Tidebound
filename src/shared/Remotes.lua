@@ -15,6 +15,8 @@ local NAMES = {
 	"Marker", -- (position, amount, kind, itemId?) kind: "hit" | "harvest" damage you dealt
 	"WorldFx", -- (kind, ...) big event effects: "quake", "sky", "bomb", "meteor", "impact"
 	"ChestState", -- (chestModel, contents | nil) open/refresh the chest panel; nil closes it
+	"Arrow", -- (character, from, to, hit) an arrow flying from a bow
+	"RaftState", -- (raftModel | nil) you're sitting on a raft (for the steer hint)
 	-- client -> server
 	"Hit", -- (target)
 	"Equip", -- (itemId or nil) hold a tool/food/placeable
@@ -29,6 +31,7 @@ local NAMES = {
 	"ClaimQuest", -- (questId)
 	"Buy", -- (shopEntryId)
 	"ChestMove", -- (chestModel, itemId, "put" | "take") move a whole stack
+	"Launch", -- (itemId) put a raft in the water in front of you
 }
 
 local folder: Folder
