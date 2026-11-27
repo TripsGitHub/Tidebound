@@ -10,15 +10,16 @@ local Meshes = require(script.Parent.Meshes)
 
 -- Items that have a Blender mesh. Tools keep their grip at the origin (the bottom
 -- of the mesh); everything else is centred.
-local ITEM_MESHES: { [string]: { mesh: string, tool: boolean? } } = {
+-- `scale` evens out the sizes of the smallest items.
+local ITEM_MESHES: { [string]: { mesh: string, tool: boolean?, scale: number? } } = {
 	wood_club = { mesh = "club", tool = true },
 	rock = { mesh = "rock" },
 	log = { mesh = "log" },
-	stick = { mesh = "stick" },
-	leaves = { mesh = "leaves" },
-	stone = { mesh = "stone" },
-	berries = { mesh = "berries" },
-	coconut = { mesh = "coconut" },
+	stick = { mesh = "stick", scale = 1.2 },
+	leaves = { mesh = "leaves", scale = 1.5 },
+	stone = { mesh = "stone", scale = 1.3 },
+	berries = { mesh = "berries", scale = 1.4 },
+	coconut = { mesh = "coconut", scale = 1.3 },
 	raw_meat = { mesh = "raw_meat" },
 	cooked_meat = { mesh = "cooked_meat" },
 	leather = { mesh = "leather" },
@@ -327,7 +328,7 @@ end
 -- non-colliding and massless; callers change that if they need physics.
 function ItemModels.build(itemId: string): Model
 	local spec = ITEM_MESHES[itemId]
-	local mesh = spec and Meshes.build(spec.mesh, { centre = not spec.tool, collide = false })
+	local mesh = spec and Meshes.build(spec.mesh, { centre = not spec.tool, collide = false, scale = spec.scale })
 	if mesh then
 		mesh.Name = itemId
 		for _, p in mesh:GetChildren() do
