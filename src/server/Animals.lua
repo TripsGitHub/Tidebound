@@ -498,7 +498,17 @@ end
 
 local function spawnAnimal(kind: string, home: Vector3): Model
 	local def = AnimalDefs[kind]
-	local model = builders[kind]()
+	local model = (builders[def.model or kind] or builders[kind])()
+	if def.scale then
+		model:ScaleTo(model:GetScale() * def.scale)
+	end
+	if def.tint then
+		for _, p in model:GetDescendants() do
+			if p:IsA("BasePart") and p.Material ~= Enum.Material.Neon then
+				p.Color = p.Color:Lerp(def.tint, 0.55)
+			end
+		end
+	end
 	model.Name = kind
 	model:SetAttribute("AnimalType", kind)
 	model:SetAttribute("HP", def.hp)

@@ -73,7 +73,25 @@ local Animals = {
 		xp = 14,
 		respawn = 60,
 		aggro = 14,
+		scale = 2.2, -- big wobbling blobs, about chest high
 		loot = { { "sticky_slime", 2, 4 }, { "gold_ore", 1, 1, 0.06 } },
+	},
+	-- The same slime, gone pale and glowing in the upper and lower caves.
+	CaveSlime = {
+		name = "Cave Slime",
+		model = "BogSlime",
+		cave = true,
+		hp = 90,
+		damage = 12,
+		attackCooldown = 1.3,
+		walkSpeed = 4,
+		runSpeed = 9,
+		xp = 24,
+		respawn = 90,
+		aggro = 18,
+		scale = 2.6,
+		tint = Color3.fromRGB(90, 200, 190),
+		loot = { { "sticky_slime", 3, 5 }, { "silver_ore", 1, 2, 0.25 }, { "key_fragment", 1, 1, 0.12 } },
 	},
 	-- Ember Isle's slopes. Slow, tough, hits hard.
 	CinderBeetle = {

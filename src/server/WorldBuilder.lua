@@ -2015,6 +2015,12 @@ function WorldBuilder.build()
 			Animals.spawnHerd("CaveCrawler", c.pos + Vector3.new(0, 3, 0), rng:NextInteger(1, 2))
 		end
 	end
+	-- Cave Slimes ooze about some of the upper and lower chambers.
+	for _, c in network.chambers do
+		if (c.tier == "upper" or c.tier == "lower") and rng:NextNumber() < 0.3 then
+			Animals.spawnHerd("CaveSlime", c.pos + Vector3.new(0, 3, 0), rng:NextInteger(1, 3))
+		end
+	end
 	-- Bosses wait behind their gates: they spawn when a gate is opened (see above).
 	Animals.start()
 
