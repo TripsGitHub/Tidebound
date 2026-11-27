@@ -59,9 +59,10 @@ export type Result = {
 	crystalCaves: { Vector3 },
 }
 
-local HUB_Y = -205 -- the Maw's great cavern (its dome stays well below Maw Rock's root cavern)
-local BOSS_Y = -262 -- the boss lairs below it
-local BEDROCK_Y = -345 -- solid rock from the sea floor down to here, so no cave has a hollow underside
+local ROOT_Y, ROOT_R = DEEP_Y - 50, 32 -- each island's root cavern: far enough under the lower caves that spiral round it for a full rock wall
+local HUB_Y = -250 -- the Maw's great cavern (its dome stays well below Maw Rock's root cavern)
+local BOSS_Y = -305 -- the boss lairs below it
+local BEDROCK_Y = -390 -- solid rock from the sea floor down to here, so no cave has a hollow underside
 Caves.BEDROCK_Y = BEDROCK_Y
 
 -- The layers. You break through a barrier to drop from one to the next (see
@@ -247,7 +248,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 
 	for index, isl in islands do
 		local cx, cz = isl.x, isl.z
-		local root = Vector3.new(cx, DEEP_Y, cz)
+		local root = Vector3.new(cx, ROOT_Y, cz)
 		local entrance, angle = spotOn(isl, 0.3, 0.55)
 		if entrance and angle then
 			local radius = math.max(60, (Vector3.new(entrance.X, 0, entrance.Z) - Vector3.new(cx, 0, cz)).Magnitude)
@@ -273,7 +274,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			local lower = s2[#s2]
 			chamber(lower - Vector3.new(0, HALL_R * 0.6, 0), 30, "lower", Z.L2B)
 
-			local s3 = spiral(cx, cz, radius * 0.45, a2 + 0.6, LOWER_Y, DEEP_Y + 8)
+			local s3 = spiral(cx, cz, radius * 0.45, a2 + 0.6, LOWER_Y, ROOT_Y + 8)
 			table.insert(s3, 1, lower)
 			table.insert(s3, root + Vector3.new(0, 8, 0))
 			local t3 = add(s3, HALL_R, "hall", Z.L2B)
@@ -328,7 +329,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			end
 		end
 		-- The island's root cavern in the Deep Network.
-		chamber(root, 44, "deep", Z.DEEP)
+		chamber(root, ROOT_R, "deep", Z.DEEP)
 		roots[index] = root
 	end
 
@@ -383,7 +384,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 		-- A long cavern halfway along each hall: three overlapping domes, kept low so
 		-- they stay under the sea floor.
 		local mid = path[math.max(1, math.floor(#path / 2))]
-		local floor = Vector3.new(mid.X, DEEP_Y - rng:NextNumber(4, 8), mid.Z)
+		local floor = Vector3.new(mid.X, mid.Y - 8 - rng:NextNumber(4, 8), mid.Z)
 		local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
 		local along = if flat.Magnitude > 0 then flat.Unit else Vector3.xAxis
 		for k = -1, 1 do
@@ -475,7 +476,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 		local root = roots[i]
 		local a = rng:NextNumber(0, math.pi * 2)
 		local heading = Vector3.new(math.cos(a), 0, math.sin(a))
-		local passage = crooked(root + Vector3.new(0, 4, 0), heading, rng:NextNumber(160, 240), DEEP_Y - 14, DEEP_Y + 4)
+		local passage = crooked(root + Vector3.new(0, 4, 0), heading, rng:NextNumber(160, 240), ROOT_Y - 6, ROOT_Y + 12)
 		add(passage, BRANCH_R, "branch", Z.DEEP)
 		local tip = passage[#passage]
 		local grotto = tip + heading * 70 + Vector3.new(0, -40, 0)
