@@ -596,6 +596,15 @@ IslandFields.fruit = make({ name = "Sunfruit Isle", r = 66, peak = 12, hills = 4
 IslandFields.skull = make({ name = "Skull Key", r = 34, peak = 22, hills = 1, seed = 71, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 IslandFields.maw = make({ name = "Maw Rock", r = 36, peak = 18, hills = 2, spires = 6, seed = 89, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 IslandFields.rockcay = make({ name = "Gull Rock", r = 28, peak = 14, hills = 2, spires = 3, seed = 83, low = M.Rock, high = M.Rock })
+-- The nameless islands: small, each its own shape.
+IslandFields.isle1 = make({ name = "", r = 30, peak = 16, hills = 2, spires = 4, seed = 101, low = M.Grass, high = M.Rock, cliff = M.Slate })
+IslandFields.isle2 = make({ name = "", r = 32, peak = 24, hills = 3, spires = 2, seed = 107, low = M.Slate, high = M.Rock, cliff = M.Slate })
+IslandFields.isle3 = make({ name = "", r = 32, peak = 6, hills = 2, seed = 113, low = M.Grass, high = M.LeafyGrass })
+IslandFields.isle4 = make({ name = "", r = 40, peak = 20, hills = 3, ponds = 1, seed = 127, low = M.Grass, high = M.LeafyGrass, cliff = M.Rock })
+IslandFields.isle5 = make({ name = "", r = 42, peak = 12, hills = 4, ponds = 2, seed = 131, low = M.LeafyGrass, high = M.Grass })
+IslandFields.isle6 = make({ name = "", r = 38, peak = 18, hills = 2, spires = 3, seed = 139, low = M.Rock, high = M.Slate, cliff = M.Slate })
+IslandFields.isle7 = make({ name = "", r = 36, peak = 5, hills = 3, seed = 149, low = M.Sand, high = M.Grass })
+IslandFields.isle8 = make({ name = "", r = 30, peak = 7, hills = 2, seed = 151, low = M.Grass, high = M.LeafyGrass })
 
 IslandFields.hills = PH :: Field
 IslandFields.rock = SS :: Field

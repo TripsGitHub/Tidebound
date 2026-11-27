@@ -140,7 +140,20 @@ function Minimap.publish(islands: { any }, network, groundAt)
 	-- Names
 	local places = {}
 	for _, isl in islands do
-		table.insert(places, string.format("%s|%d|%d;", isl.name, isl.x, isl.z))
+		if not isl.nameless then
+			table.insert(places, string.format("%s|%d|%d;", isl.name, isl.x, isl.z))
+		end
+	end
+	-- The trading posts are worth finding, so they get a name on the map.
+	local camps = workspace:FindFirstChild("Camps")
+	if camps then
+		for _, m in camps:GetChildren() do
+			local kind = m:GetAttribute("Outpost")
+			if kind == "dockMarket" or kind == "hillTrader" then
+				local p = m:GetPivot().Position
+				table.insert(places, string.format("%s|%d|%d;", "Trading Post", p.X, p.Z))
+			end
+		end
 	end
 	local lm = workspace:FindFirstChild("Landmarks")
 	if lm then

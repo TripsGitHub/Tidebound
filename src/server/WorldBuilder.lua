@@ -23,7 +23,7 @@ local Caves = require(script.Parent.Caves)
 local Landmarks = require(script.Parent.Landmarks)
 local Minimap = require(script.Parent.Minimap)
 local Props = require(script.Parent.Props)
-local Camps = require(script.Parent.Camps)
+local Outposts = require(script.Parent.Outposts)
 local Bosses = require(script.Parent.Bosses)
 
 local WorldBuilder = {}
@@ -396,6 +396,16 @@ local ISLANDS: { Island } = {
 	{ name = "Gull Rock", x = -480, z = 330, r = 28, biome = "rockcay", ring = false },
 	{ name = "Sunfruit Isle", x = -340, z = 270, r = 66, biome = "fruit" }, -- fruit palms and ponds, near the start
 	{ name = "Maw Rock", x = 0, z = 160, r = 36, biome = "maw", ring = false, hub = true }, -- the way down to the Maw
+	-- Nameless islands: no name on the map, no cave, one hand-built outpost each
+	-- (see Outposts.lua). Always after the named ones.
+	{ name = "Isle 1", x = -150, z = -45, r = 30, biome = "isle1", nameless = true, outpost = "stoneCircle" },
+	{ name = "Isle 2", x = 160, z = -40, r = 32, biome = "isle2", nameless = true, outpost = "ruinedTower" },
+	{ name = "Isle 3", x = -120, z = 180, r = 32, biome = "isle3", nameless = true, outpost = "dockMarket" },
+	{ name = "Isle 4", x = 480, z = 90, r = 40, biome = "isle4", nameless = true, outpost = "hillTrader" },
+	{ name = "Isle 5", x = -480, z = -260, r = 42, biome = "isle5", nameless = true, outpost = "hermit" },
+	{ name = "Isle 6", x = 330, z = -420, r = 38, biome = "isle6", nameless = true, outpost = "lighthouse" },
+	{ name = "Isle 7", x = -300, z = -430, r = 36, biome = "isle7", nameless = true, outpost = "shipwreck" },
+	{ name = "Isle 8", x = 120, z = 170, r = 30, biome = "isle8", nameless = true, outpost = "fishingHut" },
 }
 -- Built MapScale.H times bigger than the shapes above, and MapScale.Spread further apart.
 for _, isl in ISLANDS do
@@ -404,6 +414,13 @@ for _, isl in ISLANDS do
 	isl.r *= MapScale.H
 end
 WorldBuilder.Islands = ISLANDS
+-- The named islands only: these get caves, landmarks and names on the map.
+local NAMED: { Island } = {}
+for _, isl in ISLANDS do
+	if not isl.nameless then
+		table.insert(NAMED, isl)
+	end
+end
 
 -- What grows where. `cluster` = trees per clump (min, max).
 local BIOME_NODES = {
@@ -511,6 +528,16 @@ local BIOME_NODES = {
 	},
 }
 
+-- The nameless islands borrow a planting from the small named ones.
+BIOME_NODES.isle1 = BIOME_NODES.rockcay
+BIOME_NODES.isle2 = BIOME_NODES.crags
+BIOME_NODES.isle3 = BIOME_NODES.cay
+BIOME_NODES.isle4 = BIOME_NODES.ruins
+BIOME_NODES.isle5 = BIOME_NODES.fruit
+BIOME_NODES.isle6 = BIOME_NODES.rockcay
+BIOME_NODES.isle7 = BIOME_NODES.atoll
+BIOME_NODES.isle8 = BIOME_NODES.cay
+
 -- Spacing, in studs. Island Tribes keeps trees 20-40 studs apart with open ground
 -- between, so you can always see the next one.
 local CLUMP_SPACING = 30 -- between clumps of trees
@@ -605,8 +632,8 @@ local function buildTerrain()
 	pcall(function()
 		(terrain :: any).Decoration = true
 	end)
-	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(168, 176, 60))
-	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(140, 156, 56))
+	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(122, 166, 60))
+	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(98, 142, 52))
 	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(232, 212, 158))
 	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(112, 104, 94))
 	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(44, 42, 46))
@@ -1401,15 +1428,17 @@ local function setLighting()
 	Lighting.ClockTime = 15.5
 	Lighting.GeographicLatitude = 30
 	lightingEffect("Atmosphere", {
-		Density = 0.3,
+		Density = 0.26,
 		Offset = 0.12,
 		Color = Color3.fromRGB(240, 226, 192),
 		Decay = Color3.fromRGB(196, 176, 136),
-		Glare = 0.7,
-		Haze = 2.2,
+		Glare = 1.2,
+		Haze = 1.2,
 	})
 	lightingEffect("BloomEffect", { Intensity = 0.5, Size = 28, Threshold = 1.4 })
-	lightingEffect("SunRaysEffect", { Intensity = 0.08, Spread = 0.8 })
+	lightingEffect("SunRaysEffect", { Intensity = 0.15, Spread = 0.8 })
+	-- A big, bright sun you can actually see, and the moon at night.
+	lightingEffect("Sky", { CelestialBodiesShown = true, SunAngularSize = 16, MoonAngularSize = 9, StarCount = 3000 })
 	lightingEffect("ColorCorrectionEffect", {
 		Brightness = 0.03,
 		Contrast = 0.08,
@@ -1619,7 +1648,7 @@ function WorldBuilder.build()
 	local chambers, tunnels = shelfCave(shelf)
 
 	-- The cave network under the whole map, with an entrance on every island.
-	local network = Caves.build(workspace.Terrain, ISLANDS, groundAt, function(isl, x, z)
+	local network = Caves.build(workspace.Terrain, NAMED, groundAt, function(isl, x, z)
 		local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
 		local rx, rz = (x - isl.x) / H, (z - isl.z) / H
 		local far = (Vector3.new(x, 0, z) - Vector3.new(sx, 0, sz)).Magnitude > 60
@@ -1675,7 +1704,7 @@ function WorldBuilder.build()
 		Props.bigSign(hub, floor + Vector3.new(0, 0, 14), Vector3.new(0, 0, 1), "THE MAW")
 		hub.Parent = workspace
 	end
-	Landmarks.build(network, ISLANDS, groundAt, function(isl)
+	Landmarks.build(network, NAMED, groundAt, function(isl)
 		return findSpot(isl, {}, 0, Vector3.new(isl.x, 0, isl.z), isl.r * 0.4, "*")
 	end)
 	-- The Sunfruit Giant can be chopped down: its trunk, fronds and fruit become a node.
@@ -1704,47 +1733,135 @@ function WorldBuilder.build()
 			giant:Destroy()
 		end
 	end
-	-- Camps on most islands, on a flat open spot away from the landmark; clear the
-	-- trees and rocks inside their walls.
-	Camps.build(ISLANDS, groundAt, function(isl)
-		for _ = 1, 40 do
+	-- Four big camps, each built by hand in its own style, and one small outpost on
+	-- every nameless island. Trees and rocks inside them are cleared.
+	local places = Instance.new("Folder")
+	places.Name = "Camps"
+	places.Parent = workspace
+	local landmarks = workspace:FindFirstChild("Landmarks") :: Folder
+	local function flatSpot(isl, radius: number, tolerance: number): Vector3?
+		local best, bestScore = nil, math.huge
+		for _ = 1, 60 do
 			local spot = findSpot(isl, {}, 0, nil, nil, "*")
 			if spot and (spot - Vector3.new(sx, spot.Y, sz)).Magnitude > 120 then
-				local flat = true
-				for k = 0, 7 do
-					local a = k / 8 * math.pi * 2
-					local hit = groundAt(spot.X + math.cos(a) * 24, spot.Z + math.sin(a) * 24)
-					if not hit or math.abs(hit.Position.Y - spot.Y) > 5 or hit.Material == Enum.Material.Water or hit.Position.Y < 1 then
-						flat = false
-						break
+				local worst = 0
+				for k = 0, 11 do
+					local a = k / 12 * math.pi * 2
+					for _, f in { 0.5, 1 } do
+						local hit = groundAt(spot.X + math.cos(a) * radius * f, spot.Z + math.sin(a) * radius * f)
+						if not hit or hit.Material == Enum.Material.Water or hit.Position.Y < 1 then
+							worst = math.huge
+						else
+							worst = math.max(worst, math.abs(hit.Position.Y - spot.Y))
+						end
 					end
 				end
-				local clear = true
-				for _, lm in (workspace:FindFirstChild("Landmarks") :: Folder):GetChildren() do
-					if (lm:GetPivot().Position - spot).Magnitude < 70 then
-						clear = false
+				for _, lm in landmarks:GetChildren() do
+					if (lm:GetPivot().Position - spot).Magnitude < radius + 40 then
+						worst = math.huge
 					end
 				end
-				if flat and clear then
-					return spot
+				if worst < bestScore then
+					best, bestScore = spot, worst
+				end
+				if worst <= tolerance then
+					break
 				end
 			end
 		end
-		return nil
-	end)
-	for _, camp in workspace.Camps:GetChildren() do
-		local c = camp:GetPivot().Position
-		for _, n in nodes:GetChildren() do
-			if (n:GetPivot().Position - c).Magnitude < 30 then
-				n:Destroy()
+		return if bestScore < tolerance * 2.5 then best else nil
+	end
+	-- The shore: march out from the middle until the ground drops into the sea, then
+	-- step back onto dry land. Returns the spot and the way out to sea.
+	local function coastSpot(isl): (Vector3?, Vector3?)
+		local best, bestDir, bestFlat = nil, nil, math.huge
+		for k = 0, 11 do
+			local a = k / 12 * math.pi * 2 + rng:NextNumber(0, 0.4)
+			local dir = Vector3.new(math.cos(a), 0, math.sin(a))
+			local edge
+			for d = 0, isl.r * 1.6, 4 do
+				local hit = groundAt(isl.x + dir.X * d, isl.z + dir.Z * d)
+				if not hit or hit.Material == Enum.Material.Water or hit.Position.Y < 1.5 then
+					break
+				end
+				edge = d
+			end
+			if edge and edge > 20 then
+				local spot = groundAt(isl.x + dir.X * (edge - 12), isl.z + dir.Z * (edge - 12))
+				local back = groundAt(isl.x + dir.X * (edge - 26), isl.z + dir.Z * (edge - 26))
+				if spot and back then
+					local flat = math.abs(back.Position.Y - spot.Position.Y)
+					if flat < bestFlat then
+						best, bestDir, bestFlat = spot.Position, dir, flat
+					end
+				end
 			end
 		end
-		for _, d in workspace.Decor:GetChildren() do
-			if (d.Position - c).Magnitude < 28 then
-				d:Destroy()
+		return best, bestDir
+	end
+	local hooks = {
+		trader = function(cf: CFrame, name: string, outfit)
+			local npc = npcAvatar(cf, name, 100, outfit)
+			local root = npc and npc:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if root then
+				prompt(root, "Trade", name, "shop")
 			end
+		end,
+	}
+	local CAMP_AT = {
+		["Pine Hills"] = { "fort", "Hilltop Fort", Props.CLOTH[1], 52 },
+		["Sunfruit Isle"] = { "homestead", "Sunfruit Farm", Color3.fromRGB(255, 160, 60), 40 },
+		["Coral Atoll"] = { "teepees", "Reef Camp", Props.CLOTH[2], 34 },
+		["Stone Shelf"] = { "quarry", "Quarry Yard", Props.CLOTH[4], 40 },
+	}
+	local COASTAL = { dockMarket = true, fishingHut = true, shipwreck = true, lighthouse = true }
+	local built = {}
+	for _, isl in ISLANDS do
+		local camp = CAMP_AT[isl.name]
+		local spot, facing, clearR
+		if camp then
+			spot = flatSpot(isl, camp[4], 6)
+			clearR = camp[4] + 6
+		elseif isl.outpost and COASTAL[isl.outpost] then
+			spot, facing = coastSpot(isl)
+			clearR = 26
+		elseif isl.outpost then
+			spot = flatSpot(isl, 18, 4)
+			clearR = 24
+		end
+		if spot then
+			if not facing then
+				-- The way in faces the island's nearest coast, so you see it as you land.
+				local out = Vector3.new(spot.X - isl.x, 0, spot.Z - isl.z)
+				facing = if out.Magnitude > 1 then out.Unit else Vector3.zAxis
+			end
+			-- Clear the ground first, so nothing grows through the buildings.
+			for _, n in nodes:GetChildren() do
+				if (n:GetPivot().Position - spot).Magnitude < clearR then
+					n:Destroy()
+				end
+			end
+			for _, d in workspace.Decor:GetChildren() do
+				if (d.Position - spot).Magnitude < clearR then
+					d:Destroy()
+				end
+			end
+			local ok, err = pcall(function()
+				if camp then
+					Outposts.place(places, camp[1], camp[2], spot, facing, groundAt, { banner = camp[3] })
+				else
+					Outposts.place(places, isl.outpost, isl.outpost, spot, facing, groundAt, hooks)
+				end
+			end)
+			if ok then
+				table.insert(built, isl.name)
+			else
+				warn("[World] outpost on " .. isl.name .. " failed: " .. tostring(err))
+			end
+			task.wait()
 		end
 	end
+	print("[World] camps and outposts: " .. table.concat(built, ", "))
 	Minimap.publish(ISLANDS, network, groundAt)
 	if game:GetService("RunService"):IsStudio() and workspace:GetAttribute("VerifyCaves") ~= false then
 		task.spawn(Caves.verify, workspace.Terrain, network)
@@ -1768,6 +1885,10 @@ function WorldBuilder.build()
 		["Old Ruins"] = { { "Wolf", 2, 3, "inland" }, { "Boar", 2, 4, "inland" } },
 		["Ember Isle"] = { { "CinderBeetle", 3, 2, "slopes" } },
 		["Skull Key"] = { { "Crab", 2, 4, "*" } },
+		["Isle 3"] = { { "Crab", 1, 3, "shore" } },
+		["Isle 4"] = { { "Boar", 1, 3, "inland" } },
+		["Isle 7"] = { { "Crab", 2, 3, "shore" }, { "Turtle", 1, 2, "shore" } },
+		["Isle 8"] = { { "Crab", 1, 2, "shore" } },
 	}
 	for _, isl in ISLANDS do
 		for _, mob in MOBS[isl.name] or {} do
