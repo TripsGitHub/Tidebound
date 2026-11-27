@@ -652,7 +652,7 @@ function Caves.fixLeaks(result: Result)
 		local o = x.owner
 		return string.format("%s%s r%d i%s seals%d @(%d,%d,%d)", o.kind or "", o.tier and ("chamber " .. o.tier) or "", x.r, tostring(x.i), if o.seals then #o.seals else -1, x.p.X, x.p.Y, x.p.Z)
 	end
-	for _ = 1, 80 do
+	for _ = 1, 200 do
 		-- Every carved ball, in a coarse grid.
 		local balls = {}
 		local tsamples = {}
@@ -700,7 +700,7 @@ function Caves.fixLeaks(result: Result)
 								local b = balls[m]
 								if m > n and not found and not seen[b.owner] and a.zone ~= b.zone and (a.p - b.p).Magnitude < a.r + b.r + WALL then
 									local span = math.ceil(2 * math.max(a.r, b.r) / STEP) + 2
-									local neighbours = a.owner == b.owner and a.i and b.i and math.abs(a.i - b.i) <= span
+									local neighbours = a.owner == b.owner and a.i and b.i and math.abs(a.i - b.i) <= span * 3 -- a tunnel's own curve past its seal is plugged by the seal
 									if not neighbours and not unresolvedAt[a.owner] and not unresolvedAt[b.owner] then
 										found = b
 									end
@@ -873,7 +873,7 @@ function Caves.fixLeaks(result: Result)
 			table.insert(result.barriers, { pos = s[i], dir = if dir.Magnitude > 0 then dir.Unit else Vector3.zAxis, r = seal.r, kind = seal.kind })
 		end
 	end
-	local summary = string.format("seals moved %d, side caves dropped %d, gaps left %d (+%d still open after 80 rounds)", moved, dropped, unresolved, lastLeaks)
+	local summary = string.format("seals moved %d, side caves dropped %d, gaps left %d (+%d still open after 200 rounds)", moved, dropped, unresolved, lastLeaks)
 	workspace:SetAttribute("CaveSeals", summary)
 	print("[Caves] " .. summary)
 end
