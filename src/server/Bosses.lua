@@ -359,14 +359,30 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 	-- A block across the doorway that actually stops you (the bars have gaps).
 	local block = part({ Name = "Block", Size = Vector3.new(size - 4, size - 3, 1.5), CFrame = look * CFrame.new(0, -1, 0), Transparency = 1 })
 	block.Parent = bars
-	local lock = part({ Name = "Lock", Size = Vector3.new(1.6, 2, 1.2), CFrame = look * CFrame.new(0, -1, -0.8), Color = Color3.fromRGB(150, 50, 40), Material = Enum.Material.Metal })
+	-- Outside (the way in, behind the gate's facing): a lock that takes a Maw Key.
+	-- Inside (the lair side): a lever that opens it free, so nobody gets shut in.
+	local lock = part({ Name = "Lock", Size = Vector3.new(1.6, 2, 1.2), CFrame = look * CFrame.new(0, -1, 1.2), Color = Color3.fromRGB(150, 50, 40), Material = Enum.Material.Metal })
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Unlock"
 	prompt.ObjectText = "Lair Gate (Maw Key)"
 	prompt.HoldDuration = 1.2
-	prompt.MaxActivationDistance = 12
+	prompt.MaxActivationDistance = 10
 	prompt.RequiresLineOfSight = false
+	prompt.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally
 	prompt.Parent = lock
+	local lever = part({ Name = "Lever", Size = Vector3.new(0.6, 3, 0.6), CFrame = look * CFrame.new(size / 2 - 3, -size / 2 + 3, -1.4) * CFrame.Angles(0.4, 0, 0), Color = Color3.fromRGB(120, 90, 60), Material = Enum.Material.Wood })
+	local inside = Instance.new("ProximityPrompt")
+	inside.ActionText = "Open"
+	inside.ObjectText = "Lair Gate"
+	inside.HoldDuration = 0.6
+	inside.MaxActivationDistance = 10
+	inside.RequiresLineOfSight = false
+	inside.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally
+	inside.Parent = lever
+	local function onLairSide(player: Player): boolean
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		return root ~= nil and (root.Position - look.Position):Dot(look.LookVector) > 0
+	end
 	m.WorldPivot = look
 	m.Parent = gates
 	local barsHome = {}
@@ -374,18 +390,10 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 		barsHome[p] = p.CFrame
 	end
 	local open = false
-	prompt.Triggered:Connect(function(player)
-		if open then
-			return
-		end
-		if not Inventory.take(player, "maw_key", 1) then
-			Remotes.Notify:FireClient(player, "You need a Maw Key", "warn")
-			return
-		end
+	local function openGate()
 		open = true
 		prompt.Enabled = false
-		local bossDef = AnimalDefs[bossName]
-		Remotes.WorldEvent:FireAllClients(player.DisplayName .. " opened the gate to the " .. (if bossDef then bossDef.name else bossName) .. "'s lair!")
+		inside.Enabled = false
 		if onOpen then
 			onOpen()
 		end
@@ -403,7 +411,32 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 			end
 			open = false
 			prompt.Enabled = true
+			inside.Enabled = true
 		end)
+	end
+	prompt.Triggered:Connect(function(player)
+		if open then
+			return
+		end
+		if onLairSide(player) then
+			openGate()
+			return
+		end
+		if not Inventory.take(player, "maw_key", 1) then
+			Remotes.Notify:FireClient(player, "You need a Maw Key", "warn")
+			return
+		end
+		openGate()
+	end)
+	inside.Triggered:Connect(function(player)
+		if open then
+			return
+		end
+		if not onLairSide(player) then
+			Remotes.Notify:FireClient(player, "The lever is on the other side of the bars", "warn")
+			return
+		end
+		openGate()
 	end)
 	return wall
 end

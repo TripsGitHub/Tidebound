@@ -31,8 +31,8 @@ local Nodes = {
 		},
 	},
 	-- Cave seals: cracked rock plugging the way down to the next cave layer. You need
-	-- a good enough sword to break one, and it grows back after a while.
-	-- Each layer down is tougher: more HP and a better sword needed.
+	-- any sword to break one (better swords hit harder), and it grows back after a while.
+	-- Each layer down is tougher: more HP.
 	CaveSealLower = {
 		seal = true,
 		name = "Cave Seal (Lower Caves)",
