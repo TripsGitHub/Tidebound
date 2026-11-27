@@ -110,6 +110,7 @@ task.spawn(Gates.start)
 Nameplates.start()
 Minimap.init(UI.root :: ScreenGui)
 require(script.Parent.BossBar).init(UI.root :: ScreenGui)
+require(script.Parent.PlayerList).init(UI.root :: ScreenGui)
 require(script.Parent.Markers).start()
 Effects.startAmbient()
 

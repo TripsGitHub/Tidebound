@@ -26,6 +26,9 @@ UIKit.Colors = {
 	xp = Color3.fromRGB(96, 168, 72), -- green, like the XP orbs
 	gold = Color3.fromRGB(246, 200, 72),
 	star = Color3.fromRGB(250, 214, 90),
+	wood = Color3.fromRGB(78, 52, 30), -- driftwood frame round every panel
+	plank = Color3.fromRGB(140, 98, 60), -- title planks
+	brass = Color3.fromRGB(214, 172, 86), -- rivets and nails
 }
 
 -- Merriweather everywhere: a sturdy serif that reads like an old adventure game
@@ -187,7 +190,7 @@ function UIKit.button(props, onClick: () -> ())
 		props.TextScaled = true
 	end
 	props.AutoButtonColor = true
-	local b = UIKit.shadowText(UIKit.new("TextButton", props, { UIKit.corner(6) }))
+	local b = UIKit.shadowText(UIKit.new("TextButton", props, { UIKit.corner(6), UIKit.new("UIStroke", { Color = UIKit.Colors.wood, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) }))
 	b.MouseButton1Click:Connect(onClick)
 	return b
 end
@@ -211,11 +214,45 @@ function UIKit.keyCap(parent: Instance, key: string, action: string, order: numb
 	return row
 end
 
--- A flat tan panel with a thin cream rim.
+-- Tidebound's own frame: a sailcloth panel lashed into a driftwood frame. A thick
+-- dark-wood edge, a thin cream stitch line set in from it, and a brass rivet in
+-- each corner. The decoration is drawn by non-layout children (ZIndex below the
+-- content), so put list/grid layouts in an inner frame, not on the panel itself.
+local function rivet(parent: Instance, ax: number, ay: number)
+	UIKit.new("Frame", {
+		Parent = parent,
+		Name = "Rivet",
+		AnchorPoint = Vector2.new(ax, ay),
+		Position = UDim2.new(ax, if ax == 0 then 4 else -4, ay, if ay == 0 then 4 else -4),
+		Size = UDim2.fromOffset(7, 7),
+		BackgroundColor3 = UIKit.Colors.brass,
+		ZIndex = 0,
+	}, { UIKit.round(), UIKit.new("UIStroke", { Color = UIKit.Colors.wood, Thickness = 1 }) })
+end
+
+function UIKit.frame(parent: Instance)
+	local stitch = UIKit.new("Frame", {
+		Parent = parent,
+		Name = "Stitch",
+		Position = UDim2.fromOffset(4, 4),
+		Size = UDim2.new(1, -8, 1, -8),
+		BackgroundTransparency = 1,
+		ZIndex = 0,
+	}, { UIKit.corner(4), UIKit.new("UIStroke", { Color = UIKit.Colors.rim, Thickness = 1, Transparency = 0.35 }) })
+	for _, c in { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } } do
+		rivet(parent, c[1], c[2])
+	end
+	return stitch
+end
+
 function UIKit.panel(props)
 	props.BackgroundColor3 = props.BackgroundColor3 or UIKit.Colors.panel
 	props.BackgroundTransparency = props.BackgroundTransparency or UIKit.PANEL_ALPHA
-	return UIKit.new("Frame", props, { UIKit.corner(8), UIKit.stroke(UIKit.Colors.rim, 2) })
+	local f = UIKit.new("Frame", props, { UIKit.corner(6), UIKit.stroke(UIKit.Colors.wood, 3) })
+	if props.Size and props.Size.Y.Offset >= 40 or (props.Size and props.Size.Y.Scale > 0) then
+		UIKit.frame(f)
+	end
+	return f
 end
 
 -- A darker block inside a panel (cards, icon squares). No rim.
@@ -226,8 +263,31 @@ function UIKit.block(props)
 end
 
 -- A window title in big outlined text.
+-- It sits on a driftwood plank nailed across the top edge of the panel.
 function UIKit.title(parent: Instance, text: string, y: number?)
-	return UIKit.label({ Parent = parent, Position = UDim2.fromOffset(0, y or 6), Size = UDim2.new(1, 0, 0, 30), Text = text, TextScaled = false, TextSize = 30 })
+	local plank = UIKit.new("Frame", {
+		Parent = parent,
+		Name = "TitlePlank",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, (y or 6) - 20),
+		Size = UDim2.fromOffset(0, 38),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = UIKit.Colors.plank,
+		ZIndex = 2,
+	}, {
+		UIKit.corner(4),
+		UIKit.new("UIStroke", { Color = UIKit.Colors.wood, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+		UIKit.new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }),
+	})
+	-- grain lines and two nail heads
+	for _, gy in { 0.3, 0.72 } do
+		UIKit.new("Frame", { Parent = plank, Name = "Grain", Position = UDim2.new(0, -14, gy, 0), Size = UDim2.new(1, 28, 0, 1), BackgroundColor3 = UIKit.Colors.wood, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 2 })
+	end
+	for _, nx in { 0, 1 } do
+		UIKit.new("Frame", { Parent = plank, Name = "Nail", AnchorPoint = Vector2.new(nx, 0.5), Position = UDim2.new(nx, if nx == 0 then -14 else 14, 0.5, 0), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = UIKit.Colors.brass, ZIndex = 3 }, { UIKit.round() })
+	end
+	local l = UIKit.label({ Parent = plank, Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 28, ZIndex = 4 })
+	return l
 end
 
 -- Screen scaling: every HUD size is in pixels tuned for a ~1280x720 window, so

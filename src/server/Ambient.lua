@@ -150,7 +150,9 @@ Ambient.SHORE = { fishRack = true }
 function Ambient.place(parent: Instance, kind: string, at: Vector3, yaw: number): Model
 	local m = Instance.new("Model")
 	m.Name = "Ambient_" .. kind
-	SCENES[kind](m, CFrame.new(at) * CFrame.Angles(0, yaw, 0))
+	local cf = CFrame.new(at) * CFrame.Angles(0, yaw, 0)
+	SCENES[kind](m, cf)
+	m.WorldPivot = cf -- so clients that haven't streamed the parts in still know where it is
 	m.Parent = parent
 	return m
 end
