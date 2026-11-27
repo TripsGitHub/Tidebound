@@ -83,20 +83,29 @@ function BUILDERS.hills(m: Model, c: Vector3, groundAt)
 	return "The Hollow Stump", 26
 end
 
--- Stone Shelf: the Sentinel Arch, two leaning pillars and a capstone over the hole.
+-- Terrain rock, so a landmark made of stone is part of the island and not a pile of
+-- bricks on top of it: balls filled along a line from a (radius r0) to b (radius r1).
+local function rockLine(a: Vector3, b: Vector3, r0: number, r1: number, mat: Enum.Material)
+	local len = (b - a).Magnitude
+	local steps = math.max(1, math.ceil(len / (math.min(r0, r1) * 0.5)))
+	for k = 0, steps do
+		local t = k / steps
+		workspace.Terrain:FillBall(a:Lerp(b, t), r0 + (r1 - r0) * t, mat)
+	end
+end
+
+-- Stone Shelf: the Sentinel Arch, one great bow of living rock over the hole.
 function BUILDERS.rock(m: Model, c: Vector3, groundAt)
-	local stone = Color3.fromRGB(132, 128, 122)
+	local rock = Enum.Material.Rock
 	for side = -1, 1, 2 do
-		for k = 0, 4 do
-			local p = c + Vector3.new(side * (16 - k * 1.2), k * 7 + 3.5, 0)
-			part(m, { Name = "Pillar", Size = Vector3.new(7 - k * 0.5, 7.4, 7 - k * 0.5), CFrame = CFrame.new(p) * CFrame.Angles(0, k * 0.4, side * 0.08), Color = stone, Material = Enum.Material.Slate })
-		end
+		rockLine(c + Vector3.new(side * 20, -6, 1), c + Vector3.new(side * 15, 22, 0), 7.5, 5.5, rock)
+		rockLine(c + Vector3.new(side * 15, 22, 0), c + Vector3.new(side * 12, 30, 0), 5.5, 5, rock)
 	end
-	part(m, { Name = "Capstone", Size = Vector3.new(34, 6, 9), CFrame = CFrame.new(c + Vector3.new(0, 38, 0)) * CFrame.Angles(0, 0, 0.04), Color = Color3.fromRGB(116, 112, 108), Material = Enum.Material.Slate })
-	for i = 0, 2 do
-		part(m, { Name = "Rune", Size = Vector3.new(2, 2, 0.4), CFrame = CFrame.new(c + Vector3.new(-6 + i * 6, 38, -4.6)), Color = Color3.fromRGB(120, 220, 255), Material = Enum.Material.Neon, CanCollide = false })
+	for k = 0, 16 do
+		local a = k / 16 * math.pi
+		workspace.Terrain:FillBall(c + Vector3.new(math.cos(a) * 12, 30 + math.sin(a) * 7, 0), 5 - math.sin(a) * 0.6, rock)
 	end
-	return "The Sentinel Arch", 46
+	return "The Sentinel Arch", 44
 end
 
 -- Frost Isle: the Ice Crown, a ring of tall ice spires.
@@ -180,18 +189,17 @@ function BUILDERS.atoll(m: Model, c: Vector3, groundAt)
 	return "The Coral Arch", 28
 end
 
--- Silver Crags: the Needle, one spire far taller than the rest, with a silver band.
+-- Silver Crags: the Needle, one spire of slate far taller than the rest of the crags.
 function BUILDERS.crags(m: Model, c: Vector3, groundAt)
-	for k = 0, 6 do
-		local w = 9 - k * 1.1
-		part(m, { Name = "Needle", Size = Vector3.new(w, 9, w), CFrame = CFrame.new(c + Vector3.new(16, k * 8.6 + 4, 0)) * CFrame.Angles(0, k * 0.5, 0.03 * k), Color = Color3.fromRGB(98, 98, 106), Material = Enum.Material.Slate })
-	end
-	part(m, { Name = "Band", Size = Vector3.new(8.6, 1.2, 8.6), CFrame = CFrame.new(c + Vector3.new(16, 30, 0)), Color = Color3.fromRGB(210, 214, 222), Material = Enum.Material.Metal })
-	for i = 0, 5 do
-		local a = i / 6 * math.pi * 2
-		part(m, { Name = "Rubble", Size = Vector3.new(4, 3, 4), CFrame = CFrame.new(c + Vector3.new(math.cos(a) * 12, 1, math.sin(a) * 12)) * CFrame.Angles(a, a, 0), Color = Color3.fromRGB(120, 120, 126), Material = Enum.Material.Slate })
-	end
-	return "The Needle", 64
+	local slate = Enum.Material.Slate
+	local base = c + Vector3.new(19, -8, 0)
+	local kink = base + Vector3.new(-1.5, 34, 1)
+	rockLine(base, kink, 9, 5, slate)
+	rockLine(kink, kink + Vector3.new(1.5, 28, -0.5), 5, 1.6, slate)
+	-- Two shoulders at its foot, so it grows out of the ground instead of standing on it.
+	workspace.Terrain:FillBall(base + Vector3.new(6, 4, 5), 6, slate)
+	workspace.Terrain:FillBall(base + Vector3.new(4, 2, -7), 5, slate)
+	return "The Needle", 62
 end
 
 -- Gold Mesa: the Lookout, a timber watchtower with a gold-capped roof.
@@ -353,11 +361,6 @@ function DETAIL.hills(m, c)
 end
 function DETAIL.rock(m, c)
 	Props.emitter(m, c + Vector3.new(0, 30, 0), Vector3.new(28, 16, 8), "dust")
-	Props.banner(m, c + Vector3.new(-22, 0, 6), Props.CLOTH[3], 14)
-	Props.banner(m, c + Vector3.new(22, 0, 6), Props.CLOTH[3], 14)
-	for i = 1, 6 do
-		Props.part(m, { Name = "Rubble", Size = Vector3.new(2, 1.4, 2) * rng:NextNumber(0.7, 1.4), CFrame = CFrame.new(ring(c, rng:NextNumber(18, 26), rng:NextNumber(0, 6.28)) + Vector3.new(0, 0.5, 0)) * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 6), 0), Color = Color3.fromRGB(128, 124, 118), Material = Enum.Material.Slate })
-	end
 end
 function DETAIL.snow(m, c)
 	Props.emitter(m, c + Vector3.new(0, 30, 0), Vector3.new(40, 2, 40), "snow")
@@ -522,6 +525,25 @@ function Landmarks.build(network, islands: { any }, groundAt, spotOn: (any) -> V
 		m:SetAttribute("CaveExit", true)
 		m.Parent = f
 		done[e.island] = true
+	end
+	-- Terrain landmarks (the Arch, the Needle) may have filled over the ramp up from the
+	-- caves: carve the last stretch of every exit ramp open again.
+	for _, t in network.tunnels do
+		if t.kind == "exit" then
+			for k = 1, #t.points - 1 do
+				local a, b = t.points[k], t.points[k + 1]
+				local steps = math.ceil((b - a).Magnitude / (t.r * 0.5))
+				for j = 0, steps do
+					local q = a:Lerp(b, j / steps)
+					for _, e in network.exits do
+						if Vector3.new(q.X - e.pos.X, 0, q.Z - e.pos.Z).Magnitude < 45 then
+							workspace.Terrain:FillBall(q, t.r, Enum.Material.Air)
+							break
+						end
+					end
+				end
+			end
+		end
 	end
 	for i, isl in islands do
 		if not done[i] then
