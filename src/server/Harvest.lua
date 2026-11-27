@@ -63,8 +63,9 @@ local function deplete(player: Player, model: Model, def, _awayFrom: Vector3)
 	local home = model:GetPivot()
 	setVisible(model, false)
 	local center = home.Position + Vector3.new(0, 2, 0)
+	local mult = model:GetAttribute("LootMult") or 1 -- giant event ores give more
 	for _, drop in loot do
-		for _ = 1, drop.amount do
+		for _ = 1, drop.amount * mult do
 			local a = math.random() * math.pi * 2
 			Drops.spawn(drop.item, 1, center, Vector3.new(math.cos(a), 0.6, math.sin(a)))
 		end

@@ -12,6 +12,7 @@ local NAMES = {
 	"Swing", -- (character)
 	"HitFeedback", -- (target)
 	"Marker", -- (position, amount, kind, itemId?) kind: "hit" | "harvest" damage you dealt
+	"WorldFx", -- (kind, ...) big event effects: "quake", "sky", "bomb", "meteor", "impact"
 	-- client -> server
 	"Hit", -- (target)
 	"Equip", -- (itemId or nil) hold a tool/food/placeable

@@ -261,6 +261,7 @@ Remotes.PickedUp.OnClientEvent:Connect(function(itemId, amount)
 	end
 end)
 Remotes.HitFeedback.OnClientEvent:Connect(Effects.hit)
+Remotes.WorldFx.OnClientEvent:Connect(Effects.worldFx)
 Remotes.QuestState.OnClientEvent:Connect(UI.setQuests)
 Remotes.OpenPanel.OnClientEvent:Connect(function(name)
 	InventoryScreen.close()

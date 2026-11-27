@@ -7,6 +7,7 @@
 -- Tune the timings in Config.Events. To try one in Studio, run in the server command bar:
 --   require(game.ServerScriptService.Server.Events).erupt()   (or .meteorShower())
 local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -14,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 local WorldBuilder = require(script.Parent.WorldBuilder)
+local Drops = require(script.Parent.Drops)
 
 local Events = {}
 local rng = Random.new()
@@ -53,6 +55,27 @@ local function tag(model: Model?)
 		model:SetAttribute("Temporary", true)
 	end
 	return model
+end
+
+-- Hurts and shoves everyone near a blast.
+local function blast(at: Vector3, radius: number, damage: number, push: number)
+	for _, plr in Players:GetPlayers() do
+		local character = plr.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local hum = character and character:FindFirstChildOfClass("Humanoid")
+		if hrp and hum and hum.Health > 0 then
+			local d = hrp.Position - at
+			if d.Magnitude < radius then
+				local t = 1 - d.Magnitude / radius
+				hum:TakeDamage(damage * t)
+				local dir = (d * Vector3.new(1, 0, 1)).Unit
+				if dir ~= dir then
+					dir = Vector3.new(1, 0, 0)
+				end
+				hrp.AssemblyLinearVelocity += dir * push * t + Vector3.new(0, push * 0.6 * t, 0)
+			end
+		end
+	end
 end
 
 -- Eruption -------------------------------------------------------------------------
@@ -111,8 +134,36 @@ function Events.erupt()
 	local cfg = Config.Events
 	announce("The ground shakes... Ember Isle is about to erupt!")
 	local top = groundAt(ember.x, ember.z)
-	plume((if top then top.Position else Vector3.new(ember.x, 40, ember.z)) + Vector3.new(0, 2, 0), cfg.EruptionWarning + 25)
+	local crater = (if top then top.Position else Vector3.new(ember.x, 40, ember.z)) + Vector3.new(0, 2, 0)
+	plume(crater, cfg.EruptionWarning + 40)
+	-- Warning rumbles that build up, then the sky goes red as it blows.
+	Remotes.WorldFx:FireAllClients("quake", crater, cfg.EruptionWarning, 0.35)
 	task.wait(cfg.EruptionWarning)
+	Remotes.WorldFx:FireAllClients("quake", crater, 6, 1.6)
+	Remotes.WorldFx:FireAllClients("sky", Color3.fromRGB(255, 150, 110), 45, "eruption")
+	Remotes.WorldFx:FireAllClients("impact", crater, 40, "lava")
+	-- Lava bombs: arcs of molten rock rain over the island for half a minute. Where
+	-- they land they hurt, and sometimes leave a shard of obsidian.
+	task.spawn(function()
+		local radius = (ember.r or 120) * 0.85
+		for _ = 1, 60 do
+			local a = rng:NextNumber(0, math.pi * 2)
+			local r = rng:NextNumber(20, radius)
+			local ground = groundAt(ember.x + math.cos(a) * r, ember.z + math.sin(a) * r)
+			if ground and ground.Material ~= Enum.Material.Water then
+				local flight = rng:NextNumber(2.2, 3.6)
+				Remotes.WorldFx:FireAllClients("bomb", crater + Vector3.new(0, 10, 0), ground.Position, flight)
+				task.delay(flight, function()
+					blast(ground.Position, 10, 30, 40)
+					Remotes.WorldFx:FireAllClients("impact", ground.Position, 8, "lava")
+					if rng:NextNumber() < 0.25 then
+						Drops.spawn("obsidian", 1, ground.Position + Vector3.new(0, 2, 0), Vector3.new(0, 1, 0))
+					end
+				end)
+			end
+			task.wait(rng:NextNumber(0.25, 0.6))
+		end
+	end)
 	local count = rng:NextInteger(cfg.EruptionSpires[1], cfg.EruptionSpires[2])
 	local made = 0
 	for _ = 1, count do
@@ -130,6 +181,7 @@ function Events.erupt()
 					model:PivotTo(cf)
 				end
 			end)
+			Remotes.WorldFx:FireAllClients("impact", home.Position, 14, "lava")
 			local tween = TweenService:Create(v, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Value = home })
 			tween:Play()
 			tween.Completed:Once(function()
@@ -145,47 +197,39 @@ end
 
 -- Meteor shower ----------------------------------------------------------------------
 
+-- A meteor: the client draws the fireball streaking in (it's big, slow and loud);
+-- the server times the landing, blasts a crater, and puts down a giant Moonstone
+-- Cluster in the middle of it that takes a lot of mining and gives a lot back.
+local METEOR_FALL = 4.5
 local function meteor(model: Model)
 	local target = model:GetPivot().Position
 	local parent = model.Parent
 	model.Parent = nil -- hidden until the meteor lands
-	local rock = Instance.new("Part")
-	rock.Name = "Meteor"
-	rock.Shape = Enum.PartType.Ball
-	rock.Size = Vector3.new(4, 4, 4)
-	rock.Material = Enum.Material.Neon
-	rock.Color = Color3.fromRGB(180, 210, 255)
-	rock.Anchored = true
-	rock.CanCollide = false
-	rock.CanQuery = false
-	local start = target + Vector3.new(rng:NextNumber(-120, 120), 320, rng:NextNumber(-120, 120))
-	rock.CFrame = CFrame.new(start)
-	local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
-	a0.Position, a1.Position = Vector3.new(0, 1.5, 0), Vector3.new(0, -1.5, 0)
-	a0.Parent, a1.Parent = rock, rock
-	local trail = Instance.new("Trail")
-	trail.Attachment0, trail.Attachment1 = a0, a1
-	trail.Lifetime = 1.2
-	trail.LightEmission = 1
-	trail.Color = ColorSequence.new(Color3.fromRGB(200, 225, 255), Color3.fromRGB(120, 150, 255))
-	trail.Transparency = NumberSequence.new(0, 1)
-	trail.Parent = rock
-	local light = Instance.new("PointLight")
-	light.Color = rock.Color
-	light.Range = 40
-	light.Brightness = 3
-	light.Parent = rock
-	rock.Parent = workspace
-	local fall = TweenService:Create(rock, TweenInfo.new(2.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(target + Vector3.new(0, 2, 0)) })
-	fall:Play()
-	fall.Completed:Wait()
-	rock.Transparency = 1
-	light.Range = 60
-	TweenService:Create(light, TweenInfo.new(1.5), { Brightness = 0 }):Play()
-	task.delay(2, function()
-		rock:Destroy()
+	local start = target + Vector3.new(rng:NextNumber(-260, 260), 520, rng:NextNumber(-260, 260))
+	Remotes.WorldFx:FireAllClients("meteor", start, target, METEOR_FALL)
+	task.wait(METEOR_FALL)
+	-- Crater: scoop the ground out and leave a scorched rim.
+	local terrain = workspace.Terrain
+	pcall(function()
+		terrain:FillBall(target + Vector3.new(0, 3, 0), 11, Enum.Material.Air)
+		terrain:FillCylinder(CFrame.new(target + Vector3.new(0, -5, 0)), 3, 12, Enum.Material.Basalt)
+		for k = 0, 9 do
+			local a = k / 10 * math.pi * 2
+			terrain:FillBall(target + Vector3.new(math.cos(a) * 12, -1, math.sin(a) * 12), 3.4, Enum.Material.CrackedLava)
+		end
 	end)
+	blast(target, 26, 45, 90)
+	Remotes.WorldFx:FireAllClients("impact", target, 60, "moon")
 	if parent and parent.Parent then
+		-- Massive: sits in the crater floor, needs many more hits, drops four times as much.
+		model:PivotTo(model:GetPivot() * CFrame.new(0, -3.5, 0))
+		pcall(function()
+			model:ScaleTo(2.4)
+		end)
+		local def = model:GetAttribute("MaxHP") or 100
+		model:SetAttribute("MaxHP", def * 4)
+		model:SetAttribute("HP", def * 4)
+		model:SetAttribute("LootMult", 4)
 		model.Parent = parent
 	end
 end
@@ -204,6 +248,7 @@ function Events.meteorShower()
 		end
 	end
 	announce("A meteor shower lights up the night sky!")
+	Remotes.WorldFx:FireAllClients("sky", Color3.fromRGB(170, 150, 255), 150, "meteor")
 	local count = rng:NextInteger(cfg.Meteors[1], cfg.Meteors[2])
 	for _ = 1, count do
 		task.wait(rng:NextNumber(3, 10))
