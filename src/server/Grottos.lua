@@ -195,6 +195,8 @@ local function build(site: Vector3, kind, folder: Folder, nodes: Folder, helpers
 		end
 	end
 
+	task.wait(0.5) -- raycasts only see freshly written terrain a moment later
+
 	-- The seal, a third of the way down the tunnel, in water.
 	if kind.seal then
 		local i = math.floor(#pts * 0.45)
@@ -231,9 +233,8 @@ local function build(site: Vector3, kind, folder: Folder, nodes: Folder, helpers
 	for _ = 1, 18 do
 		local ang, d = rng:NextNumber(0, math.pi * 2), math.sqrt(rng:NextNumber()) * CHAMBER_R * 0.85
 		local x, z = centre.X + math.cos(ang) * d, centre.Z + math.sin(ang) * d
-		local hit = Workspace:Raycast(Vector3.new(x, centre.Y, z), Vector3.new(0, -CHAMBER_R - 10, 0), params)
-		if hit and hit.Normal.Y > 0.6 and (Vector3.new(x, 0, z) - Vector3.new(mouth.X, 0, mouth.Z)).Magnitude > 12 then
-			meshProp(decor, REEF[rng:NextInteger(1, #REEF)], hit.Position, rng:NextNumber(1, 2), nil)
+		if (Vector3.new(x, 0, z) - Vector3.new(mouth.X, 0, mouth.Z)).Magnitude > 12 then
+			meshProp(decor, REEF[rng:NextInteger(1, #REEF)], Vector3.new(x, floorY, z), rng:NextNumber(1, 2), nil)
 		end
 	end
 	local glow = Instance.new("Part")
@@ -256,9 +257,8 @@ local function build(site: Vector3, kind, folder: Folder, nodes: Folder, helpers
 			end
 			local ang, d = rng:NextNumber(0, math.pi * 2), CHAMBER_R * rng:NextNumber(0.25, 0.75)
 			local x, z = centre.X + math.cos(ang) * d, centre.Z + math.sin(ang) * d
-			local hit = Workspace:Raycast(Vector3.new(x, centre.Y, z), Vector3.new(0, -CHAMBER_R - 10, 0), params)
-			if hit and hit.Normal.Y > 0.7 and (Vector3.new(x, 0, z) - Vector3.new(mouth.X, 0, mouth.Z)).Magnitude > 14 then
-				helpers.spawnNode(nodes, entry[1], hit.Position)
+			if (Vector3.new(x, 0, z) - Vector3.new(mouth.X, 0, mouth.Z)).Magnitude > 14 then
+				helpers.spawnNode(nodes, entry[1], Vector3.new(x, floorY, z))
 				made += 1
 			end
 		end
@@ -266,9 +266,9 @@ local function build(site: Vector3, kind, folder: Folder, nodes: Folder, helpers
 
 	-- The stranger who lives here (a placeholder for now: one line of talk).
 	local spot = centre + side * (CHAMBER_R * 0.55)
-	local stand = Workspace:Raycast(Vector3.new(spot.X, centre.Y, spot.Z), Vector3.new(0, -CHAMBER_R - 10, 0), params)
-	if stand then
-		local npc = helpers.npcAvatar(CFrame.lookAt(stand.Position, Vector3.new(mouth.X, stand.Position.Y, mouth.Z)), kind.npc.name, kind.npc.level, kind.npc)
+	local standAt = Vector3.new(spot.X, floorY, spot.Z)
+	do
+		local npc = helpers.npcAvatar(CFrame.lookAt(standAt, Vector3.new(mouth.X, floorY, mouth.Z)), kind.npc.name, kind.npc.level, kind.npc)
 		if npc then
 			npc.Parent = model
 			local head = npc:FindFirstChild("Head") :: BasePart?
