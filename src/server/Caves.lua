@@ -815,7 +815,11 @@ function Caves.fixLeaks(result: Result)
 		if not fixed then
 			unresolved += 1
 			unresolvedAt[a.owner] = true
-			warn(string.format("[Caves] can't close a gap between zone %d and zone %d at (%d, %d, %d)", a.zone, b.zone, a.p.X, a.p.Y, a.p.Z))
+			local function what(x)
+				local o = x.owner
+				return string.format("%s%s r%d i%s seals%d @(%d,%d,%d)", o.kind or "", o.tier and ("chamber " .. o.tier) or "", x.r, tostring(x.i), if o.seals then #o.seals else -1, x.p.X, x.p.Y, x.p.Z)
+			end
+			warn(string.format("[Caves] can't close a gap between zone %d [%s] and zone %d [%s]", a.zone, what(a), b.zone, what(b)))
 		end
 		end
 		task.wait()
