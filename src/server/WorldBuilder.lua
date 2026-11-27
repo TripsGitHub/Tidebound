@@ -1217,6 +1217,21 @@ local function dressShaft(sh)
 	folder.Parent = workspace
 	local m = Instance.new("Model")
 	m.Name = if sh.kind == "ladder" then "Ladder" else "Waterfall"
+	if sh.kind == "ladder" then
+		-- Reach right down to whatever floor is under the foot (a tunnel carved below can
+		-- leave it hanging in the air); with no floor in reach, a rock ledge to stand on.
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { workspace.Terrain }
+		params.IgnoreWater = true
+		local x = sh.bottom.X + sh.r - 1.6
+		local floor = workspace:Raycast(Vector3.new(x, sh.bottom.Y + 1, sh.bottom.Z), Vector3.new(0, -120, 0), params)
+		if floor and floor.Position.Y < sh.bottom.Y - 1 and floor.Position.Y > sh.bottom.Y - 30 then
+			sh.bottom = Vector3.new(sh.bottom.X, floor.Position.Y + 1, sh.bottom.Z)
+		elseif not floor or floor.Position.Y <= sh.bottom.Y - 30 then
+			workspace.Terrain:FillBlock(CFrame.new(sh.bottom.X, sh.bottom.Y - 3, sh.bottom.Z), Vector3.new(sh.r * 2 + 6, 4, sh.r * 2 + 6), Enum.Material.Rock)
+		end
+	end
 	local h = sh.top.Y - sh.bottom.Y + 2.5 -- just over the lip, so you can step off
 	local mid = Vector3.new(sh.bottom.X, sh.bottom.Y - 1 + h / 2, sh.bottom.Z)
 	if sh.kind == "ladder" then
