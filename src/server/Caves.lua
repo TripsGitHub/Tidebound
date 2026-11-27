@@ -778,6 +778,41 @@ function Caves.fixLeaks(result: Result)
 			end
 		end
 		if not fixed then
+			-- Last resort: move the deeper of the two down until there is a full wall of
+			-- rock between them. A tunnel bends down around the spot (its control points
+			-- near it move, fading out further along); a chamber or lobe moves whole.
+			local deep, other = a, b
+			if b.zone > a.zone then
+				deep, other = b, a
+			end
+			local need = deep.r + other.r + WALL + 2
+			local flat = Vector3.new(deep.p.X - other.p.X, 0, deep.p.Z - other.p.Z).Magnitude
+			local dy = other.p.Y - deep.p.Y -- how far the deep one already sits below
+			local drop = if flat < need then math.sqrt(need * need - flat * flat) - math.max(dy, 0) else 0
+			if drop > 0 and deep.p.Y - drop > BOSS_Y + 40 then
+				-- Prefer moving a tunnel; a chamber stays put (tunnels end in it).
+				local owner = if deep.owner.points then deep.owner else nil
+				if owner then
+					for k, pt in owner.points do
+						local d = (Vector3.new(pt.X, 0, pt.Z) - Vector3.new(deep.p.X, 0, deep.p.Z)).Magnitude
+						local w = math.clamp(1 - (d - need) / (need * 2), 0, 1)
+						-- Never move a tunnel's two ends: they join a chamber or the surface.
+						if w > 0 and k > 1 and k < #owner.points then
+							owner.points[k] = pt - Vector3.new(0, drop * w, 0)
+							fixed = true
+						end
+					end
+				elseif deep.owner.parent and deep.owner.pos then
+					-- A lobe hangs off a chamber: sink it into the chamber's floor side.
+					deep.owner.pos -= Vector3.new(0, math.min(drop, deep.r), 0)
+					fixed = true
+				end
+				if fixed then
+					moved += 1
+				end
+			end
+		end
+		if not fixed then
 			unresolved += 1
 			unresolvedAt[a.owner] = true
 			warn(string.format("[Caves] can't close a gap between zone %d and zone %d at (%d, %d, %d)", a.zone, b.zone, a.p.X, a.p.Y, a.p.Z))
