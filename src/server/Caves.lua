@@ -272,7 +272,9 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 				barrier(t2, #samples(s2) - 10, HALL_R, "layer2b", Z.L2B)
 			end
 			local lower = s2[#s2]
-			chamber(lower - Vector3.new(0, HALL_R * 0.6, 0), 30, "lower", Z.L2B)
+			-- Sunk a little below the hall that reaches it, so the entrance spiral above
+			-- keeps a full rock wall over its dome.
+			chamber(lower - Vector3.new(0, HALL_R * 0.6 + 6, 0), 26, "lower", Z.L2B)
 
 			local s3 = spiral(cx, cz, radius * 0.45, a2 + 0.6, LOWER_Y, ROOT_Y + 8)
 			table.insert(s3, 1, lower)
@@ -645,6 +647,11 @@ function Caves.fixLeaks(result: Result)
 	local moved, dropped, unresolved = 0, 0, 0
 	local unresolvedAt = {}
 	local lastLeaks = 0
+	local lastLeakList = {}
+	local function what(x)
+		local o = x.owner
+		return string.format("%s%s r%d i%s seals%d @(%d,%d,%d)", o.kind or "", o.tier and ("chamber " .. o.tier) or "", x.r, tostring(x.i), if o.seals then #o.seals else -1, x.p.X, x.p.Y, x.p.Z)
+	end
 	for _ = 1, 80 do
 		-- Every carved ball, in a coarse grid.
 		local balls = {}
@@ -709,6 +716,7 @@ function Caves.fixLeaks(result: Result)
 			end
 		end
 		lastLeaks = #leaks
+		lastLeakList = leaks
 		if #leaks == 0 then
 			break
 		end
@@ -816,14 +824,13 @@ function Caves.fixLeaks(result: Result)
 		if not fixed then
 			unresolved += 1
 			unresolvedAt[a.owner] = true
-			local function what(x)
-				local o = x.owner
-				return string.format("%s%s r%d i%s seals%d @(%d,%d,%d)", o.kind or "", o.tier and ("chamber " .. o.tier) or "", x.r, tostring(x.i), if o.seals then #o.seals else -1, x.p.X, x.p.Y, x.p.Z)
-			end
 			warn(string.format("[Caves] can't close a gap between zone %d [%s] and zone %d [%s]", a.zone, what(a), b.zone, what(b)))
 		end
 		end
 		task.wait()
+	end
+	for _, leak in lastLeakList do
+		warn(string.format("[Caves] still open after all rounds: zone %d [%s] and zone %d [%s]", leak[1].zone, what(leak[1]), leak[2].zone, what(leak[2])))
 	end
 	-- Drop what was removed, and list the barriers where the seals ended up.
 	local function keep(list)
