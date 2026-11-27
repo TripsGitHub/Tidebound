@@ -17,6 +17,8 @@ local Remotes = require(Shared.Remotes)
 local Animals = require(script.Parent.Animals)
 local CloverIsland = require(script.Parent.CloverIsland)
 local IslandFields = require(script.Parent.IslandFields)
+local MapScale = require(script.Parent.MapScale)
+local Caves = require(script.Parent.Caves)
 
 local WorldBuilder = {}
 local rng = Random.new(1911)
@@ -293,6 +295,12 @@ local ISLANDS: { Island } = {
 	{ name = "Slime Marsh", x = 195, z = -265, r = 96, biome = "marsh" },
 	{ name = "Ember Isle", x = 0, z = 0, r = 115, biome = "ember" }, -- late game, middle
 }
+-- Built MapScale.H times bigger than the shapes above.
+for _, isl in ISLANDS do
+	isl.x *= MapScale.H
+	isl.z *= MapScale.H
+	isl.r *= MapScale.H
+end
 WorldBuilder.Islands = ISLANDS
 
 -- What grows where. `cluster` = trees per clump (min, max).
@@ -453,8 +461,9 @@ local function buildTerrain()
 	terrain:SetMaterialColor(Enum.Material.CrackedLava, Color3.fromRGB(240, 100, 36))
 
 	-- Ocean and sea floor
-	terrain:FillBlock(CFrame.new(0, -18, 0), Vector3.new(1400, 36, 1400), Enum.Material.Water)
-	terrain:FillBlock(CFrame.new(0, -40, 0), Vector3.new(1400, 8, 1400), Enum.Material.Sand)
+	local H, V = MapScale.H, MapScale.V
+	terrain:FillBlock(CFrame.new(0, -18 * V, 0), Vector3.new(1400 * H, 36 * V, 1400 * H), Enum.Material.Water)
+	terrain:FillBlock(CFrame.new(0, -40 * V, 0), Vector3.new(1400 * H, 8 * V, 1400 * H), Enum.Material.Sand)
 
 	for _, isl in ISLANDS do
 		island(terrain, isl)
@@ -504,7 +513,7 @@ local function findSpot(
 			px, pz = isl.x + math.cos(a) * d, isl.z + math.sin(a) * d
 		end
 		local zoneOk = true
-		local rx, rz = px - isl.x, pz - isl.z
+		local rx, rz = (px - isl.x) / MapScale.H, (pz - isl.z) / MapScale.H -- the zone maps are at 1x
 		local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
 		if field then
 			zoneOk = field.canGrow(rx, rz) and (zone == nil or zone == "*" or field.zoneAt(rx, rz) == zone)
@@ -528,7 +537,9 @@ end
 
 local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 	for _, entry in BIOME_NODES[isl.biome] do
-		local nodeType, count, clump, zone = entry[1], entry[2], entry[3], entry.zone
+		local nodeType, clump, zone = entry[1], entry[3], entry.zone
+		-- Same density as the hand-tuned 1x map (scaled by Density), over more land.
+		local count = math.max(1, math.round(entry[2] * MapScale.H * MapScale.H * MapScale.Density))
 		local made = 0
 		for _ = 1, count * 3 do
 			if made >= count then
@@ -571,23 +582,31 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 end
 
 -- Caves ---------------------------------------------------------------------------
--- The advanced ores only grow underground in Stone Shelf's cave (or come from world
--- events, see Events.lua). The deeper the chamber, the better the ore.
+-- The advanced ores only grow underground (or come from world events, see Events.lua).
+-- Stone Shelf has its own hand-carved cave (IslandFields), and Caves.lua runs a
+-- network under the whole map. The deeper the chamber, the better the ore.
 local CAVE_NODES = {
-	chamber = { { "SilverVein", 2 }, { "GoldVein", 2 } },
-	vault = { { "SunstoneVein", 3 }, { "DiamondCluster", 3 }, { "GoldVein", 1 } },
-	hollow = { { "FractiteCluster", 3 }, { "AmethystGeode", 3 }, { "DiamondCluster", 1 } },
+	upper = { { "SilverVein", 2 }, { "GoldVein", 2 } },
+	lower = { { "SunstoneVein", 2 }, { "DiamondCluster", 2 }, { "GoldVein", 1 } },
+	deep = { { "FractiteCluster", 2 }, { "AmethystGeode", 2 }, { "DiamondCluster", 1 } },
 }
+-- Odd ores along the tunnels too, by depth.
+local TUNNEL_ORE = {
+	{ above = -40, node = "GoldVein" },
+	{ above = -80, node = "SunstoneVein" },
+	{ above = -math.huge, node = "AmethystGeode" },
+}
+local CAVE_GLOW = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 255, 210) }
 
--- Raycast down inside a cave from just under its ceiling to find the floor.
+-- Raycast down inside a cave from `from` to find the floor.
 local function caveFloorAt(x: number, z: number, from: number): RaycastResult?
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { workspace.Terrain }
-	return workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -24, 0), params)
+	return workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -40, 0), params)
 end
 
--- Dim glowing crystals stuck in the walls, so the tunnels aren't pitch black.
+-- Dim glowing crystals on the floor, so the tunnels aren't pitch black.
 local function caveLight(parent: Instance, pos: Vector3, color: Color3)
 	local p = Instance.new("Part")
 	p.Name = "CaveLight"
@@ -601,98 +620,128 @@ local function caveLight(parent: Instance, pos: Vector3, color: Color3)
 	p.Parent = parent
 	local light = Instance.new("PointLight")
 	light.Color = color
-	light.Range = 18
+	light.Range = 20
 	light.Brightness = 0.8
 	light.Shadows = false
 	light.Parent = p
 end
 
-local function buildCave(nodeFolder: Folder, isl: Island)
-	local field = IslandFields.rock
-	local decor = Instance.new("Folder")
+-- chambers: { pos = floor centre, r, tier }; paths: lists of tunnel centre points.
+local function dressCaves(nodeFolder: Folder, chambers: { any }, paths: { { Vector3 } })
+	local decor = workspace:FindFirstChild("CaveLights") or Instance.new("Folder")
 	decor.Name = "CaveLights"
 	decor.Parent = workspace
-	local glow = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 255, 210) }
+	local taken = {}
+	local function free(pos: Vector3, gap: number): boolean
+		for _, o in taken do
+			if (o - pos).Magnitude < gap then
+				return false
+			end
+		end
+		return true
+	end
 
-	-- Lights along every tunnel.
-	for _, path in field.tunnels do
+	-- Lights every so often along each tunnel, and now and then an ore.
+	for _, path in paths do
+		local since = 0
 		for i = 1, #path - 1 do
 			local a, b = path[i], path[i + 1]
-			local len = math.sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2)
-			for t = 0.15, 1, 14 / len do
-				local x, z = a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t
-				local floor_ = a[3] + (b[3] - a[3]) * t
-				local hit = caveFloorAt(isl.x + x, isl.z + z, floor_ + 6)
-				if hit then
-					caveLight(decor, hit.Position + Vector3.new(rng:NextNumber(-2, 2), 0.6, rng:NextNumber(-2, 2)), glow[rng:NextInteger(1, #glow)])
+			local len = (b - a).Magnitude
+			for d = 0, len, 26 do
+				local p = a:Lerp(b, d / math.max(len, 1))
+				local hit = caveFloorAt(p.X, p.Z, p.Y + 2)
+				if hit and hit.Position.Y < p.Y and hit.Position.Y > p.Y - 12 then
+					caveLight(decor, hit.Position + Vector3.new(rng:NextNumber(-3, 3), 0.6, rng:NextNumber(-3, 3)), CAVE_GLOW[rng:NextInteger(1, #CAVE_GLOW)])
+					since += 26
+					if since > 110 and hit.Position.Y < -15 and free(hit.Position, 30) then
+						for _, t in TUNNEL_ORE do
+							if hit.Position.Y > t.above then
+								spawnNode(nodeFolder, t.node, hit.Position + Vector3.new(rng:NextNumber(-2, 2), 0, rng:NextNumber(-2, 2)))
+								table.insert(taken, hit.Position)
+								since = 0
+								break
+							end
+						end
+					end
 				end
 			end
 		end
 	end
 
-	-- Ores and a ring of lights in each chamber.
-	for _, c in field.chambers do
-		local cx, cz, r, floor_, h = isl.x + c[1], isl.z + c[2], c[3], c[4], c[5]
-		for i = 1, 4 do
-			local a = i / 4 * math.pi * 2
-			local hit = caveFloorAt(cx + math.cos(a) * r * 0.7, cz + math.sin(a) * r * 0.7, floor_ + h * 0.4)
+	-- A ring of lights and the chamber's ores.
+	for _, c in chambers do
+		local f, r = c.pos, c.r
+		for i = 1, 5 do
+			local a = i / 5 * math.pi * 2
+			local hit = caveFloorAt(f.X + math.cos(a) * r * 0.7, f.Z + math.sin(a) * r * 0.7, f.Y + r * 0.6)
 			if hit then
-				caveLight(decor, hit.Position + Vector3.new(0, 0.6, 0), glow[(i % #glow) + 1])
+				caveLight(decor, hit.Position + Vector3.new(0, 0.6, 0), CAVE_GLOW[(i % #CAVE_GLOW) + 1])
 			end
 		end
-		local taken = {}
-		for _, entry in CAVE_NODES[c.name] or {} do
+		for _, entry in CAVE_NODES[c.tier] or {} do
 			local made = 0
-			for _ = 1, entry[2] * 8 do
+			for _ = 1, entry[2] * 10 do
 				if made >= entry[2] then
 					break
 				end
 				local a = rng:NextNumber(0, math.pi * 2)
-				local d = math.sqrt(rng:NextNumber()) * r * 0.6
-				local hit = caveFloorAt(cx + math.cos(a) * d, cz + math.sin(a) * d, floor_ + h * 0.6)
-				if hit and hit.Normal.Y > 0.7 then
-					local ok = true
-					for _, o in taken do
-						if (o - hit.Position).Magnitude < 7 then
-							ok = false
-						end
-					end
-					if ok then
-						spawnNode(nodeFolder, entry[1], hit.Position)
-						table.insert(taken, hit.Position)
-						made += 1
-					end
+				local d = math.sqrt(rng:NextNumber()) * r * 0.65
+				local hit = caveFloorAt(f.X + math.cos(a) * d, f.Z + math.sin(a) * d, f.Y + r * 0.6)
+				if hit and hit.Normal.Y > 0.7 and math.abs(hit.Position.Y - f.Y) < 8 and free(hit.Position, 8) then
+					spawnNode(nodeFolder, entry[1], hit.Position)
+					table.insert(taken, hit.Position)
+					made += 1
 				end
 			end
 		end
 	end
+end
+
+-- Stone Shelf's hand-carved cave, in world coordinates.
+local function shelfCave(isl: Island): ({ any }, { { Vector3 } })
+	local H, V = MapScale.H, MapScale.V
+	local field = IslandFields.rock
+	local tiers = { chamber = "upper", vault = "lower", hollow = "deep" }
+	local chambers, paths = {}, {}
+	for _, c in field.chambers do
+		table.insert(chambers, { pos = Vector3.new(isl.x + c[1] * H, c[4] * V, isl.z + c[2] * H), r = c[3] * H * 0.8, tier = tiers[c.name] })
+	end
+	for _, path in field.tunnels do
+		local pts = {}
+		for _, q in path do
+			table.insert(pts, Vector3.new(isl.x + q[1] * H, q[3] * V + 5, isl.z + q[2] * H))
+		end
+		table.insert(paths, pts)
+	end
+	return chambers, paths
 end
 
 -- Landmarks ----------------------------------------------------------------------
 
 -- A ring of pale fang-shaped rocks round the cave mouth on Stone Shelf, so the
 -- entrance reads from across the water.
-local function makeCaveMouth(centre: Vector3, facing: Vector3)
+local function makeCaveMouth(centre: Vector3, facing: Vector3, size: number?)
+	local k0 = size or 1
 	local m = Instance.new("Model")
 	m.Name = "CaveMouth"
 	local look = CFrame.lookAt(centre, centre + Vector3.new(facing.X, 0, facing.Z))
 	for k = 0, 8 do
 		local a = math.rad(-150 + k * 37.5)
-		local offset = Vector3.new(math.cos(a) * 9.5, 0, math.sin(a) * 6 - 3)
+		local offset = Vector3.new(math.cos(a) * 9.5, 0, math.sin(a) * 6 - 3) * k0
 		local base = look * CFrame.new(offset)
 		local hit = groundAt(base.X, base.Z)
 		local y = if hit then hit.Position.Y else base.Y
-		local h = if k % 2 == 0 then 7 else 10
+		local h = (if k % 2 == 0 then 7 else 10) * k0
 		part(m, {
 			Name = "Fang",
-			Size = Vector3.new(2.6, h, 2.6),
+			Size = Vector3.new(2.6, h / k0, 2.6) * k0,
 			CFrame = CFrame.new(base.X, y + h / 2 - 1, base.Z) * CFrame.Angles(math.rad(rng:NextNumber(-12, 12)), a, math.rad(rng:NextNumber(-12, 12))),
 			Color = Color3.fromRGB(232, 228, 214),
 			Material = Enum.Material.Limestone,
 		})
 		local tip = part(m, {
 			Name = "FangTip",
-			Size = Vector3.new(1.4, h * 0.45, 1.4),
+			Size = Vector3.new(1.4, h * 0.45 / k0, 1.4) * k0,
 			CFrame = CFrame.new(base.X, y + h + h * 0.18 - 1, base.Z) * CFrame.Angles(0, a + 0.4, 0),
 			Color = Color3.fromRGB(244, 240, 228),
 			Material = Enum.Material.Limestone,
@@ -851,7 +900,8 @@ function WorldBuilder.build()
 
 	-- Spawn on the stem of Clover Island.
 	local home = ISLANDS[1]
-	local sx, sz = home.x + CloverIsland.Spawn.X, home.z + CloverIsland.Spawn.Y
+	local H = MapScale.H
+	local sx, sz = home.x + CloverIsland.Spawn.X * H, home.z + CloverIsland.Spawn.Y * H
 	local spawnHit = groundAt(sx, sz)
 	local spawnPos = if spawnHit then spawnHit.Position else Vector3.new(sx, 3, sz)
 	local spawn = Instance.new("SpawnLocation")
@@ -872,8 +922,9 @@ function WorldBuilder.build()
 	folder("LootSacks")
 
 	-- Quest board and trader just inland from the spawn, facing it.
-	local boardHit = groundAt(home.x + CloverIsland.Board.X, home.z + CloverIsland.Board.Y)
-	local traderHit = groundAt(home.x + CloverIsland.Trader.X, home.z + CloverIsland.Trader.Y)
+	-- The board and trader stay close to the spawn (not scaled out with the island).
+	local boardHit = groundAt(sx + CloverIsland.Board.X, sz + (CloverIsland.Board.Y - CloverIsland.Spawn.Y))
+	local traderHit = groundAt(sx + CloverIsland.Trader.X, sz + (CloverIsland.Trader.Y - CloverIsland.Spawn.Y))
 	local taken = { spawnPos }
 	if boardHit then
 		makeQuestBoard(CFrame.lookAt(boardHit.Position, Vector3.new(spawnPos.X, boardHit.Position.Y, spawnPos.Z)))
@@ -890,19 +941,42 @@ function WorldBuilder.build()
 	end
 
 	for _, isl in ISLANDS do
-		populate(nodes, isl, taken)
+		-- Each island only checks spacing against what's on it (keeps placement fast).
+		local local_ = {}
+		local centre = Vector3.new(isl.x, 0, isl.z)
+		for _, p in taken do
+			if (Vector3.new(p.X, 0, p.Z) - centre).Magnitude < isl.r * 1.6 then
+				table.insert(local_, p)
+			end
+		end
+		populate(nodes, isl, local_)
+		task.wait()
 	end
 
 	-- Stone Shelf's cave mouth faces north.
 	local shelf = ISLANDS[3]
 	local mouth = IslandFields.rock.caveMouth
-	makeCaveMouth(Vector3.new(shelf.x + mouth.X, 3, shelf.z + mouth.Y), Vector3.new(0, 0, -1))
-	buildCave(nodes, shelf)
+	makeCaveMouth(Vector3.new(shelf.x + mouth.X * H, 3 * MapScale.V, shelf.z + mouth.Y * H), Vector3.new(0, 0, -1), 1.9)
+	local chambers, paths = shelfCave(shelf)
+
+	-- The cave network under the whole map, with an entrance on every island.
+	local network = Caves.build(workspace.Terrain, ISLANDS, groundAt, function(isl, x, z)
+		local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
+		local rx, rz = (x - isl.x) / H, (z - isl.z) / H
+		local far = (Vector3.new(x, 0, z) - Vector3.new(sx, 0, sz)).Magnitude > 60
+		return far and (field == nil or field.canGrow(rx, rz))
+	end)
+	for _, e in network.entrances do
+		makeCaveMouth(e.pos, e.facing, 1.1)
+	end
+	table.move(network.chambers, 1, #network.chambers, #chambers + 1, chambers)
+	table.move(network.paths, 1, #network.paths, #paths + 1, paths)
+	dressCaves(nodes, chambers, paths)
 
 	-- Boars roam the two grassy islands.
-	Animals.spawnHerd("Boar", Vector3.new(home.x + CloverIsland.Herd.X, 0, home.z + CloverIsland.Herd.Y), 3)
+	Animals.spawnHerd("Boar", Vector3.new(home.x + CloverIsland.Herd.X * H, 0, home.z + CloverIsland.Herd.Y * H), 5)
 	local hills = ISLANDS[2]
-	Animals.spawnHerd("Boar", Vector3.new(hills.x - 20, 0, hills.z + 45), 4) -- Pine Hills' meadow
+	Animals.spawnHerd("Boar", Vector3.new(hills.x - 20 * H, 0, hills.z + 45 * H), 6) -- Pine Hills' meadow
 	Animals.start()
 
 	startDayNight()

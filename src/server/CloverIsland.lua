@@ -201,48 +201,36 @@ CloverIsland.height = height
 CloverIsland.canGrow = canGrow
 
 -- Writes the island into terrain, centred on (cx, cz). Overwrites the ocean there.
+-- The shape is sampled at 1x and stretched by MapScale (H wide, V tall).
 function CloverIsland.fill(terrain: Terrain, cx: number, cz: number)
+	local MapScale = require(script.Parent.MapScale)
 	local RES = 4
-	local Y0, Y1 = -44, 40
-	local region = Region3.new(Vector3.new(cx + X0, Y0, cz + Z0), Vector3.new(cx + X1, Y1, cz + Z1)):ExpandToGrid(RES)
-	local size = region.Size / RES
-	local nx, ny, nz = size.X, size.Y, size.Z
-	local minC = region.CFrame.Position - region.Size / 2
-	local mats, occ = table.create(nx), table.create(nx)
-	for i = 1, nx do
-		local mi, oi = table.create(ny), table.create(ny)
-		for j = 1, ny do
-			mi[j], oi[j] = table.create(nz), table.create(nz)
-		end
-		mats[i], occ[i] = mi, oi
-		local x = minC.X + (i - 0.5) * RES - cx
-		for k = 1, nz do
-			local z = minC.Z + (k - 0.5) * RES - cz
-			local h = height(x, z)
-			local slope = (math.max(height(x + 2, z), height(x - 2, z), height(x, z + 2), height(x, z - 2))
-				- math.min(height(x + 2, z), height(x - 2, z), height(x, z + 2), height(x, z - 2))) / 4
-			local top = if h < 0 then M.Sand else material(x, z, h, slope)
-			local pond = hypot(x - POND_X, z - POND_Z) < POND_R
-			for j = 1, ny do
-				local y0 = minC.Y + (j - 1) * RES
-				local o = math.clamp((h - y0) / RES, 0, 1)
-				local m
-				if o > 0 then
-					-- Under the surface: rock deep down, the surface material near the top.
-					m = if h - y0 > 10 and top ~= M.Sand then (if top == M.Rock then M.Rock else M.Ground) else top
-					if h - y0 > 8 and top == M.Sand then
-						m = M.Sand
-					end
-				elseif y0 < 0 or (pond and y0 < POND_LEVEL) then
-					m, o = M.Water, 1
-				else
-					m = M.Air
+	local H, V = MapScale.H, MapScale.V
+	MapScale.writeSlabs(terrain, cx + X0 * H, cx + X1 * H, -44 * V, 40 * V, cz + Z0 * H, cz + Z1 * H, function(wx, wz, ys, mats, occ)
+		local x, z = (wx - cx) / H, (wz - cz) / H
+		local h = height(x, z)
+		local h1, h2, h3, h4 = height(x + 2, z), height(x - 2, z), height(x, z + 2), height(x, z - 2)
+		local slope = (math.max(h1, h2, h3, h4) - math.min(h1, h2, h3, h4)) / 4
+		local top = if h < 0 then M.Sand else material(x, z, h, slope)
+		local pond = hypot(x - POND_X, z - POND_Z) < POND_R
+		local hw = h * V
+		for j, y0 in ys do
+			local o = math.clamp((hw - y0) / RES, 0, 1)
+			local m
+			if o > 0 then
+				-- Under the surface: rock deep down, the surface material near the top.
+				m = if hw - y0 > 10 * V and top ~= M.Sand then (if top == M.Rock then M.Rock else M.Ground) else top
+				if hw - y0 > 8 * V and top == M.Sand then
+					m = M.Sand
 				end
-				mats[i][j][k], occ[i][j][k] = m, o
+			elseif y0 < 0 or (pond and y0 < POND_LEVEL * V) then
+				m, o = M.Water, 1
+			else
+				m = M.Air
 			end
+			mats[j], occ[j] = m, o
 		end
-	end
-	terrain:WriteVoxels(region, RES, mats, occ)
+	end)
 end
 
 return CloverIsland

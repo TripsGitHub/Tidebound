@@ -466,55 +466,44 @@ IslandFields.marsh = SM :: Field
 IslandFields.ember = EI :: Field
 
 -- Writes an island into terrain, centred on (cx, cz). Overwrites the ocean there.
+-- The shape is sampled at 1x and stretched by MapScale (H wide, V tall).
+local MapScale = require(script.Parent.MapScale)
 function IslandFields.fill(field: Field, terrain: Terrain, cx: number, cz: number)
 	local RES = 4
+	local H, V = MapScale.H, MapScale.V
 	local b = field.bounds
-	local region = Region3.new(Vector3.new(cx + b[1], -44, cz + b[3]), Vector3.new(cx + b[2], field.ytop, cz + b[4])):ExpandToGrid(RES)
-	local size = region.Size / RES
-	local nx, ny, nz = size.X, size.Y, size.Z
-	local minC = region.CFrame.Position - region.Size / 2
-	local mats, occ = table.create(nx), table.create(nx)
 	local height, material, water, carve = field.height, field.material, field.water, field.carve
-	for i = 1, nx do
-		local mi, oi = table.create(ny), table.create(ny)
-		for j = 1, ny do
-			mi[j], oi[j] = table.create(nz), table.create(nz)
-		end
-		mats[i], occ[i] = mi, oi
-		local x = minC.X + (i - 0.5) * RES - cx
-		for k = 1, nz do
-			local z = minC.Z + (k - 0.5) * RES - cz
-			local h = height(x, z)
-			local h1, h2, h3, h4 = height(x + 2, z), height(x - 2, z), height(x, z + 2), height(x, z - 2)
-			local slope = (math.max(h1, h2, h3, h4) - math.min(h1, h2, h3, h4)) / 4
-			local top = if h < 0 then M.Sand else material(x, z, h, slope)
-			for j = 1, ny do
-				local y0 = minC.Y + (j - 1) * RES
-				local o = math.clamp((h - y0) / RES, 0, 1)
-				local m
-				if o > 0 and carve and carve(x, y0 + RES / 2, z) then
-					m, o = M.Air, 0
-				elseif o > 0 then
-					-- Under the surface: rock deep down, the surface material near the top.
-					m = if h - y0 > 10 and top ~= M.Sand then M.Rock else top
-					if h - y0 > 8 and top == M.Sand then
-						m = M.Sand
-					end
-				elseif y0 < 0 then
-					m, o = M.Water, 1
-				else
-					local w = water and water(x, y0, z)
-					if w then
-						m, o = w, 1
-					else
-						m = M.Air
-					end
+	MapScale.writeSlabs(terrain, cx + b[1] * H, cx + b[2] * H, -44 * V, field.ytop * V, cz + b[3] * H, cz + b[4] * H, function(wx, wz, ys, mats, occ)
+		local x, z = (wx - cx) / H, (wz - cz) / H
+		local h = height(x, z)
+		local h1, h2, h3, h4 = height(x + 2, z), height(x - 2, z), height(x, z + 2), height(x, z - 2)
+		local slope = (math.max(h1, h2, h3, h4) - math.min(h1, h2, h3, h4)) / 4
+		local top = if h < 0 then M.Sand else material(x, z, h, slope)
+		local hw = h * V
+		for j, y0 in ys do
+			local o = math.clamp((hw - y0) / RES, 0, 1)
+			local m
+			if o > 0 and carve and carve(x, (y0 + RES / 2) / V, z) then
+				m, o = M.Air, 0
+			elseif o > 0 then
+				-- Under the surface: rock deep down, the surface material near the top.
+				m = if hw - y0 > 10 * V and top ~= M.Sand then M.Rock else top
+				if hw - y0 > 8 * V and top == M.Sand then
+					m = M.Sand
 				end
-				mats[i][j][k], occ[i][j][k] = m, o
+			elseif y0 < 0 then
+				m, o = M.Water, 1
+			else
+				local w = water and water(x, y0 / V, z)
+				if w then
+					m, o = w, 1
+				else
+					m = M.Air
+				end
 			end
+			mats[j], occ[j] = m, o
 		end
-	end
-	terrain:WriteVoxels(region, RES, mats, occ)
+	end)
 end
 
 return IslandFields
