@@ -32,7 +32,7 @@ local NAMES = {
 }
 
 local folder: Folder
-if RunService:IsServer() then
+if RunService:IsServer() or not RunService:IsRunning() then -- (edit mode: the map bake)
 	local existing = ReplicatedStorage:FindFirstChild("Remotes")
 	if existing then
 		folder = existing :: Folder
