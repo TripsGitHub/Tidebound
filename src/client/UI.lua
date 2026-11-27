@@ -62,6 +62,11 @@ UI.root = nil :: ScreenGui?
 
 -- Hotbar -------------------------------------------------------------------------
 
+-- How many hotbar slots you have: more as you level up (Config.HotbarSlots).
+function UI.hotbarSize(): number
+	return Config.hotbarSlotsFor(Players.LocalPlayer:GetAttribute("Level") or 1)
+end
+
 function UI.hotbarIds(): { string }
 	local ids = {}
 	for id, count in state.items do
@@ -74,7 +79,7 @@ function UI.hotbarIds(): { string }
 		return Items[a].order < Items[b].order
 	end)
 	local out = {}
-	for i = 1, math.min(8, #ids) do
+	for i = 1, math.min(UI.hotbarSize(), #ids) do
 		out[i] = ids[i]
 	end
 	return out
@@ -87,11 +92,11 @@ local function rebuildHotbar()
 		end
 	end
 	local ids = UI.hotbarIds()
-	for i = 1, math.max(8, #ids) do
+	for i = 1, math.max(UI.hotbarSize(), #ids) do
 		local id = ids[i]
 		local selected = id ~= nil and id == state.equipped
 		-- Round flat tan slot; the item's name sits above it, the stack count inside
-		-- at the bottom. All eight slots always show, like Island Tribes; the held
+		-- at the bottom. All your slots always show, like Island Tribes; the held
 		-- item's slot gets a gold rim.
 		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(58, 72), BackgroundTransparency = 1 })
 		local size = 52
@@ -675,6 +680,7 @@ function UI.init(cb)
 	for _, attr in { "Hunger", "BagUsed", "BagSize", "Level", "XP" } do
 		player:GetAttributeChangedSignal(attr):Connect(updateStats)
 	end
+	player:GetAttributeChangedSignal("Level"):Connect(rebuildHotbar)
 	player:GetAttributeChangedSignal("Shells"):Connect(function()
 		shellsLabel.Text = tostring(player:GetAttribute("Shells") or 0)
 		refreshOpen()

@@ -112,4 +112,14 @@ for _, tier in Tiers.list do
 	Items[harvester].order = 3 + r * 0.1 + 0.02
 end
 
+-- A bag for every ore tier, each one bigger than the last (after the Leather Bag,
+-- Hide Pack and Explorer Pack). Recipes are in Recipes.lua.
+Items.BAG_SIZES = { silver = 200, gold = 250, sunsteel = 310, diamond = 380, fractite = 460, amethyst = 550, obsidian = 650, lunar = 800 }
+for _, tier in Tiers.list do
+	local size = Items.BAG_SIZES[tier.id]
+	if size then
+		Items[tier.id .. "_bag"] = { name = tier.name .. " Bag", kind = "armour", slot = "bag", order = 45.3 + tier.rank * 0.01, bagSize = size }
+	end
+end
+
 return Items

@@ -161,6 +161,8 @@ local KEYS = {
 	[Enum.KeyCode.Six] = 6,
 	[Enum.KeyCode.Seven] = 7,
 	[Enum.KeyCode.Eight] = 8,
+	[Enum.KeyCode.Nine] = 9,
+	[Enum.KeyCode.Zero] = 10,
 }
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)

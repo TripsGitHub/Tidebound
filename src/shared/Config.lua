@@ -26,10 +26,30 @@ Config.LootSackLifetime = 300
 Config.UnarmedDamage = 5
 
 -- Progression
-Config.MaxLevel = 20
+-- Levels run to 250 on a slow curve: quick at first, then a long grind.
+Config.MaxLevel = 250
 function Config.XpForLevel(level: number): number
 	-- XP needed to go from `level` to `level + 1`
-	return 20 + level * 12
+	return math.floor(15 + level * 3 + level * level * 0.12)
+end
+-- Recipes and ores are written on a 1-20 scale (see Recipes.lua and Ores.lua); this
+-- spreads them over levels 1-200, leaving 200-250 for the very end of the game.
+function Config.ScaleLevel(level: number): number
+	if level <= 1 then
+		return 1
+	end
+	return math.floor(1 + (level - 1) * 10.5)
+end
+-- Hotbar slots grow with your level: 5 to start, up to 10.
+Config.HotbarSlots = { { 1, 5 }, { 25, 6 }, { 60, 7 }, { 100, 8 }, { 150, 9 }, { 200, 10 } }
+function Config.hotbarSlotsFor(level: number): number
+	local n = 5
+	for _, step in Config.HotbarSlots do
+		if level >= step[1] then
+			n = step[2]
+		end
+	end
+	return n
 end
 Config.XpPerCraft = 5
 
@@ -53,11 +73,11 @@ Config.StartingShells = 0
 
 -- World events (see src/server/Events.lua). Times are in seconds.
 Config.Events = {
-	EruptionEvery = { 600, 900 }, -- Ember Isle erupts every 10-15 minutes, leaving Obsidian
+	EruptionEvery = { 900, 1500 }, -- Ember Isle erupts every 15-25 minutes, leaving Obsidian
 	EruptionWarning = 20, -- rumbling before the obsidian spires burst out
 	EruptionSpires = { 4, 6 },
 	EruptionLasts = 300, -- unmined spires crumble after this long
-	MeteorChance = 0.6, -- chance each night brings a meteor shower (Moonstone)
+	MeteorChance = 0.15, -- chance each night brings a meteor shower (Moonstone): rarer than eruptions
 	Meteors = { 2, 4 },
 }
 

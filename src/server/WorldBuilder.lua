@@ -412,7 +412,8 @@ local BIOME_NODES = {
 		{ "Boulder", 2, zone = "pines" },
 		{ "Boulder", 13, zone = "rocks" },
 		{ "Pine", 2, { 1, 1 }, zone = "rocks" },
-		{ "Palm", 14, { 1, 3 }, zone = "palms" },
+		{ "Palm", 11, { 1, 3 }, zone = "palms" },
+		{ "FruitPalm", 4, { 1, 2 }, zone = "palms" },
 		{ "Bush", 3, zone = "palms" },
 		{ "Bush", 8, zone = "meadow" },
 		{ "Pine", 3, { 1, 2 }, zone = "meadow" },
@@ -461,7 +462,8 @@ local BIOME_NODES = {
 		{ "Boulder", 2, zone = "*" },
 	},
 	atoll = {
-		{ "Palm", 16, { 1, 3 }, zone = "inland" },
+		{ "Palm", 13, { 1, 3 }, zone = "inland" },
+		{ "FruitPalm", 4, { 1, 2 }, zone = "inland" },
 		{ "Bush", 6, zone = "inland" },
 		{ "Boulder", 3, zone = "shore" },
 	},
@@ -1417,6 +1419,32 @@ function WorldBuilder.build()
 	Landmarks.build(network, ISLANDS, groundAt, function(isl)
 		return findSpot(isl, {}, 0, Vector3.new(isl.x, 0, isl.z), isl.r * 0.4, "*")
 	end)
+	-- The Sunfruit Giant can be chopped down: its trunk, fronds and fruit become a node.
+	local giantLandmark = workspace.Landmarks:FindFirstChild("The Sunfruit Giant")
+	if giantLandmark then
+		local giant = Instance.new("Model")
+		giant.Name = "SunfruitGiant"
+		for _, p in giantLandmark:GetDescendants() do
+			if p:IsA("BasePart") and (p.Name == "Trunk" or p.Name == "Frond" or p.Name == "Sunfruit") then
+				if not p.CanCollide then
+					p:SetAttribute("BaseCollide", false)
+				end
+				p.Parent = giant
+			end
+		end
+		local trunk = giant:FindFirstChild("Trunk") :: BasePart?
+		if trunk then
+			giant.PrimaryPart = trunk
+			giant:SetAttribute("NodeType", "SunfruitGiant")
+			giant:SetAttribute("DisplayName", Nodes.SunfruitGiant.name)
+			giant:SetAttribute("HP", Nodes.SunfruitGiant.hp)
+			giant:SetAttribute("MaxHP", Nodes.SunfruitGiant.hp)
+			giant:SetAttribute("Depleted", false)
+			giant.Parent = nodes
+		else
+			giant:Destroy()
+		end
+	end
 	-- Camps on most islands, on a flat open spot away from the landmark; clear the
 	-- trees and rocks inside their walls.
 	Camps.build(ISLANDS, groundAt, function(isl)

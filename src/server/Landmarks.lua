@@ -31,22 +31,10 @@ local function wedge(parent: Instance, props): WedgePart
 	return p
 end
 
-local function nameSign(model: Model, text: string, at: Vector3)
-	local anchor = part(model, { Name = "SignAnchor", Size = Vector3.one, CFrame = CFrame.new(at), Transparency = 1, CanCollide = false, CanQuery = false })
-	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(260, 44)
-	gui.MaxDistance = 220
-	gui.LightInfluence = 0
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.FontFace = Font.new("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Bold)
-	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(255, 236, 196)
-	label.TextStrokeTransparency = 0.2
-	label.Text = text
-	label.Parent = gui
-	gui.Parent = anchor
+-- An invisible marker at the top of the landmark (admin teleports aim at it). No
+-- floating name: the minimap names places instead.
+local function nameSign(model: Model, _text: string, at: Vector3)
+	part(model, { Name = "SignAnchor", Size = Vector3.one, CFrame = CFrame.new(at), Transparency = 1, CanCollide = false, CanQuery = false })
 end
 
 -- Each builder gets the hole's centre (on the ground) and puts the landmark round it.

@@ -33,7 +33,6 @@ local Recipes = {
 -- tier's ore), then armour. Each piece takes that tier's ore, and the bigger pieces
 -- also take some of the tier below's, so you can't skip a tier.
 local Ores = require(script.Parent.Ores)
-local MAX_LEVEL = require(script.Parent.Config).MaxLevel
 for i, ore in Ores do
 	local prev = Ores[i - 1]
 	local m = 1 + 0.1 * (i - 1) -- later tiers need a bit more ore
@@ -45,7 +44,7 @@ for i, ore in Ores do
 		end
 		return c
 	end
-	local L, L2 = ore.level, math.min(ore.level + 1, MAX_LEVEL)
+	local L, L2 = ore.level, ore.level + 1
 	local t = ore.tier
 	table.insert(Recipes, { id = t .. "_harvester", tab = "Tools", level = L, cost = cost(8, { stick = 4 }, 3) })
 	table.insert(Recipes, { id = t .. "_sword", tab = "Tools", level = L, cost = cost(10, { log = 3 }, 4) })
@@ -53,6 +52,13 @@ for i, ore in Ores do
 	table.insert(Recipes, { id = t .. "_helmet", tab = "Armour", level = L, cost = cost(9, { leather = 2 }) })
 	table.insert(Recipes, { id = t .. "_legs", tab = "Armour", level = L2, cost = cost(12, { leather = 3 }, 4) })
 	table.insert(Recipes, { id = t .. "_body", tab = "Armour", level = L2, cost = cost(15, { leather = 4 }, 6) })
+	table.insert(Recipes, { id = t .. "_bag", tab = "Armour", level = L2, cost = cost(10, { leather = 6, sticky_slime = 2 }, 4) })
+end
+
+-- Recipes above are on a 1-20 scale; spread them over the real level range.
+local Config = require(script.Parent.Config)
+for _, r in Recipes do
+	r.level = Config.ScaleLevel(r.level)
 end
 
 -- Lowest level first, so the crafting screen lists them in the order you unlock them.

@@ -2,7 +2,6 @@
 -- the server checks reach, swing speed and tool, then gathers, damages or hurts.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -44,51 +43,6 @@ local function respawnLater(model: Model, def, home: CFrame)
 	end)
 end
 
--- Trees tip over away from the player, then break into logs.
-local function fellTree(model: Model, def, awayFrom: Vector3, loot: { { item: string, amount: number } })
-	local home = model:GetPivot()
-	local base = home.Position
-	local away = (base - awayFrom) * Vector3.new(1, 0, 1)
-	away = if away.Magnitude > 0 then away.Unit else Vector3.xAxis
-	local axis = Vector3.yAxis:Cross(away).Unit
-	for _, p in model:GetDescendants() do
-		if p:IsA("BasePart") then
-			p.CanCollide = false
-			p.CanQuery = false
-		end
-	end
-	local angle = Instance.new("NumberValue")
-	angle.Changed:Connect(function(a)
-		model:PivotTo(CFrame.fromAxisAngle(axis, math.rad(a)) * (home - base) + base)
-	end)
-	local tween = TweenService:Create(angle, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Value = 88 })
-	tween:Play()
-	tween.Completed:Wait()
-	angle:Destroy()
-	task.wait(0.4)
-	setVisible(model, false)
-	local _, size = model:GetBoundingBox()
-	local length = math.max(size.X, size.Y, size.Z)
-	-- Spread the loot along where the trunk landed.
-	local total = 0
-	for _, drop in loot do
-		total += drop.amount
-	end
-	local n = 0
-	for _, drop in loot do
-		for _ = 1, drop.amount do
-			n += 1
-			local along = base + away * (length * n / (total + 1)) + Vector3.new(0, 2, 0)
-			Drops.spawn(drop.item, 1, along, axis * (if n % 2 == 0 then 1 else -1))
-		end
-	end
-	if model:GetAttribute("Temporary") then
-		model:Destroy() -- world-event nodes (Events.lua) don't grow back
-	else
-		respawnLater(model, def, home)
-	end
-end
-
 -- Rolls what a broken node gives: { { item, amount } }.
 local function rollLoot(def): { { item: string, amount: number } }
 	local loot = {}
@@ -101,14 +55,11 @@ local function rollLoot(def): { { item: string, amount: number } }
 	return loot
 end
 
-local function deplete(player: Player, model: Model, def, awayFrom: Vector3)
+local function deplete(player: Player, model: Model, def, _awayFrom: Vector3)
 	model:SetAttribute("Depleted", true)
 	Progression.addXp(player, def.xp)
 	local loot = rollLoot(def)
-	if def.falls then
-		task.spawn(fellTree, model, def, awayFrom, loot)
-		return
-	end
+	-- Trees no longer topple: everything just breaks off and drops, like rocks.
 	local home = model:GetPivot()
 	setVisible(model, false)
 	local center = home.Position + Vector3.new(0, 2, 0)

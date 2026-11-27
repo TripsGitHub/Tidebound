@@ -337,6 +337,16 @@ end
 
 builders.hide_pack = builders.leather_bag
 builders.explorer_pack = builders.leather_bag
+-- Ore-tier bags: the satchel in the tier's colours.
+for _, tier in Tiers.list do
+	builders[tier.id .. "_bag"] = function(m)
+		local core = part(m, Vector3.new(1.7, 1.9, 0.9), CFrame.new(), tier.strap, Enum.Material.Fabric)
+		part(m, Vector3.new(1.8, 0.5, 1), CFrame.new(0, 0.8, 0), tier.plate, if tier.glow then Enum.Material.Neon else Enum.Material.Metal)
+		part(m, Vector3.new(1.75, 0.25, 0.95), CFrame.new(0, -0.6, 0), tier.trim, Enum.Material.Metal)
+		part(m, Vector3.new(0.35, 0.35, 0.1), CFrame.new(0, 0.4, -0.5), tier.accent, Enum.Material.Neon)
+		return core
+	end
+end
 
 -- Buildable icons ----------------------------------------------------------------
 

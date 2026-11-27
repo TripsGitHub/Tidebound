@@ -12,7 +12,6 @@ local Nodes = {
 		hp = 16,
 		respawn = 90,
 		xp = 12,
-		falls = true,
 		drops = {
 			{ item = "log", min = 4, max = 5 },
 			{ item = "stick", min = 1, max = 2 },
@@ -25,11 +24,24 @@ local Nodes = {
 		hp = 12,
 		respawn = 90,
 		xp = 10,
-		falls = true,
 		drops = {
 			{ item = "log", min = 3, max = 4 },
 			{ item = "leaves", min = 1, max = 2 },
 			{ item = "coconut", min = 1, max = 2 },
+		},
+	},
+	-- The Sunfruit Giant on Sunfruit Isle: a huge palm you can chop down for a pile of
+	-- fruit and logs. Takes a long time to grow back.
+	SunfruitGiant = {
+		name = "Sunfruit Giant",
+		material = "wood",
+		hp = 260,
+		respawn = 1800,
+		xp = 160,
+		drops = {
+			{ item = "log", min = 12, max = 16 },
+			{ item = "leaves", min = 6, max = 8 },
+			{ item = "sunfruit", min = 14, max = 20 },
 		},
 	},
 	-- Sunfruit Isle's palms: heavy with fruit.
@@ -39,7 +51,6 @@ local Nodes = {
 		hp = 12,
 		respawn = 90,
 		xp = 12,
-		falls = true,
 		drops = {
 			{ item = "log", min = 3, max = 4 },
 			{ item = "leaves", min = 1, max = 2 },
