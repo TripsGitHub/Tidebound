@@ -251,11 +251,46 @@ local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, 
 	return model
 end
 
-local function blocked(cf: CFrame, size: Vector3): boolean
+local function blocked(cf: CFrame, size: Vector3, structuresOnly: boolean?): boolean
 	local overlap = OverlapParams.new()
 	overlap.FilterType = Enum.RaycastFilterType.Include
-	overlap.FilterDescendantsInstances = { workspace.Structures, workspace.Nodes }
+	overlap.FilterDescendantsInstances = if structuresOnly then { workspace.Structures } else { workspace.Structures, workspace.Nodes }
 	return #workspace:GetPartBoundsInBox(cf, size - Vector3.new(0.3, 0.3, 0.3), overlap) > 0
+end
+
+-- A base plate clears the ground it's laid on: trees, rocks and bushes under it go
+-- (cave seals and the like are never touched), and so does loose decoration.
+local function clearGround(cf: CFrame, size: Vector3)
+	local box = Vector3.new(size.X + 2, 40, size.Z + 2)
+	local at = cf * CFrame.new(0, 18, 0)
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Include
+	local folders = {}
+	for _, name in { "Nodes", "Decor" } do
+		local f = workspace:FindFirstChild(name)
+		if f then
+			table.insert(folders, f)
+		end
+	end
+	overlap.FilterDescendantsInstances = folders
+	local gone: { [Instance]: boolean } = {}
+	for _, p in workspace:GetPartBoundsInBox(at, box, overlap) do
+		local nodes = workspace:FindFirstChild("Nodes")
+		local target: Instance = p
+		if nodes and p:IsDescendantOf(nodes) then
+			while target.Parent and target.Parent ~= nodes do
+				target = target.Parent
+			end
+			local kind = tostring(target:GetAttribute("NodeType") or "")
+			if string.find(kind, "Seal") or string.find(kind, "Gate") or target:GetAttribute("Boss") then
+				continue
+			end
+		end
+		if not gone[target] then
+			gone[target] = true
+			target:Destroy()
+		end
+	end
 end
 
 -- Defined with the base saving code below.
@@ -338,13 +373,17 @@ function Building.onPlace(player: Player, itemId: unknown, position: unknown, ro
 	end
 	local rot = Structures.snapRotation(rotation :: number)
 	local cf = CFrame.new(snapped.X, groundY + size.Y / 2, snapped.Z) * CFrame.Angles(0, math.rad(rot), 0)
-	if blocked(cf, size) then
-		Remotes.Notify:FireClient(player, "Something is in the way", "warn")
+	local isBase = Structures.isBase(item.structure)
+	if blocked(cf, size, isBase) then
+		Remotes.Notify:FireClient(player, if isBase then "Too close to someone else's build" else "Something is in the way", "warn")
 		return
 	end
 
 	if not Inventory.take(player, itemId, cost) then
 		return
+	end
+	if isBase then
+		clearGround(cf, size)
 	end
 	local placed = construct(player.UserId, player, itemId, cf, n)
 	Crafting.placed(player, itemId)
