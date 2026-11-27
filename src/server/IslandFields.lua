@@ -600,11 +600,29 @@ IslandFields.rockcay = make({ name = "Gull Rock", r = 28, peak = 14, hills = 2, 
 IslandFields.isle1 = make({ name = "", r = 30, peak = 16, hills = 2, spires = 4, seed = 101, low = M.Grass, high = M.Rock, cliff = M.Slate })
 IslandFields.isle2 = make({ name = "", r = 32, peak = 24, hills = 3, spires = 2, seed = 107, low = M.Slate, high = M.Rock, cliff = M.Slate })
 IslandFields.isle3 = make({ name = "", r = 32, peak = 12, hills = 3, seed = 113, low = M.Grass, high = M.Grass, cliff = M.Rock })
-IslandFields.isle4 = make({ name = "", r = 40, peak = 20, hills = 3, ponds = 1, seed = 127, low = M.Grass, high = M.Grass, cliff = M.Rock })
-IslandFields.isle5 = make({ name = "", r = 42, peak = 15, hills = 4, ponds = 2, seed = 131, low = M.Grass, high = M.Grass })
+IslandFields.isle4 = make({ name = "", r = 40, peak = 20, hills = 3, seed = 127, low = M.Grass, high = M.Grass, cliff = M.Rock })
+IslandFields.isle5 = make({ name = "", r = 42, peak = 15, hills = 4, seed = 131, low = M.Grass, high = M.Grass })
 IslandFields.isle6 = make({ name = "", r = 38, peak = 18, hills = 2, spires = 3, seed = 139, low = M.Rock, high = M.Slate, cliff = M.Slate })
 IslandFields.isle7 = make({ name = "", r = 36, peak = 10, hills = 4, seed = 149, low = M.Sand, high = M.Grass, cliff = M.Sandstone })
 IslandFields.isle8 = make({ name = "", r = 30, peak = 12, hills = 3, seed = 151, low = M.Grass, high = M.Grass, cliff = M.Rock })
+
+-- Islets (WorldBuilder ISLANDS "Islet n"): palm, rock, grass and sandbar in turn.
+IslandFields.islet1 = make({ name = "", r = 20, peak = 7, hills = 2, low = M.Sand, high = M.Grass, seed = 207 })
+IslandFields.islet2 = make({ name = "", r = 16, peak = 16, hills = 2, spires = 3, low = M.Rock, high = M.Slate, cliff = M.Slate, seed = 214 })
+IslandFields.islet3 = make({ name = "", r = 22, peak = 10, hills = 3, low = M.Grass, high = M.Grass, cliff = M.Rock, seed = 221 })
+IslandFields.islet4 = make({ name = "", r = 16, peak = 4, hills = 2, low = M.Sand, high = M.Sand, seed = 228 })
+IslandFields.islet5 = make({ name = "", r = 22, peak = 7, hills = 2, low = M.Sand, high = M.Grass, seed = 235 })
+IslandFields.islet6 = make({ name = "", r = 22, peak = 16, hills = 2, spires = 3, low = M.Rock, high = M.Slate, cliff = M.Slate, seed = 242 })
+IslandFields.islet7 = make({ name = "", r = 22, peak = 10, hills = 3, low = M.Grass, high = M.Grass, cliff = M.Rock, seed = 249 })
+IslandFields.islet8 = make({ name = "", r = 20, peak = 4, hills = 2, low = M.Sand, high = M.Sand, seed = 256 })
+IslandFields.islet9 = make({ name = "", r = 12, peak = 7, hills = 2, low = M.Sand, high = M.Grass, seed = 263 })
+IslandFields.islet10 = make({ name = "", r = 18, peak = 16, hills = 2, spires = 3, low = M.Rock, high = M.Slate, cliff = M.Slate, seed = 270 })
+IslandFields.islet11 = make({ name = "", r = 14, peak = 10, hills = 3, low = M.Grass, high = M.Grass, cliff = M.Rock, seed = 277 })
+IslandFields.islet12 = make({ name = "", r = 22, peak = 4, hills = 2, low = M.Sand, high = M.Sand, seed = 284 })
+IslandFields.islet13 = make({ name = "", r = 12, peak = 7, hills = 2, low = M.Sand, high = M.Grass, seed = 291 })
+IslandFields.islet14 = make({ name = "", r = 14, peak = 16, hills = 2, spires = 3, low = M.Rock, high = M.Slate, cliff = M.Slate, seed = 298 })
+IslandFields.islet15 = make({ name = "", r = 12, peak = 10, hills = 3, low = M.Grass, high = M.Grass, cliff = M.Rock, seed = 305 })
+IslandFields.islet16 = make({ name = "", r = 16, peak = 4, hills = 2, low = M.Sand, high = M.Sand, seed = 312 })
 
 IslandFields.hills = PH :: Field
 IslandFields.rock = SS :: Field

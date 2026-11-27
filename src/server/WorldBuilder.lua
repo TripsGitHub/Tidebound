@@ -192,12 +192,14 @@ end
 local makers = { Pine = makePine, Palm = makePalm, Boulder = makeBoulder, Bush = makeBush, SlimePool = makeSlimePool, CropPatch = makeCropPatch }
 
 -- The Blender mesh for each node, and how much its size varies.
+-- Trees and rocks are built big next to a player (pines several times your height), so
+-- the islands feel like places rather than models.
 local NODE_MESHES = {
-	Pine = { mesh = "pine", scale = { 0.9, 1.2 } },
-	Palm = { mesh = "palm", scale = { 0.9, 1.15 } },
-	FruitPalm = { mesh = "palm", scale = { 1.05, 1.3 } },
-	Boulder = { mesh = "boulder", scale = { 0.85, 1.2 } },
-	Bush = { mesh = "bush", scale = { 0.9, 1.15 } },
+	Pine = { mesh = "pine", scale = { 1.25, 1.7 } },
+	Palm = { mesh = "palm", scale = { 1.2, 1.6 } },
+	FruitPalm = { mesh = "palm", scale = { 1.3, 1.7 } },
+	Boulder = { mesh = "boulder", scale = { 1.1, 1.6 } },
+	Bush = { mesh = "bush", scale = { 1, 1.35 } },
 	SlimePool = { mesh = "slimepool", scale = { 1, 1 } },
 	CropPatch = { mesh = "crop_patch", scale = { 0.9, 1.3 } },
 }
@@ -445,6 +447,23 @@ local ISLANDS: { Island } = {
 	{ name = "Isle 6", x = 330, z = -420, r = 38, biome = "isle6", nameless = true, outpost = "lighthouse" },
 	{ name = "Isle 7", x = -300, z = -430, r = 36, biome = "isle7", nameless = true, outpost = "shipwreck" },
 	{ name = "Isle 8", x = 120, z = 170, r = 30, biome = "isle8", nameless = true, outpost = "fishingHut" },
+	-- Islets: little bits of land dotted across the open sea, nothing built on them.
+	{ name = "Islet 1", x = -560, z = 10, r = 20, biome = "islet1", nameless = true }, -- palm
+	{ name = "Islet 2", x = 500, z = -290, r = 16, biome = "islet2", nameless = true }, -- rock
+	{ name = "Islet 3", x = 320, z = 480, r = 22, biome = "islet3", nameless = true }, -- grass
+	{ name = "Islet 4", x = 560, z = -100, r = 16, biome = "islet4", nameless = true }, -- sand
+	{ name = "Islet 5", x = -280, z = 480, r = 22, biome = "islet5", nameless = true }, -- palm
+	{ name = "Islet 6", x = 160, z = -520, r = 22, biome = "islet6", nameless = true }, -- rock
+	{ name = "Islet 7", x = -140, z = -520, r = 22, biome = "islet7", nameless = true }, -- grass
+	{ name = "Islet 8", x = -530, z = 170, r = 20, biome = "islet8", nameless = true }, -- sand
+	{ name = "Islet 9", x = 160, z = 480, r = 12, biome = "islet9", nameless = true }, -- palm
+	{ name = "Islet 10", x = -130, z = 480, r = 18, biome = "islet10", nameless = true }, -- rock
+	{ name = "Islet 11", x = -560, z = -130, r = 14, biome = "islet11", nameless = true }, -- grass
+	{ name = "Islet 12", x = 20, z = -200, r = 22, biome = "islet12", nameless = true }, -- sand
+	{ name = "Islet 13", x = 340, z = 350, r = 12, biome = "islet13", nameless = true }, -- palm
+	{ name = "Islet 14", x = 380, z = -270, r = 14, biome = "islet14", nameless = true }, -- rock
+	{ name = "Islet 15", x = -390, z = 420, r = 12, biome = "islet15", nameless = true }, -- grass
+	{ name = "Islet 16", x = 540, z = 210, r = 16, biome = "islet16", nameless = true }, -- sand
 }
 -- Built MapScale.H times bigger than the shapes above, and MapScale.Spread further apart.
 for _, isl in ISLANDS do
@@ -575,6 +594,17 @@ local BIOME_NODES = {
 		{ "CropPatch", 4, zone = "inland" },
 	},
 }
+
+-- Islets: four plantings, round in turn (see the ISLANDS list).
+local ISLET_NODES = {
+	palm = { { "Palm", 4, { 1, 3 }, zone = "*" }, { "FruitPalm", 1, { 1, 1 }, zone = "shore" }, { "Bush", 2, zone = "inland" }, { "CropPatch", 1, zone = "inland" } },
+	rock = { { "Boulder", 5, zone = "*" }, { "SilverVein", 1, zone = "peak" }, { "Bush", 1, zone = "inland" } },
+	grass = { { "Pine", 3, { 1, 2 }, zone = "inland" }, { "Bush", 3, zone = "*" }, { "CropPatch", 2, zone = "inland" }, { "Boulder", 1, zone = "*" } },
+	sand = { { "Palm", 2, { 1, 2 }, zone = "*" }, { "Boulder", 2, zone = "shore" }, { "Bush", 1, zone = "inland" } },
+}
+for i, kind in { "palm", "rock", "grass", "sand", "palm", "rock", "grass", "sand", "palm", "rock", "grass", "sand", "palm", "rock", "grass", "sand" } do
+	BIOME_NODES["islet" .. i] = ISLET_NODES[kind]
+end
 
 -- The nameless islands borrow a planting from the small named ones.
 BIOME_NODES.isle1 = { -- grassy foot under a rocky crown

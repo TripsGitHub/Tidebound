@@ -181,6 +181,8 @@ function Ambience.start()
 	underGrade.Contrast = 0.1
 	underGrade.Brightness = -0.04
 
+	-- A slightly narrower view than Roblox's 70: the world reads bigger round you.
+	camera.FieldOfView = 62
 	sky.MoonAngularSize = 22 -- big and crisp, like the reference
 	sky.SunAngularSize = 16
 	sky.StarCount = 3000
