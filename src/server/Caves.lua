@@ -164,8 +164,10 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			table.insert(s3, root + Vector3.new(0, 6, 0))
 			table.insert(result.paths, s3)
 
-			local outward = Vector3.new(entrance.X - cx, 0, entrance.Z - cz)
-			table.insert(result.entrances, { pos = entrance, facing = if outward.Magnitude > 0 then outward.Unit else Vector3.zAxis })
+			-- The fang ring's gap is on its left, so face it inwards: the gap then opens
+			-- the way the spiral runs (anticlockwise round the island).
+			local inward = Vector3.new(cx - entrance.X, 0, cz - entrance.Z)
+			table.insert(result.entrances, { pos = entrance, facing = if inward.Magnitude > 0 then inward.Unit else Vector3.zAxis })
 		end
 		-- The island's root cavern in the Deep Network.
 		table.insert(result.chambers, { pos = root, r = 26, tier = "deep" })
