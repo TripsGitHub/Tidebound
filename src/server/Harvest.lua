@@ -82,7 +82,11 @@ local function fellTree(model: Model, def, awayFrom: Vector3, loot: { { item: st
 			Drops.spawn(drop.item, 1, along, axis * (if n % 2 == 0 then 1 else -1))
 		end
 	end
-	respawnLater(model, def, home)
+	if model:GetAttribute("Temporary") then
+		model:Destroy() -- world-event nodes (Events.lua) don't grow back
+	else
+		respawnLater(model, def, home)
+	end
 end
 
 -- Rolls what a broken node gives: { { item, amount } }.
@@ -114,7 +118,11 @@ local function deplete(player: Player, model: Model, def, awayFrom: Vector3)
 			Drops.spawn(drop.item, 1, center, Vector3.new(math.cos(a), 0.6, math.sin(a)))
 		end
 	end
-	respawnLater(model, def, home)
+	if model:GetAttribute("Temporary") then
+		model:Destroy() -- world-event nodes (Events.lua) don't grow back
+	else
+		respawnLater(model, def, home)
+	end
 end
 
 local function hitNode(player: Player, model: Model, item, rootPos: Vector3)

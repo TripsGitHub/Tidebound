@@ -51,4 +51,14 @@ Config.Sounds = {
 
 Config.StartingShells = 0
 
+-- World events (see src/server/Events.lua). Times are in seconds.
+Config.Events = {
+	EruptionEvery = { 600, 900 }, -- Ember Isle erupts every 10-15 minutes, leaving Obsidian
+	EruptionWarning = 20, -- rumbling before the obsidian spires burst out
+	EruptionSpires = { 4, 6 },
+	EruptionLasts = 300, -- unmined spires crumble after this long
+	MeteorChance = 0.6, -- chance each night brings a meteor shower (Moonstone)
+	Meteors = { 2, 4 },
+}
+
 return Config

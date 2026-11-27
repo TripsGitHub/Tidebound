@@ -333,25 +333,17 @@ local BIOME_NODES = {
 	snow = {
 		{ "Pine", 14, { 1, 3 }, zone = "slopes" },
 		{ "Boulder", 6, zone = "peak" },
-		{ "DiamondCluster", 4, zone = "peak" },
-		{ "FractiteCluster", 3, zone = "peak" },
 		{ "GoldVein", 2, zone = "slopes" },
 		{ "Boulder", 2, zone = "shore" },
 	},
 	marsh = { -- slime: pools on every islet
 		{ "SlimePool", 8, zone = "*" },
-		{ "AmethystGeode", 4, zone = "*" },
-		{ "SunstoneVein", 2, zone = "*" },
 		{ "Bush", 10, zone = "*" },
 		{ "Pine", 2, { 1, 1 }, zone = "heart" },
 	},
 	ember = {
 		{ "Boulder", 9, zone = "slopes" },
 		{ "Boulder", 3, zone = "camp" },
-		{ "SunstoneVein", 4, zone = "slopes" },
-		{ "ObsidianSpire", 4, zone = "slopes" },
-		{ "MoonstoneCluster", 2, zone = "camp" },
-		{ "FractiteCluster", 1, zone = "camp" },
 	},
 }
 
@@ -488,6 +480,7 @@ local function spawnNode(nodeFolder: Folder, nodeType: string, pos: Vector3)
 	model:SetAttribute("MaxHP", Nodes[nodeType].hp)
 	model:SetAttribute("Depleted", false)
 	model.Parent = nodeFolder
+	return model
 end
 
 -- A spot on this island that is dry, not too steep, and `spacing` away from everything taken.
@@ -571,6 +564,104 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 					spawnNode(nodeFolder, nodeType, spot)
 					table.insert(taken, spot)
 					made += 1
+				end
+			end
+		end
+	end
+end
+
+-- Caves ---------------------------------------------------------------------------
+-- The advanced ores only grow underground in Stone Shelf's cave (or come from world
+-- events, see Events.lua). The deeper the chamber, the better the ore.
+local CAVE_NODES = {
+	chamber = { { "SilverVein", 2 }, { "GoldVein", 2 } },
+	vault = { { "SunstoneVein", 3 }, { "DiamondCluster", 3 }, { "GoldVein", 1 } },
+	hollow = { { "FractiteCluster", 3 }, { "AmethystGeode", 3 }, { "DiamondCluster", 1 } },
+}
+
+-- Raycast down inside a cave from just under its ceiling to find the floor.
+local function caveFloorAt(x: number, z: number, from: number): RaycastResult?
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	return workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -24, 0), params)
+end
+
+-- Dim glowing crystals stuck in the walls, so the tunnels aren't pitch black.
+local function caveLight(parent: Instance, pos: Vector3, color: Color3)
+	local p = Instance.new("Part")
+	p.Name = "CaveLight"
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.Size = Vector3.new(0.6, rng:NextNumber(1.2, 2), 0.6)
+	p.CFrame = CFrame.new(pos) * CFrame.Angles(rng:NextNumber(-0.5, 0.5), rng:NextNumber(0, 6), rng:NextNumber(-0.5, 0.5))
+	p.Material = Enum.Material.Neon
+	p.Color = color
+	p.Parent = parent
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = 18
+	light.Brightness = 0.8
+	light.Shadows = false
+	light.Parent = p
+end
+
+local function buildCave(nodeFolder: Folder, isl: Island)
+	local field = IslandFields.rock
+	local decor = Instance.new("Folder")
+	decor.Name = "CaveLights"
+	decor.Parent = workspace
+	local glow = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 255, 210) }
+
+	-- Lights along every tunnel.
+	for _, path in field.tunnels do
+		for i = 1, #path - 1 do
+			local a, b = path[i], path[i + 1]
+			local len = math.sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2)
+			for t = 0.15, 1, 14 / len do
+				local x, z = a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t
+				local floor_ = a[3] + (b[3] - a[3]) * t
+				local hit = caveFloorAt(isl.x + x, isl.z + z, floor_ + 6)
+				if hit then
+					caveLight(decor, hit.Position + Vector3.new(rng:NextNumber(-2, 2), 0.6, rng:NextNumber(-2, 2)), glow[rng:NextInteger(1, #glow)])
+				end
+			end
+		end
+	end
+
+	-- Ores and a ring of lights in each chamber.
+	for _, c in field.chambers do
+		local cx, cz, r, floor_, h = isl.x + c[1], isl.z + c[2], c[3], c[4], c[5]
+		for i = 1, 4 do
+			local a = i / 4 * math.pi * 2
+			local hit = caveFloorAt(cx + math.cos(a) * r * 0.7, cz + math.sin(a) * r * 0.7, floor_ + h * 0.4)
+			if hit then
+				caveLight(decor, hit.Position + Vector3.new(0, 0.6, 0), glow[(i % #glow) + 1])
+			end
+		end
+		local taken = {}
+		for _, entry in CAVE_NODES[c.name] or {} do
+			local made = 0
+			for _ = 1, entry[2] * 8 do
+				if made >= entry[2] then
+					break
+				end
+				local a = rng:NextNumber(0, math.pi * 2)
+				local d = math.sqrt(rng:NextNumber()) * r * 0.6
+				local hit = caveFloorAt(cx + math.cos(a) * d, cz + math.sin(a) * d, floor_ + h * 0.6)
+				if hit and hit.Normal.Y > 0.7 then
+					local ok = true
+					for _, o in taken do
+						if (o - hit.Position).Magnitude < 7 then
+							ok = false
+						end
+					end
+					if ok then
+						spawnNode(nodeFolder, entry[1], hit.Position)
+						table.insert(taken, hit.Position)
+						made += 1
+					end
 				end
 			end
 		end
@@ -727,6 +818,20 @@ local function startDayNight()
 	end)
 end
 
+-- For world events (Events.lua): drop a node somewhere on an island's open ground.
+function WorldBuilder.spawnNodeOn(isl: Island, nodeType: string, zone: string?): Model?
+	local nodes = workspace:FindFirstChild("Nodes") :: Folder?
+	if not nodes then
+		return nil
+	end
+	local taken = {}
+	for _, m in nodes:GetChildren() do
+		table.insert(taken, m:GetPivot().Position)
+	end
+	local spot = findSpot(isl, taken, 10, nil, nil, zone)
+	return if spot then spawnNode(nodes, nodeType, spot) else nil
+end
+
 function WorldBuilder.build()
 	for _, child in workspace:GetChildren() do
 		if child.Name == "Baseplate" or child:IsA("SpawnLocation") or child.Name == "TestGround" then
@@ -792,6 +897,7 @@ function WorldBuilder.build()
 	local shelf = ISLANDS[3]
 	local mouth = IslandFields.rock.caveMouth
 	makeCaveMouth(Vector3.new(shelf.x + mouth.X, 3, shelf.z + mouth.Y), Vector3.new(0, 0, -1))
+	buildCave(nodes, shelf)
 
 	-- Boars roam the two grassy islands.
 	Animals.spawnHerd("Boar", Vector3.new(home.x + CloverIsland.Herd.X, 0, home.z + CloverIsland.Herd.Y), 3)

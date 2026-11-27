@@ -3,6 +3,12 @@
 -- has stone power rank + 1, so the harvester of the tier below always unlocks it
 -- (Stone Harvester -> Silver, Silver Harvester -> Gold, ... Obsidian -> Moonstone).
 -- level: the level that tier's gear unlocks at.
+-- Where they come from:
+--   Silver, Gold                on the surface (Clover's rocks, Stone Shelf, Frost Isle)
+--   Sunstone, Diamond           the Deep Vault, below sea level in Stone Shelf's cave
+--   Fractite, Amethyst          the Hollow, the deepest chamber of that cave
+--   Obsidian                    only from Ember Isle eruptions (world event)
+--   Moonstone                   only from meteor showers at night (world event)
 -- look: how the node and the item are drawn ("metal" = nuggets in rock,
 --       "crystal" = a cluster of shards).
 

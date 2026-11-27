@@ -159,9 +159,24 @@ SS.name = "Stone Shelf"
 SS.bounds = { -110, 110, -132, 132 }
 SS.ytop = 44
 SS.caveMouth = Vector2.new(12, -86)
-local CAVE_END = Vector2.new(10, -40)
-local CAVE_FLOOR, CAVE_H, CAVE_W = 3, 9, 6
-local CHAMBER = { 10, -38, 15 }
+-- The cave: a tunnel from the mouth into a chamber under the ridge, then two ramps
+-- winding down below sea level to the Deep Vault and, deepest of all, the Hollow.
+-- Better ores are deeper (see WorldBuilder CAVE_NODES).
+--   { x, z, floor } points joined by tunnels; floor = cave floor height (studs).
+local TUNNELS = {
+	{ { 12, -86, 3 }, { 10, -40, 3 } }, -- mouth to the first chamber
+	{ { 10, -38, 3 }, { 18, -14, -6 }, { 4, 10, -14 } }, -- down to the Deep Vault
+	{ { 4, 10, -14 }, { -14, 30, -24 }, { -6, 60, -32 } }, -- down to the Hollow
+}
+local TUNNEL_W, TUNNEL_H = 6, 10
+--   Chambers: { x, z, radius, floor, height }
+local CHAMBERS = {
+	{ 10, -38, 15, 3, 14, name = "chamber" },
+	{ 4, 10, 18, -14, 16, name = "vault" },
+	{ -6, 60, 20, -32, 17, name = "hollow" },
+}
+SS.chambers = CHAMBERS
+SS.tunnels = TUNNELS
 local ROT = math.rad(12)
 local function ssUV(x, z)
 	return x * cos(ROT) - z * sin(ROT), x * sin(ROT) + z * cos(ROT)
@@ -191,21 +206,31 @@ function SS.height(x, z)
 	return h + smooth(l / 0.2) * detail(x, z) * 0.7
 end
 function SS.carve(x, y, z)
-	if y < CAVE_FLOOR then
-		return false
+	for _, path in TUNNELS do
+		for i = 1, #path - 1 do
+			local a, b = path[i], path[i + 1]
+			local dx, dz = b[1] - a[1], b[2] - a[2]
+			local t = math.clamp(((x - a[1]) * dx + (z - a[2]) * dz) / (dx * dx + dz * dz), 0, 1)
+			local d = hypot(x - (a[1] + dx * t), z - (a[2] + dz * t))
+			local w = TUNNEL_W + sin(t * 9 + i) * 1.2
+			if d < w then
+				local floor_ = a[3] + (b[3] - a[3]) * t
+				if y >= floor_ and y < floor_ + TUNNEL_H * (1 - (d / w) ^ 2) then
+					return true
+				end
+			end
+		end
 	end
-	local ax, az, bx, bz = SS.caveMouth.X, SS.caveMouth.Y, CAVE_END.X, CAVE_END.Y
-	local t = math.clamp(((x - ax) * (bx - ax) + (z - az) * (bz - az)) / ((bx - ax) ^ 2 + (bz - az) ^ 2), 0, 1)
-	local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
-	local d = hypot(x - px, z - pz)
-	local w = CAVE_W + sin(t * 9) * 1.2
-	local top = if d < w then CAVE_FLOOR + CAVE_H * (1 - (d / w) ^ 2) else -1
-	local dc = hypot(x - CHAMBER[1], z - CHAMBER[2])
-	local ctop = if dc < CHAMBER[3] then CAVE_FLOOR + 14 * (1 - (dc / CHAMBER[3]) ^ 2) else -1
-	return y < math.max(top, ctop)
+	for _, c in CHAMBERS do
+		local dc = hypot(x - c[1], z - c[2])
+		if dc < c[3] and y >= c[4] and y < c[4] + c[5] * (1 - (dc / c[3]) ^ 2) then
+			return true
+		end
+	end
+	return false
 end
 function SS.zoneAt(x, z)
-	if hypot(x - CHAMBER[1], z - CHAMBER[2]) < CHAMBER[3] then
+	if hypot(x - CHAMBERS[1][1], z - CHAMBERS[1][2]) < CHAMBERS[1][3] then
 		return "cave"
 	end
 	return if ssRidge(x, z) > 0.45 then "cliffs" else "slope"
