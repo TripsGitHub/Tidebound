@@ -1,0 +1,3 @@
+-- Replaces Roblox's default Animate script, so the default walk, idle and jump
+-- animations don't play. Tidebound animates every character in code instead
+-- (src/client/Anim.lua), which also gives it control of the legs and torso.
