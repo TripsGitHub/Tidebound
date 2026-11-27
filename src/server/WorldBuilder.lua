@@ -343,7 +343,8 @@ local function applyTint(model: Model, tintName: string?)
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") then
 			for key, colour in tint do
-				if key ~= "mix" and string.find(p.Name, key) then
+				-- Match the Blender material name (Leaf0, Bark, BushLeaf...), or the part name for block models.
+				if key ~= "mix" and string.find(p:GetAttribute("Mat") or p.Name, key) then
 					p.Color = p.Color:Lerp(colour, tint.mix or 0.85)
 				end
 			end

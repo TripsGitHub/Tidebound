@@ -152,6 +152,7 @@ function Meshes.build(name: string, options: Options?): Model?
 		local colour = MeshColors[src.Name]
 		if colour then
 			p.Color = colour[1]
+			p:SetAttribute("Mat", colour[2]) -- the Blender material name, for tints
 			local look = LOOKS[colour[2]]
 			if look then
 				p.Material = look.material or Enum.Material.SmoothPlastic
