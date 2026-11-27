@@ -312,7 +312,7 @@ local VARIANTS = {
 	Pine = {
 		default = { { nil, 6 }, { "autumn", 1 }, { "gold", 1 } },
 		hills = { { nil, 5 }, { "autumn", 2 }, { "gold", 2 }, { "dark", 1 } },
-		ruins = { { "autumn", 3 }, { "gold", 3 }, { nil, 2 } },
+		ruins = { { "autumn", 4 }, { "gold", 3 } }, -- the autumn island
 		snow = { { "snowy", 4 }, { "frosted", 1 } },
 		crags = { { "dark", 3 }, { nil, 1 } },
 	},
@@ -768,7 +768,7 @@ local function buildTerrain()
 		(terrain :: any).Decoration = true
 	end)
 	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(134, 152, 76))
-	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(110, 132, 66))
+	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(204, 170, 82)) -- autumn grass (Old Ruins)
 	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(228, 212, 168))
 	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(112, 104, 94))
 	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(44, 42, 46))
@@ -1906,6 +1906,29 @@ function WorldBuilder.build(bakeOnly: boolean?)
 			extent = math.max(extent, math.abs(isl.x) + isl.r, math.abs(isl.z) + isl.r)
 		end
 		Grottos.build(ISLANDS, avoid, nodes, { spawnNode = spawnNode, crystal = crystal, makeSeal = makeSeal, npcAvatar = npcAvatar }, extent)
+	end
+	-- Glowing lava veins in the deep caves (painted by Caves.paint).
+	do
+		local glow = Instance.new("Folder")
+		glow.Name = "VeinGlow"
+		glow.Parent = workspace
+		for n, at in network.veins or {} do
+			if n > 260 then
+				break
+			end
+			local p = Instance.new("Part")
+			p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+			p.Transparency = 1
+			p.Size = Vector3.new(1, 1, 1)
+			p.Position = at
+			local light = Instance.new("PointLight")
+			light.Color = Color3.fromRGB(255, 96, 40)
+			light.Range = 16
+			light.Brightness = 1.6
+			light.Shadows = false
+			light.Parent = p
+			p.Parent = glow
+		end
 	end
 	dressCaves(nodes, chambers, tunnels, network.pockets)
 	for _, sh in network.shafts do

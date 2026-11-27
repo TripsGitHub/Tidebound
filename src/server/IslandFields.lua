@@ -602,7 +602,8 @@ IslandFields.cay = make({ name = "Driftwood Cay", r = 45, peak = 12, hills = 4, 
 IslandFields.atoll = make({ name = "Coral Atoll", r = 58, peak = 10, hills = 5, seed = 19, atoll = true, low = M.Grass, high = M.Grass })
 IslandFields.crags = make({ name = "Silver Crags", r = 62, peak = 34, hills = 4, spires = 9, ponds = 1, seed = 29, low = M.Slate, high = M.Rock, cliff = M.Slate })
 IslandFields.mesa = make({ name = "Gold Mesa", r = 64, peak = 30, hills = 3, mesa = true, seed = 43, low = M.Sandstone, high = M.Sandstone, cliff = M.Sandstone, shore = M.Sand })
-IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 20, hills = 6, ponds = 2, seed = 61, low = M.Grass, high = M.Grass })
+-- Autumn: golden grass (LeafyGrass is tinted for it in WorldBuilder) under orange and gold trees.
+IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 20, hills = 6, ponds = 2, seed = 61, low = M.LeafyGrass, high = M.LeafyGrass })
 IslandFields.fruit = make({ name = "Sunfruit Isle", r = 66, peak = 16, hills = 5, ponds = 3, seed = 97, low = M.Grass, high = M.Grass })
 IslandFields.skull = make({ name = "Skull Key", r = 34, peak = 22, hills = 1, seed = 71, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 -- The cave hub: a big snow-capped rock you can see from every island near the middle.

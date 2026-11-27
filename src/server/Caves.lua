@@ -1209,6 +1209,8 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 		terrain:FillCylinder(CFrame.new(rf.x, rf.y1 - skin / 2, rf.z), skin, rf.r, rf.top)
 	end
 
+	Caves.paint(terrain, result)
+
 	-- The ravines are open to the sea: a flat-floored trench with ragged walls, and a
 	-- water shaft from the end of the climbing hall up into it.
 	for _, cut in ravineCuts do
@@ -1227,6 +1229,66 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 			local top = SEA_FLOOR + 6
 			local bottom = rv.shaft.Y + BRANCH_R
 			terrain:FillCylinder(CFrame.new(rv.shaft.X, (top + bottom) / 2, rv.shaft.Z), top - bottom, BRANCH_R + 1, M.Water)
+		end
+	end
+end
+
+-- Gives the cave walls some character by depth, only recolouring rock that's already
+-- there (never adding or removing any, so nothing gets blocked):
+--   * upper caves: mossy, grassy paths along the floor;
+--   * lower caves: mud floors and sandstone bands in the walls;
+--   * deep down: dark basalt walls with glowing lava veins running through them.
+function Caves.paint(terrain: Terrain, result: Result)
+	local prng = Random.new(777)
+	local function patch(at: Vector3, size: Vector3, from: { Enum.Material }, to: Enum.Material)
+		local region = Region3.new(at - size / 2, at + size / 2):ExpandToGrid(4)
+		for _, m in from do
+			terrain:ReplaceMaterial(region, 4, m, to)
+		end
+	end
+	local WALLS = { M.Rock, M.Slate, M.Sandstone, M.Ground, M.Basalt, M.Limestone }
+	result.veins = {}
+	for n, t in result.tunnels do
+		local s = samples(t.points)
+		for i = 1, #s, 4 do
+			local p = s[i]
+			local ahead = s[math.min(#s, i + 1)] - s[math.max(1, i - 1)]
+			local flat = Vector3.new(ahead.X, 0, ahead.Z)
+			local side = if flat.Magnitude > 0.01 then Vector3.new(-flat.Z, 0, flat.X).Unit else Vector3.xAxis
+			local floorAt = p - Vector3.new(0, t.r - 0.5, 0)
+			if p.Y > -40 then
+				-- Upper caves: a grassy, mossy path down the middle of the floor.
+				if prng:NextNumber() < 0.7 then
+					patch(floorAt, Vector3.new(t.r * 1.1, 4, t.r * 1.1), WALLS, if prng:NextNumber() < 0.6 then M.Grass else M.Ground)
+				end
+			elseif p.Y > -120 then
+				if prng:NextNumber() < 0.5 then
+					patch(floorAt, Vector3.new(t.r * 1.2, 4, t.r * 1.2), WALLS, M.Mud)
+				end
+				if prng:NextNumber() < 0.25 then
+					local dir = if prng:NextNumber() < 0.5 then 1 else -1
+					patch(p + side * dir * t.r + Vector3.new(0, prng:NextNumber(-2, 3), 0), Vector3.new(6, 3, 6), WALLS, M.Sandstone)
+				end
+			else
+				-- Deep: basalt walls, and a lava vein climbing the wall now and then.
+				if prng:NextNumber() < 0.6 then
+					patch(floorAt, Vector3.new(t.r * 1.3, 4, t.r * 1.3), { M.Rock, M.Slate }, M.Basalt)
+				end
+				if prng:NextNumber() < 0.3 then
+					local dir = if prng:NextNumber() < 0.5 then 1 else -1
+					local start = p + side * dir * (t.r + 0.5) - Vector3.new(0, t.r * 0.5, 0)
+					local step = Vector3.new(prng:NextNumber(-3, 3), 3.5, prng:NextNumber(-3, 3))
+					local count = prng:NextInteger(3, 5)
+					for k = 0, count do
+						patch(start + step * k, Vector3.new(4, 4, 4), { M.Rock, M.Slate, M.Basalt }, M.CrackedLava)
+					end
+					-- A warm glow off the vein (WorldBuilder lights it), pulled into the tunnel.
+					table.insert(result.veins, (start + step * (count / 2)) - side * dir * 2.5)
+				end
+			end
+		end
+		if n % 6 == 0 then
+			task.wait()
 		end
 	end
 end

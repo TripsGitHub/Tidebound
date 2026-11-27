@@ -308,6 +308,7 @@ function Ambience.start()
 	local underwater = false
 	local ground: Enum.Material? = nil
 	local nearLava = false
+	local leavesAutumn = false
 	local lastProbe = 0
 	RunService.RenderStepped:Connect(function()
 		local now = os.clock()
@@ -361,6 +362,14 @@ function Ambience.start()
 		local outside = focus.Y > -4
 		fx.pollen.Enabled = outside and not underwater and not night and grassy
 		fx.leaves.Enabled = outside and not underwater and not night and grassy
+		-- Autumn ground (golden LeafyGrass): lots of orange leaves blowing past.
+		local autumn = ground == Enum.Material.LeafyGrass
+		if autumn ~= leavesAutumn then
+			leavesAutumn = autumn
+			fx.leaves.Rate = if autumn then 16 else 3
+			fx.leaves.Color = if autumn then ColorSequence.new(rgb(236, 120, 40), rgb(214, 70, 30)) else ColorSequence.new(rgb(170, 190, 80), rgb(210, 150, 60))
+			fx.leaves.Size = if autumn then NumberSequence.new(0.5, 0.4) else NumberSequence.new(0.35, 0.3)
+		end
 		fx.fireflies.Enabled = outside and not underwater and night and (grassy or ground == Enum.Material.Mud)
 		fx.snow.Enabled = outside and not underwater and snowy
 		fx.embers.Enabled = not underwater and nearLava
