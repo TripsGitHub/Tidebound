@@ -123,6 +123,9 @@ function Appearance.setArmour(player: Player, armour: { [string]: string })
 		local pieces = ArmourModels.wear(itemId, character)
 		if #pieces > 0 then
 			for _, piece in pieces do
+				-- Clients read these to play the putting-on animation (Anim.lua).
+				piece.model:SetAttribute("Slot", slot)
+				piece.model:SetAttribute("ItemId", itemId)
 				weldModel(piece.model, piece.part)
 				piece.model.Parent = folder
 			end
@@ -133,6 +136,8 @@ function Appearance.setArmour(player: Player, armour: { [string]: string })
 			local attach = findPart(character, spec.names)
 			if attach then
 				local piece = simplePiece(itemId, attach, spec)
+				piece:SetAttribute("Slot", slot)
+				piece:SetAttribute("ItemId", itemId)
 				weldModel(piece, attach)
 				piece.Parent = folder
 			end
