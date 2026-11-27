@@ -17,7 +17,7 @@ local WorldBake = {}
 local ServerStorage = game:GetService("ServerStorage")
 local HttpService = game:GetService("HttpService")
 
-WorldBake.VERSION = 1
+WorldBake.VERSION = 2
 
 local real = workspace.Terrain
 

@@ -33,6 +33,17 @@ local function wedge(parent: Instance, props): WedgePart
 	return p
 end
 
+-- Terrain rock, so a landmark made of stone is part of the island and not a pile of
+-- bricks on top of it: balls filled along a line from a (radius r0) to b (radius r1).
+local function rockLine(a: Vector3, b: Vector3, r0: number, r1: number, mat: Enum.Material)
+	local len = (b - a).Magnitude
+	local steps = math.max(1, math.ceil(len / (math.min(r0, r1) * 0.5)))
+	for k = 0, steps do
+		local t = k / steps
+		WorldBake.terrain:FillBall(a:Lerp(b, t), r0 + (r1 - r0) * t, mat)
+	end
+end
+
 -- An invisible marker at the top of the landmark (admin teleports aim at it). No
 -- floating name: the minimap names places instead.
 local function nameSign(model: Model, _text: string, at: Vector3)
@@ -84,17 +95,6 @@ function BUILDERS.hills(m: Model, c: Vector3, groundAt)
 	return "The Hollow Stump", 26
 end
 
--- Terrain rock, so a landmark made of stone is part of the island and not a pile of
--- bricks on top of it: balls filled along a line from a (radius r0) to b (radius r1).
-local function rockLine(a: Vector3, b: Vector3, r0: number, r1: number, mat: Enum.Material)
-	local len = (b - a).Magnitude
-	local steps = math.max(1, math.ceil(len / (math.min(r0, r1) * 0.5)))
-	for k = 0, steps do
-		local t = k / steps
-		WorldBake.terrain:FillBall(a:Lerp(b, t), r0 + (r1 - r0) * t, mat)
-	end
-end
-
 -- Stone Shelf: the Sentinel Arch, one great bow of living rock over the hole.
 function BUILDERS.rock(m: Model, c: Vector3, groundAt)
 	local rock = Enum.Material.Rock
@@ -137,13 +137,14 @@ function BUILDERS.marsh(m: Model, c: Vector3, groundAt)
 	return "The Toadstool Sink", 34
 end
 
--- Ember Isle: the Smoking Vent, a ring of basalt columns that never stops smoking.
+-- Ember Isle: the Smoking Vent, a low crater of black rock that never stops smoking.
 function BUILDERS.ember(m: Model, c: Vector3, groundAt)
-	for i = 0, 13 do
-		local a = i / 14 * math.pi * 2
-		local h = 8 + (i % 4) * 4
-		local p = c + Vector3.new(math.cos(a) * 13, 0, math.sin(a) * 13)
-		part(m, { Name = "Column", Size = Vector3.new(4, h, 4), CFrame = CFrame.new(p + Vector3.new(0, h / 2 - 1, 0)) * CFrame.Angles(0, a, 0), Color = Color3.fromRGB(40, 38, 44), Material = Enum.Material.Basalt })
+	local T = WorldBake.terrain
+	for i = 0, 17 do
+		local a = i / 18 * math.pi * 2
+		local h = 3 + math.sin(i * 1.9) * 2.5 + (i % 3)
+		local p = c + Vector3.new(math.cos(a) * 17, h - 2, math.sin(a) * 17)
+		T:FillBall(p, 5 + (i % 2), Enum.Material.Basalt)
 	end
 	local core = part(m, { Name = "Smoke", Size = Vector3.one, CFrame = CFrame.new(c + Vector3.new(0, 2, 0)), Transparency = 1, CanCollide = false, CanQuery = false })
 	local smoke = Instance.new("Smoke")
@@ -157,7 +158,7 @@ function BUILDERS.ember(m: Model, c: Vector3, groundAt)
 	light.Range = 26
 	light.Brightness = 1.5
 	light.Parent = core
-	return "The Smoking Vent", 28
+	return "The Smoking Vent", 24
 end
 
 -- Driftwood Cay: The Wreck, a ship run aground and broken open round the hole.
@@ -175,13 +176,28 @@ function BUILDERS.cay(m: Model, c: Vector3, groundAt)
 	return "The Wreck", 30
 end
 
--- Coral Atoll: the Coral Arch, a bright reef arch with shells round its feet.
+-- Coral Atoll: the Coral Arch, a bow of pale reef rock with coral growing on it.
 function BUILDERS.atoll(m: Model, c: Vector3, groundAt)
-	local corals = { Color3.fromRGB(255, 120, 120), Color3.fromRGB(255, 170, 90), Color3.fromRGB(200, 120, 255) }
+	local reef = Enum.Material.Limestone
+	for side = -1, 1, 2 do
+		rockLine(c + Vector3.new(side * 18, -5, 0), c + Vector3.new(side * 14, 14, 0), 6, 4.5, reef)
+	end
 	for k = 0, 12 do
 		local a = k / 12 * math.pi
-		local p = c + Vector3.new(math.cos(a) * 15, math.sin(a) * 20, 0)
-		part(m, { Name = "Coral", Shape = Enum.PartType.Ball, Size = Vector3.one * (6 - math.sin(a) * 1.5), CFrame = CFrame.new(p), Color = corals[k % 3 + 1], Material = Enum.Material.Pebble })
+		WorldBake.terrain:FillBall(c + Vector3.new(math.cos(a) * 14, 14 + math.sin(a) * 6, 0), 4.5 - math.sin(a) * 0.8, reef)
+	end
+	-- Coral clumps in three colours, a few big ones, sitting on the arch and at its feet.
+	local corals = { Color3.fromRGB(255, 120, 120), Color3.fromRGB(255, 170, 90), Color3.fromRGB(200, 120, 255) }
+	local spots = {
+		Vector3.new(-17, 2, 3), Vector3.new(-16, 4, -3), Vector3.new(18, 1, 4), Vector3.new(15, 6, -3),
+		Vector3.new(-9, 22, 2), Vector3.new(4, 24, -2), Vector3.new(11, 20, 3),
+	}
+	for i, o in spots do
+		local size = if i <= 4 then rng:NextNumber(3.5, 5) else rng:NextNumber(2.5, 3.5)
+		local col = corals[i % 3 + 1]
+		local at = c + o
+		part(m, { Name = "Coral", Shape = Enum.PartType.Ball, Size = Vector3.one * size, CFrame = CFrame.new(at), Color = col, Material = Enum.Material.Pebble, CanCollide = false })
+		part(m, { Name = "Coral", Shape = Enum.PartType.Ball, Size = Vector3.one * size * 0.6, CFrame = CFrame.new(at + Vector3.new(size * 0.4, size * 0.3, 0)), Color = col:Lerp(Color3.new(1, 1, 1), 0.15), Material = Enum.Material.Pebble, CanCollide = false })
 	end
 	for i = 1, 8 do
 		local a = rng:NextNumber(0, math.pi * 2)
