@@ -48,14 +48,12 @@ function Camps.place(parent: Instance, name: string, banner: Color3, centre: Vec
 		local a1 = (i + 0.5) / sections * math.pi * 2
 		local p0 = at(math.sin(a0) * R, -math.cos(a0) * R)
 		local p1 = at(math.sin(a1) * R, -math.cos(a1) * R)
-		Props.palisade(m, p0 - Vector3.new(0, 0.5, 0), p1 - Vector3.new(0, 0.5, 0), 8)
+		Props.palisade(m, p0 - Vector3.new(0, 0.5, 0), p1 - Vector3.new(0, 0.5, 0), 15)
 	end
-	-- Gate posts with torches and the big sign over the way in.
+	-- Gate posts with torches at the way in.
 	local gl, gr = at(-5.5, -R - 1), at(5.5, -R - 1)
-	Props.torchPost(m, gl, 7)
-	Props.torchPost(m, gr, 7)
-	local signAt = at(0, -R - 6)
-	Props.bigSign(m, signAt, look.LookVector, name) -- read from outside the gate
+	Props.torchPost(m, gl, 12)
+	Props.torchPost(m, gr, 12)
 
 	-- Inside: two tents at the back, the totem between them, a fire in the middle.
 	local back = at(0, 14)

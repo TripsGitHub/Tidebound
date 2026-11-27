@@ -122,16 +122,16 @@ end
 function Props.palisade(parent: Instance, a: Vector3, b: Vector3, height: number?)
 	local h = height or 9
 	local d = b - a
-	local n = math.max(1, math.floor(d.Magnitude / 1.5))
+	local n = math.max(1, math.floor(d.Magnitude / 2))
 	for i = 0, n do
 		local p = a:Lerp(b, i / n)
 		local hh = h + rng:NextNumber(-0.8, 0.8)
 		local col = if i % 2 == 0 then Props.WOOD else Props.WOOD_LIGHT
-		part(parent, { Name = "Stake", Shape = Enum.PartType.Cylinder, Size = Vector3.new(hh, 1.5, 1.5), CFrame = CFrame.new(p + Vector3.new(0, hh / 2 - 0.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = col, Material = Enum.Material.Wood })
-		part(parent, { Class = "WedgePart", Name = "Point", Size = Vector3.new(1.4, 1.4, 1.4), CFrame = CFrame.new(p + Vector3.new(0, hh, 0)) * CFrame.Angles(0, math.atan2(d.X, d.Z), 0), Color = col, Material = Enum.Material.Wood, CanCollide = false })
+		part(parent, { Name = "Stake", Shape = Enum.PartType.Cylinder, Size = Vector3.new(hh + 2, 2.2, 2.2), CFrame = CFrame.new(p + Vector3.new(0, hh / 2 - 1.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = col, Material = Enum.Material.Wood })
+		part(parent, { Class = "WedgePart", Name = "Point", Size = Vector3.new(2, 1.8, 2), CFrame = CFrame.new(p + Vector3.new(0, hh, 0)) * CFrame.Angles(0, math.atan2(d.X, d.Z), 0), Color = col, Material = Enum.Material.Wood, CanCollide = false })
 	end
 	-- Two rope lashings along the wall.
-	for _, y in { 2.5, h - 2 } do
+	for _, y in { 3, h * 0.5, h - 2 } do
 		local mid = (a + b) / 2 + Vector3.new(0, y, 0)
 		part(parent, { Name = "Lashing", Size = Vector3.new(0.25, 0.25, d.Magnitude), CFrame = CFrame.lookAt(mid, mid + d), Color = Props.ROPE, Material = Enum.Material.Fabric, CanCollide = false })
 	end

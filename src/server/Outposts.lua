@@ -333,11 +333,10 @@ function CAMPS.fort(c: Ctx, name: string, banner: Color3)
 	for i = 1, sections - 1 do
 		local a0 = (i - 0.5) / sections * math.pi * 2
 		local a1 = (i + 0.5) / sections * math.pi * 2
-		Props.palisade(c.m, c.at(math.sin(a0) * R, -math.cos(a0) * R) - Vector3.new(0, 0.8, 0), c.at(math.sin(a1) * R, -math.cos(a1) * R) - Vector3.new(0, 0.8, 0), 11)
+		Props.palisade(c.m, c.at(math.sin(a0) * R, -math.cos(a0) * R) - Vector3.new(0, 0.8, 0), c.at(math.sin(a1) * R, -math.cos(a1) * R) - Vector3.new(0, 0.8, 0), 18)
 	end
-	watchtower(c, -9, -R + 2, 16)
-	watchtower(c, 9, -R + 2, 16)
-	Props.bigSign(c.m, c.at(0, -R - 10), c.look.LookVector, name)
+	watchtower(c, -9, -R + 2, 24)
+	watchtower(c, 9, -R + 2, 24)
 	-- Longhouse along the back.
 	local top = floor(c, 0, 24, 26, 12, 0)
 	local wallH = logWalls(c, top, 26, 12, 8)
@@ -390,7 +389,6 @@ function CAMPS.homestead(c: Ctx, name: string, banner: Color3)
 	Props.crateStack(c.m, c.cf(4, 8, 0.2))
 	Props.flowers(c.m, c.at(-6, 2), 6, 14)
 	Props.banner(c.m, c.at(-2, -30), banner, 10)
-	Props.bigSign(c.m, c.at(10, -32), c.look.LookVector, name)
 	return 36
 end
 
@@ -415,7 +413,6 @@ function CAMPS.teepees(c: Ctx, name: string, banner: Color3)
 	dryingRack(c, 32, 4, 1.2)
 	dryingRack(c, -32, -6, -1.1)
 	Props.banner(c.m, c.at(0, 34), banner, 14)
-	Props.bigSign(c.m, c.at(0, -38), c.look.LookVector, name)
 	return 38
 end
 
@@ -487,7 +484,6 @@ function CAMPS.quarry(c: Ctx, name: string, banner: Color3, terrain: Terrain)
 	fire.Parent = coals
 	part(c.m, { Name = "Anvil", Size = Vector3.new(1.4, 1.6, 2.6), CFrame = CFrame.new(forge + Vector3.new(4.5, 0.8, 0)), Color = rgb(60, 58, 62), Material = Enum.Material.Metal })
 	Props.banner(c.m, c.at(-30, -28), banner, 12)
-	Props.bigSign(c.m, c.at(0, -32), c.look.LookVector, name)
 	return 34
 end
 
