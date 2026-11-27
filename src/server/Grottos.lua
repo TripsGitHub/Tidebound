@@ -245,7 +245,7 @@ local function build(site: Vector3, kind, folder: Folder, nodes: Folder, helpers
 	glow.CFrame = CFrame.new(centre + Vector3.new(0, CHAMBER_R * 0.4, 0))
 	glow.Parent = model
 	local light = Instance.new("PointLight")
-	light.Color, light.Range, light.Brightness, light.Shadows = kind.glow, 60, 1.2, false
+	light.Color, light.Range, light.Brightness, light.Shadows = kind.glow:Lerp(Color3.new(1, 1, 1), 0.5), 50, 0.5, false
 	light.Parent = glow
 
 	-- The ores, spread across the floor away from the way in.
