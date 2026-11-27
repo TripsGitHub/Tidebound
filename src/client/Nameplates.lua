@@ -48,7 +48,8 @@ local function text(props)
 	return l
 end
 
-local function attach(plr: Player, character: Model)
+-- owner: the Player (or, for an NPC, its own model) whose attributes drive the plate.
+local function attach(plr: any, character: Model, displayName: string?, npc: boolean?)
 	local head = character:WaitForChild("Head", 10) :: BasePart?
 	local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
 	if not head or not humanoid then
@@ -97,7 +98,7 @@ local function attach(plr: Player, character: Model)
 	for i, y in { 0.32, 0.7 } do
 		grain[i] = new("Frame", { Parent = plank, Position = UDim2.new(0, -27, y, 0), Size = UDim2.new(1, 38, 0, 2), BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 1 })
 	end
-	local name = text({ Parent = plank, Size = UDim2.fromOffset(0, 30), AutomaticSize = Enum.AutomaticSize.X, Text = plr.DisplayName, TextSize = 18, ZIndex = 3 })
+	local name = text({ Parent = plank, Size = UDim2.fromOffset(0, 30), AutomaticSize = Enum.AutomaticSize.X, Text = displayName or plr.DisplayName, TextSize = 18, ZIndex = 3 })
 
 	-- Rope lashings at both ends.
 	local ropes = {}
@@ -119,6 +120,29 @@ local function attach(plr: Player, character: Model)
 	if levelStroke then
 		levelStroke.Thickness = 2.5
 		levelStroke.Color = rgb(20, 12, 6)
+	end
+
+	-- NPCs get the same plank, plus a speech-bubble badge on the right end, so you can
+	-- tell at a glance it's someone to talk to.
+	if npc then
+		local badge = new("Frame", { Parent = plank, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(1, 2, 0.5, 0), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = rgb(250, 214, 90), BorderSizePixel = 0, ZIndex = 4 }, {
+			new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+			new("UIStroke", { Color = rgb(84, 56, 34), Thickness = 2 }),
+		})
+		-- A drawn speech bubble: a round body and a small tail.
+		new("Frame", { Parent = badge, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromOffset(15, 11), BackgroundColor3 = rgb(84, 56, 34), BorderSizePixel = 0, ZIndex = 5 }, {
+			new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+		})
+		new("Frame", { Parent = badge, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.36, 0.7), Size = UDim2.fromOffset(5, 5), Rotation = 45, BackgroundColor3 = rgb(84, 56, 34), BorderSizePixel = 0, ZIndex = 5 })
+		for k = -1, 1 do
+			new("Frame", { Parent = badge, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, k * 4, 0.45, 0), Size = UDim2.fromOffset(2.5, 2.5), BackgroundColor3 = rgb(250, 214, 90), BorderSizePixel = 0, ZIndex = 6 }, {
+				new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+			})
+		end
+		local pad = plank:FindFirstChildOfClass("UIPadding")
+		if pad then
+			pad.PaddingRight = UDim.new(0, 30)
+		end
 	end
 
 	-- Health: a thin bar under the plank that shows for a few seconds whenever your
@@ -205,7 +229,18 @@ local function watch(plr: Player)
 	end)
 end
 
+local function watchNpc(model: Instance)
+	if model:IsA("Model") then
+		task.spawn(attach, model, model, model:GetAttribute("NpcName") or model.Name, true)
+	end
+end
+
 function Nameplates.start()
+	local CollectionService = game:GetService("CollectionService")
+	for _, m in CollectionService:GetTagged("NPC") do
+		watchNpc(m)
+	end
+	CollectionService:GetInstanceAddedSignal("NPC"):Connect(watchNpc)
 	RunService.RenderStepped:Connect(function()
 		local cam = workspace.CurrentCamera
 		if not cam then

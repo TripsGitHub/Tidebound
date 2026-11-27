@@ -738,9 +738,9 @@ local function buildTerrain()
 	pcall(function()
 		(terrain :: any).Decoration = true
 	end)
-	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(122, 166, 60))
-	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(98, 142, 52))
-	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(232, 212, 158))
+	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(134, 152, 76))
+	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(110, 132, 66))
+	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(228, 212, 168))
 	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(112, 104, 94))
 	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(44, 42, 46))
 	terrain:SetMaterialColor(Enum.Material.Sandstone, Color3.fromRGB(196, 128, 82))
@@ -896,6 +896,10 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 			-- between, rather than sprinkled evenly over every slope.
 			count = math.max(1, math.round(count * 0.4))
 			clump = clump or { 1, 3 }
+		end
+		if nodeType == "Tree" or nodeType == "Palm" or nodeType == "Pine" then
+			-- Fewer trees, so islands have open meadows between the groves.
+			count = math.max(1, math.round(count * 0.65))
 		end
 		if Nodes[nodeType] and Nodes[nodeType].ore then
 			-- Ore veins in small seams of two or three rather than dotted evenly about.
@@ -1507,39 +1511,10 @@ local function npcAvatar(cf: CFrame, name: string, level: number, outfit: { shir
 		track.Looped = true
 		track:Play()
 	end)
-	-- Name bar: a dark rounded strip with the level in a circle on its left.
-	local head = model:FindFirstChild("Head") :: BasePart
-	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(170, 26)
-	gui.StudsOffset = Vector3.new(0, 2.4, 0)
-	gui.MaxDistance = 80
-	local bar = Instance.new("Frame")
-	bar.Size = UDim2.new(1, -14, 1, 0)
-	bar.Position = UDim2.fromOffset(14, 0)
-	bar.BackgroundColor3 = Color3.fromRGB(40, 32, 30)
-	bar.BackgroundTransparency = 0.15
-	bar.Parent = gui
-	Instance.new("UICorner", bar).CornerRadius = UDim.new(0.5, 0)
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -20, 1, 0)
-	label.Position = UDim2.fromOffset(18, 0)
-	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBold
-	label.TextScaled = true
-	label.TextColor3 = Color3.fromRGB(245, 236, 220)
-	label.Text = name
-	label.Parent = bar
-	local badge = Instance.new("TextLabel")
-	badge.Size = UDim2.fromOffset(28, 28)
-	badge.Position = UDim2.fromOffset(0, -1)
-	badge.BackgroundColor3 = Color3.fromRGB(28, 22, 20)
-	badge.Font = Enum.Font.GothamBold
-	badge.TextScaled = true
-	badge.TextColor3 = Color3.fromRGB(245, 236, 220)
-	badge.Text = tostring(level)
-	badge.Parent = gui
-	Instance.new("UICorner", badge).CornerRadius = UDim.new(0.5, 0)
-	gui.Parent = head
+	-- The client gives NPCs the same plank nameplate as players, with an NPC badge.
+	model:SetAttribute("Level", level)
+	model:SetAttribute("NpcName", name)
+	game:GetService("CollectionService"):AddTag(model, "NPC")
 	return model
 end
 
