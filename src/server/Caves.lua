@@ -373,7 +373,8 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			if at.Y < -30 and dir.Magnitude > 0 then
 				local side = Vector3.new(-dir.Z, 0, dir.X).Unit * (if rng:NextNumber() < 0.5 then 1 else -1)
 				local heading = yaw(side, rng:NextNumber(-0.5, 0.5))
-				local minY, maxY = math.max(DEEP_Y - 20, at.Y - 25), math.min(-34, at.Y + 12)
+				local maxY = math.min(-34, at.Y + 12)
+				local minY = math.min(math.max(DEEP_Y - 20, at.Y - 25), maxY - 10) -- the Maw's halls run deeper than DEEP_Y
 				local branch = crooked(at, heading, rng:NextNumber(70, 200), minY, maxY)
 				add(branch, BRANCH_R, "branch")
 				local tip = branch[#branch]
