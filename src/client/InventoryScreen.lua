@@ -139,44 +139,72 @@ local function grid(parent: Instance): ScrollingFrame
 	}, { new("UIGridLayout", { CellSize = CARD, CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }) })
 end
 
+local rebuildBag: () -> ()
+
 -- Craft cards ---------------------------------------------------------------------
 -- [ item name                ]
 -- [ icon ] [ ingredients box ]   ingredient: name above, icon, count below (red/green)
 -- [         Craft            ]   or "Level N" when locked
 
+-- Cards are built once and then only updated (counts, colours, labels), because
+-- building them, with their 3D icons, every time the bag changed made the game hitch.
+local craftCards: { [string]: { card: Frame, costs: { [string]: TextLabel }, foot: Frame, locked: boolean? } } = {}
+
+local function craftCard(i: number, recipe)
+	local card = block({ Parent = craftGrid, LayoutOrder = i, BackgroundColor3 = C.card })
+	hoverable(card, recipe.id)
+	label({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.new(1, -8, 0, 16), Text = Items[recipe.id].name, TextScaled = false, TextSize = 15 })
+
+	local iconBox = block({ Parent = card, Position = UDim2.fromOffset(5, 20), Size = UDim2.fromOffset(50, 50), BackgroundColor3 = C.cardDark })
+	Icons.make(recipe.id, iconBox, UDim2.fromScale(0.9, 0.9), UDim2.fromScale(0.05, 0.05))
+
+	local costs = block({ Parent = card, Position = UDim2.fromOffset(59, 20), Size = UDim2.new(1, -64, 0, 50), BackgroundColor3 = C.cardDark }, nil)
+	new("UIListLayout", { Parent = costs, FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 1) })
+	local counts = {}
+	for id, amount in recipe.cost do
+		local cell = new("Frame", { Parent = costs, Size = UDim2.fromOffset(26, 50), BackgroundTransparency = 1 })
+		local short = string.match(Items[id].name, "(%S+)$") or Items[id].name
+		label({ Parent = cell, Size = UDim2.new(1, 0, 0, 11), Text = short, TextScaled = false, TextSize = 10 })
+		Icons.make(id, cell, UDim2.fromOffset(24, 24), UDim2.fromOffset(1, 11))
+		counts[id] = label({ Parent = cell, Position = UDim2.fromOffset(0, 35), Size = UDim2.new(1, 0, 0, 14), Text = tostring(amount), TextScaled = false, TextSize = 15 })
+	end
+
+	local foot = block({ Parent = card, Position = UDim2.fromOffset(5, 76), Size = UDim2.new(1, -10, 0, 29), BackgroundColor3 = C.cardDark })
+	local entry = { card = card, costs = counts, foot = foot, locked = nil }
+	craftCards[recipe.id] = entry
+	return entry
+end
+
 local function rebuildCrafting()
-	clear(craftGrid)
 	styleTabs(craftTabs, craftTab)
 	local level = player:GetAttribute("Level") or 1
 	for i, recipe in Recipes do
 		-- Locked recipes only show a few levels ahead, so the list isn't all late-game gear.
-		if (craftTab == "All" or recipe.tab == craftTab) and recipe.level <= level + 3 then
-			local locked = level < recipe.level
-			local card = block({ Parent = craftGrid, LayoutOrder = (if locked then 1000 else 0) + i, BackgroundColor3 = if locked then C.cardLocked else C.card })
-			hoverable(card, recipe.id)
-			label({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.new(1, -8, 0, 16), Text = Items[recipe.id].name, TextScaled = false, TextSize = 15 })
-
-			local iconBox = block({ Parent = card, Position = UDim2.fromOffset(5, 20), Size = UDim2.fromOffset(50, 50), BackgroundColor3 = C.cardDark })
-			Icons.make(recipe.id, iconBox, UDim2.fromScale(0.9, 0.9), UDim2.fromScale(0.05, 0.05))
-
-			local costs = block({ Parent = card, Position = UDim2.fromOffset(59, 20), Size = UDim2.new(1, -64, 0, 50), BackgroundColor3 = C.cardDark }, nil)
-			new("UIListLayout", { Parent = costs, FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 1) })
-			for id, amount in recipe.cost do
-				local have = state.items[id] or 0
-				local cell = new("Frame", { Parent = costs, Size = UDim2.fromOffset(26, 50), BackgroundTransparency = 1 })
-				local short = string.match(Items[id].name, "(%S+)$") or Items[id].name
-				label({ Parent = cell, Size = UDim2.new(1, 0, 0, 11), Text = short, TextScaled = false, TextSize = 10 })
-				Icons.make(id, cell, UDim2.fromOffset(24, 24), UDim2.fromOffset(1, 11))
-				label({ Parent = cell, Position = UDim2.fromOffset(0, 35), Size = UDim2.new(1, 0, 0, 14), Text = tostring(amount), TextColor3 = if have >= amount then C.good else C.bad, TextScaled = false, TextSize = 15 })
-			end
-
-			local foot = block({ Parent = card, Position = UDim2.fromOffset(5, 76), Size = UDim2.new(1, -10, 0, 29), BackgroundColor3 = C.cardDark })
-			if locked then
-				label({ Parent = foot, Size = UDim2.fromScale(1, 1), Text = "Level " .. recipe.level, TextScaled = false, TextSize = 22 })
-			else
-				textButton({ Parent = foot, Size = UDim2.fromScale(1, 1), Text = "Craft", TextScaled = false, TextSize = 24 }, function()
-					callbacks.onCraft(recipe.id)
-				end)
+		local show = (craftTab == "All" or recipe.tab == craftTab) and recipe.level <= level + 3
+		local entry = craftCards[recipe.id]
+		if show and not entry then
+			entry = craftCard(i, recipe)
+		end
+		if entry then
+			entry.card.Visible = show
+			if show then
+				local locked = level < recipe.level
+				entry.card.LayoutOrder = (if locked then 1000 else 0) + i
+				entry.card.BackgroundColor3 = if locked then C.cardLocked else C.card
+				for id, amount in recipe.cost do
+					entry.costs[id].TextColor3 = if (state.items[id] or 0) >= amount then C.good else C.bad
+				end
+				if entry.locked ~= locked then
+					entry.locked = locked
+					clear(entry.foot)
+					if locked then
+						label({ Parent = entry.foot, Size = UDim2.fromScale(1, 1), Text = "Level " .. recipe.level, TextScaled = false, TextSize = 22 })
+					else
+						textButton({ Parent = entry.foot, Size = UDim2.fromScale(1, 1), Text = "Craft", TextScaled = false, TextSize = 24 }, function()
+							callbacks.onCraft(recipe.id)
+						end)
+					end
+				end
 			end
 		end
 	end
@@ -188,8 +216,50 @@ end
 -- [ Name (xN)       ]
 -- [ Equip     Drop  ]
 
-local function rebuildBag()
-	clear(bagGrid)
+local bagCards: { [string]: { card: Frame, star: TextButton, name: TextLabel, primary: TextButton?, stroke: UIStroke } } = {}
+
+local function bagCard(id: string)
+	local item = Items[id]
+	local card = block({ Parent = bagGrid })
+	local ring = UIKit.stroke(C.star, 2)
+	ring.Parent = card
+	hoverable(card, id)
+	local star = textButton({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(20, 20), Text = "☆", TextColor3 = C.star, TextScaled = false, TextSize = 20, ZIndex = 3 }, function()
+		favourites[id] = not favourites[id] or nil
+		rebuildBag()
+	end)
+	Icons.make(id, card, UDim2.fromOffset(52, 52), UDim2.new(0.5, -26, 0, 4))
+	local name = label({ Parent = card, Position = UDim2.fromOffset(2, 58), Size = UDim2.new(1, -4, 0, 18), Text = item.name, TextScaled = false, TextSize = 15 })
+
+	local actions = new("Frame", { Parent = card, Position = UDim2.fromOffset(4, 80), Size = UDim2.new(1, -8, 0, 24), BackgroundTransparency = 1 }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local function act(order: number, text: string, fn: () -> ()): TextButton
+		return textButton({ Parent = actions, LayoutOrder = order, Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 19 }, fn)
+	end
+	local primary
+	if item.kind == "armour" then
+		primary = act(1, "Equip", function()
+			callbacks.onWear(id)
+		end)
+	elseif item.kind == "tool" or item.kind == "placeable" then
+		primary = act(1, "Equip", function()
+			callbacks.onHold(if state.equipped == id then nil else id)
+		end)
+	elseif item.kind == "food" then
+		act(1, "Eat", function()
+			callbacks.onEat(id)
+		end)
+	end
+	act(2, "Drop", function()
+		callbacks.onDrop(id)
+	end)
+	local entry = { card = card, star = star, name = name, primary = primary, stroke = ring }
+	bagCards[id] = entry
+	return entry
+end
+
+function rebuildBag()
 	styleTabs(bagTabs, bagTab)
 	local kinds
 	for _, tab in BAG_TABS do
@@ -209,65 +279,62 @@ local function rebuildBag()
 		end
 		return Items[a].order < Items[b].order
 	end)
+	local shown = {}
 	for i, id in ids do
+		shown[id] = true
 		local item = Items[id]
+		local entry = bagCards[id] or bagCard(id)
 		local worn = item.kind == "armour" and state.armour[item.slot] == id
 		local held = state.equipped == id
-		local card = block({ Parent = bagGrid, LayoutOrder = i })
-		if worn or held then
-			UIKit.stroke(C.star, 2).Parent = card
-		end
-		hoverable(card, id)
-		textButton({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(20, 20), Text = if favourites[id] then "★" else "☆", TextColor3 = C.star, TextScaled = false, TextSize = 20, ZIndex = 3 }, function()
-			favourites[id] = not favourites[id] or nil
-			rebuildBag()
-		end)
-		Icons.make(id, card, UDim2.fromOffset(52, 52), UDim2.new(0.5, -26, 0, 4))
+		entry.card.Visible = true
+		entry.card.LayoutOrder = i
+		entry.stroke.Enabled = worn or held
+		entry.star.Text = if favourites[id] then "★" else "☆"
 		local count = state.items[id]
-		label({ Parent = card, Position = UDim2.fromOffset(2, 58), Size = UDim2.new(1, -4, 0, 18), Text = if count > 1 then item.name .. " (x" .. count .. ")" else item.name, TextScaled = false, TextSize = 15 })
-
-		local actions = new("Frame", { Parent = card, Position = UDim2.fromOffset(4, 80), Size = UDim2.new(1, -8, 0, 24), BackgroundTransparency = 1 }, {
-			new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
-		})
-		local function act(order: number, text: string, fn: () -> ())
-			textButton({ Parent = actions, LayoutOrder = order, Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 19 }, fn)
+		entry.name.Text = if count > 1 then item.name .. " (x" .. count .. ")" else item.name
+		if entry.primary then
+			entry.primary.Text = if worn or held then "Unequip" else "Equip"
 		end
-		if item.kind == "armour" then
-			act(1, if worn then "Unequip" else "Equip", function()
-				callbacks.onWear(id)
-			end)
-		elseif item.kind == "tool" or item.kind == "placeable" then
-			act(1, if held then "Unequip" else "Equip", function()
-				callbacks.onHold(if held then nil else id)
-			end)
-		elseif item.kind == "food" then
-			act(1, "Eat", function()
-				callbacks.onEat(id)
-			end)
+	end
+	for id, entry in bagCards do
+		if not shown[id] then
+			entry.card.Visible = false
 		end
-		act(2, "Drop", function()
-			callbacks.onDrop(id)
-		end)
 	end
 end
+
+local stripCounts: { [string]: TextLabel } = {}
 
 local function rebuildStrip()
-	clear(strip)
 	for i, id in STRIP_ITEMS do
-		local cell = new("Frame", { Parent = strip, LayoutOrder = i, Size = UDim2.fromOffset(64, 56), BackgroundTransparency = 1 })
-		local short = string.match(Items[id].name, "(%S+)$") or Items[id].name
-		label({ Parent = cell, Size = UDim2.new(1, 0, 0, 14), Text = short, TextScaled = false, TextSize = 14 })
-		Icons.make(id, cell, UDim2.fromOffset(26, 26), UDim2.new(0.5, -13, 0, 14))
-		label({ Parent = cell, Position = UDim2.fromOffset(0, 40), Size = UDim2.new(1, 0, 0, 15), Text = "x" .. (state.items[id] or 0), TextScaled = false, TextSize = 16 })
+		local count = stripCounts[id]
+		if not count then
+			local cell = new("Frame", { Parent = strip, LayoutOrder = i, Size = UDim2.fromOffset(64, 56), BackgroundTransparency = 1 })
+			local short = string.match(Items[id].name, "(%S+)$") or Items[id].name
+			label({ Parent = cell, Size = UDim2.new(1, 0, 0, 14), Text = short, TextScaled = false, TextSize = 14 })
+			Icons.make(id, cell, UDim2.fromOffset(26, 26), UDim2.new(0.5, -13, 0, 14))
+			count = label({ Parent = cell, Position = UDim2.fromOffset(0, 40), Size = UDim2.new(1, 0, 0, 15), Text = "", TextScaled = false, TextSize = 16 })
+			stripCounts[id] = count
+		end
+		count.Text = "x" .. (state.items[id] or 0)
 	end
 end
 
+-- Several inventory updates can land in one frame (craft = take + add); redraw once.
+local pending = false
 function Screen.refresh()
-	if root and root.Visible then
-		rebuildCrafting()
-		rebuildBag()
-		rebuildStrip()
+	if pending or not (root and root.Visible) then
+		return
 	end
+	pending = true
+	task.defer(function()
+		pending = false
+		if root.Visible then
+			rebuildCrafting()
+			rebuildBag()
+			rebuildStrip()
+		end
+	end)
 end
 
 function Screen.set(items, equipped, armour)
