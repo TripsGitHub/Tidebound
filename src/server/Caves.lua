@@ -27,6 +27,7 @@ export type Result = {
 	chambers: { Chamber },
 	paths: { { Vector3 } },
 	entrances: { { pos: Vector3, facing: Vector3 } },
+	spoke: { Vector3 }?,
 }
 
 -- Rock around the tunnel wherever it's deep, so it has walls under the sea.
@@ -199,6 +200,9 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 		local a, b = link[1] + Vector3.new(0, 6, 0), link[2] + Vector3.new(0, 6, 0)
 		local path = wander(a, b)
 		table.insert(result.paths, path)
+		if middle and link[1] == roots[1] and link[2] == roots[middle] then
+			result.spoke = path -- the first island's tunnel to the middle one, for the self-test
+		end
 		-- A cavern halfway along each long tunnel.
 		local mid = path[math.max(1, math.floor(#path / 2))]
 		local floor = Vector3.new(mid.X, DEEP_Y - rng:NextNumber(0, 8), mid.Z)
@@ -216,6 +220,30 @@ function Caves.verify(terrain: Terrain, result: Result)
 	local PathfindingService = game:GetService("PathfindingService")
 	local solid, legs, bad = 0, 0, 0
 	local firstBad
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { terrain }
+	local function floorOf(p: Vector3): Vector3
+		local hit = workspace:Raycast(p, Vector3.new(0, -TUNNEL_R - 6, 0), params)
+		return if hit then hit.Position + Vector3.new(0, 3, 0) else p
+	end
+	-- The walk from the first island's entrance down to its root and on to the
+	-- middle island, as "x,y,z;..." so a test client can walk it.
+	local route = {}
+	for i = 1, math.min(3, #result.paths) do
+		for _, p in samples(result.paths[i]) do
+			table.insert(route, p)
+		end
+	end
+	for _, p in samples(result.spoke or {}) do
+		table.insert(route, p)
+	end
+	local parts = {}
+	for i = 1, #route, 4 do
+		local p = route[i]
+		table.insert(parts, string.format("%d,%d,%d", p.X, p.Y, p.Z))
+	end
+	workspace:SetAttribute("CaveRoute", table.concat(parts, ";"))
 	for pi, path in result.paths do
 		local pts = samples(path)
 		for _, p in pts do
@@ -227,10 +255,10 @@ function Caves.verify(terrain: Terrain, result: Result)
 		end
 		local stride = 15
 		for i = 1, #pts - 1, stride do
-			local a, b = pts[i], pts[math.min(i + stride, #pts)]
+			local a, b = floorOf(pts[i]), floorOf(pts[math.min(i + stride, #pts)])
 			local pf = PathfindingService:CreatePath({ AgentRadius = 2, AgentHeight = 5, AgentCanJump = true })
 			local ok = pcall(function()
-				pf:ComputeAsync(a - Vector3.new(0, TUNNEL_R - 2, 0), b - Vector3.new(0, TUNNEL_R - 2, 0))
+				pf:ComputeAsync(a, b)
 			end)
 			legs += 1
 			if not ok or pf.Status ~= Enum.PathStatus.Success then
