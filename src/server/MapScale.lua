@@ -1,12 +1,14 @@
 -- How much bigger the world is built than the hand-designed island shapes.
 -- CloverIsland.lua and IslandFields.lua (and the map previews) are drawn at 1x; every
 -- island is written into terrain H times wider and V times taller, the islands sit
--- H times further apart, and node counts grow with the land area.
+-- Spread times further apart (open sea between them), and node counts grow with the
+-- land area.
 local MapScale = {}
 
-MapScale.H = 2.5 -- horizontal
+MapScale.H = 4 -- island size, horizontal: Clover is about 880 studs across
 MapScale.V = 1.5 -- vertical (hills, cliffs, sea floor)
-MapScale.Density = 0.75 -- nodes per area compared with the 1x map (1 = same density)
+MapScale.Spread = 5.5 -- island positions: about 800 studs of open sea between neighbours
+MapScale.Density = 0.45 -- nodes per area compared with the 1x map (1 = same density)
 
 -- Writes the box [x0, x1] x [y0, y1] x [z0, z1] (world studs) into terrain in slabs, so
 -- huge islands never build one giant voxel table. For every voxel column, `column` gets

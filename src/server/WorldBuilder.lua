@@ -295,10 +295,10 @@ local ISLANDS: { Island } = {
 	{ name = "Slime Marsh", x = 195, z = -265, r = 96, biome = "marsh" },
 	{ name = "Ember Isle", x = 0, z = 0, r = 115, biome = "ember" }, -- late game, middle
 }
--- Built MapScale.H times bigger than the shapes above.
+-- Built MapScale.H times bigger than the shapes above, and MapScale.Spread further apart.
 for _, isl in ISLANDS do
-	isl.x *= MapScale.H
-	isl.z *= MapScale.H
+	isl.x *= MapScale.Spread
+	isl.z *= MapScale.Spread
 	isl.r *= MapScale.H
 end
 WorldBuilder.Islands = ISLANDS
@@ -461,9 +461,14 @@ local function buildTerrain()
 	terrain:SetMaterialColor(Enum.Material.CrackedLava, Color3.fromRGB(240, 100, 36))
 
 	-- Ocean and sea floor
-	local H, V = MapScale.H, MapScale.V
-	terrain:FillBlock(CFrame.new(0, -18 * V, 0), Vector3.new(1400 * H, 36 * V, 1400 * H), Enum.Material.Water)
-	terrain:FillBlock(CFrame.new(0, -40 * V, 0), Vector3.new(1400 * H, 8 * V, 1400 * H), Enum.Material.Sand)
+	local V = MapScale.V
+	local extent = 0
+	for _, isl in ISLANDS do
+		extent = math.max(extent, math.abs(isl.x) + isl.r, math.abs(isl.z) + isl.r)
+	end
+	local sea = (extent + 600) * 2 -- open water well past the outer islands
+	terrain:FillBlock(CFrame.new(0, -18 * V, 0), Vector3.new(sea, 36 * V, sea), Enum.Material.Water)
+	terrain:FillBlock(CFrame.new(0, -40 * V, 0), Vector3.new(sea, 8 * V, sea), Enum.Material.Sand)
 
 	for _, isl in ISLANDS do
 		island(terrain, isl)
