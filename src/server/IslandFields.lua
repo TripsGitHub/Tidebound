@@ -459,6 +459,103 @@ Rugged.apply(EI, { seed = 67, count = 6, rock = M.Slate, coast = true, coastMask
 	return 1 - eiLanding(x, z)
 end })
 
+-- Smaller islands, built from a recipe instead of drawn by hand ---------------------------
+-- Each one is a blob of land with a wobbly coast, a few hills, and a palette:
+--   r        radius at 1x            peak     height of its tallest hill
+--   low/high the ground below and above half the peak height, cliff for steep slopes
+--   atoll    a ring of land round a lagoon     mesa  flat-topped terraces
+--   spires   tall rock needles poking up       seed  so each looks different
+local function make(spec): Field
+	local F = {} :: any
+	F.name = spec.name
+	local R = spec.r
+	F.bounds = { -R * 1.4, R * 1.4, -R * 1.4, R * 1.4 }
+	F.ytop = spec.peak + 14
+	local seed = spec.seed
+	local rand = Random.new(seed)
+	local hills = {}
+	for _ = 1, spec.hills or 3 do
+		local a, d = rand:NextNumber(0, pi * 2), rand:NextNumber(0, R * 0.5)
+		table.insert(hills, { cos(a) * d, sin(a) * d, R * rand:NextNumber(0.25, 0.45), spec.peak * rand:NextNumber(0.5, 1) })
+	end
+	local spires = {}
+	for _ = 1, spec.spires or 0 do
+		local a, d = rand:NextNumber(0, pi * 2), rand:NextNumber(R * 0.1, R * 0.7)
+		table.insert(spires, { cos(a) * d, sin(a) * d, rand:NextNumber(3, 6), spec.peak * rand:NextNumber(0.9, 1.6) })
+	end
+	function F.land(x, z)
+		local a = atan2(z, x)
+		local wob = sin(a * 3 + seed) * 0.12 + sin(a * 5 + seed * 2.3) * 0.07 + noise(x * 1.3 + seed * 7, z * 1.3) * 0.04
+		local l = 1 - hypot(x, z) / (R * (1 + wob))
+		if spec.atoll then
+			l = math.min(l, (hypot(x, z) - R * 0.55) / (R * 0.5))
+		end
+		return l
+	end
+	local function ground(x, z)
+		local l = F.land(x, z)
+		local h = beach(l)
+		if l <= 0 then
+			return h
+		end
+		local inland = smooth((l - 0.1) / 0.35)
+		h += inland * (1.5 + noise(x, z) * 1.5)
+		for _, b in hills do
+			h += inland * bump(x, z, b[1], b[2], b[3], b[4])
+		end
+		if spec.mesa and h > 6 then
+			local step = spec.peak / 3
+			local t = h / step
+			h = (floor(t) + smooth((t - floor(t) - 0.75) / 0.25)) * step -- flat terraces, steep risers
+		end
+		for _, sp in spires do
+			local d = hypot(x - sp[1], z - sp[2])
+			if d < sp[3] then
+				h = math.max(h, sp[4] * smooth(1 - d / sp[3]) ^ 0.4)
+			end
+		end
+		return h + smooth(l / 0.2) * detail(x, z) * 0.6
+	end
+	F.height = ground
+	function F.zoneAt(x, z)
+		if F.land(x, z) < 0.18 then
+			return "shore"
+		end
+		if ground(x, z) > spec.peak * 0.55 then
+			return "peak"
+		end
+		return "inland"
+	end
+	function F.material(x, z, h, slope)
+		local l = F.land(x, z)
+		local g = grain(x, z)
+		if l <= 0.06 + g * 0.03 or h < 2.2 + g * 0.5 then
+			return spec.shore or M.Sand
+		end
+		if slope > 1.4 + g * 0.2 and h > 5 then
+			return spec.cliff or M.Rock
+		end
+		local m = if h > spec.peak * 0.55 then spec.high or spec.low else spec.low
+		if m == M.Grass or m == M.LeafyGrass then
+			return grassy(x, z, m)
+		end
+		return m
+	end
+	function F.canGrow(x, z)
+		return F.land(x, z) > 0.1
+	end
+	return F :: Field
+end
+IslandFields.make = make
+
+IslandFields.cay = make({ name = "Driftwood Cay", r = 45, peak = 6, hills = 2, seed = 11, low = M.Sand, high = M.LeafyGrass })
+IslandFields.atoll = make({ name = "Coral Atoll", r = 58, peak = 7, hills = 4, seed = 19, atoll = true, low = M.Grass, high = M.LeafyGrass })
+IslandFields.crags = make({ name = "Silver Crags", r = 62, peak = 34, hills = 4, spires = 9, seed = 29, low = M.Slate, high = M.Rock, cliff = M.Slate })
+IslandFields.mesa = make({ name = "Gold Mesa", r = 64, peak = 30, hills = 3, mesa = true, seed = 43, low = M.Sandstone, high = M.Sandstone, cliff = M.Sandstone, shore = M.Sand })
+IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 16, hills = 5, seed = 61, low = M.Grass, high = M.LeafyGrass })
+IslandFields.skull = make({ name = "Skull Key", r = 34, peak = 22, hills = 1, seed = 71, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
+IslandFields.rockcay = make({ name = "Gull Rock", r = 28, peak = 14, hills = 2, spires = 3, seed = 83, low = M.Rock, high = M.Rock })
+
 IslandFields.hills = PH :: Field
 IslandFields.rock = SS :: Field
 IslandFields.snow = FI :: Field

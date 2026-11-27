@@ -19,6 +19,7 @@ local Hover = require(Client.Hover)
 local Anim = require(Client.Anim)
 local Gates = require(Client.Gates)
 local Nameplates = require(Client.Nameplates)
+local Minimap = require(Client.Minimap)
 
 local player = Players.LocalPlayer
 local equipped: string? = nil
@@ -82,6 +83,7 @@ Hover.start()
 Anim.start()
 task.spawn(Gates.start)
 Nameplates.start()
+Minimap.init(UI.root :: ScreenGui)
 Effects.startAmbient()
 
 -- Swinging -----------------------------------------------------------------------

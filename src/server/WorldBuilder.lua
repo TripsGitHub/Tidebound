@@ -19,6 +19,8 @@ local CloverIsland = require(script.Parent.CloverIsland)
 local IslandFields = require(script.Parent.IslandFields)
 local MapScale = require(script.Parent.MapScale)
 local Caves = require(script.Parent.Caves)
+local Landmarks = require(script.Parent.Landmarks)
+local Minimap = require(script.Parent.Minimap)
 
 local WorldBuilder = {}
 local rng = Random.new(1911)
@@ -285,6 +287,7 @@ export type Island = {
 	z: number,
 	r: number, -- radius of the island's land (studs)
 	biome: string,
+	ring: boolean?, -- false: left out of the Deep Network's ring (hangs off its nearest island)
 }
 
 local ISLANDS: { Island } = {
@@ -294,6 +297,14 @@ local ISLANDS: { Island } = {
 	{ name = "Frost Isle", x = -190, z = -265, r = 95, biome = "snow" },
 	{ name = "Slime Marsh", x = 195, z = -265, r = 96, biome = "marsh" },
 	{ name = "Ember Isle", x = 0, z = 0, r = 115, biome = "ember" }, -- late game, middle
+	-- Smaller islands between and beyond the big ones (IslandFields.make recipes).
+	{ name = "Driftwood Cay", x = -190, z = 300, r = 45, biome = "cay" }, -- food next to spawn
+	{ name = "Coral Atoll", x = 190, z = 300, r = 58, biome = "atoll" }, -- palms round a lagoon
+	{ name = "Silver Crags", x = -345, z = -110, r = 62, biome = "crags" }, -- silver, wolves
+	{ name = "Gold Mesa", x = 345, z = -110, r = 64, biome = "mesa" }, -- gold on the terraces
+	{ name = "Old Ruins", x = 0, z = -370, r = 72, biome = "ruins" }, -- far north, past Ember
+	{ name = "Skull Key", x = 480, z = 330, r = 34, biome = "skull", ring = false },
+	{ name = "Gull Rock", x = -480, z = 330, r = 28, biome = "rockcay", ring = false },
 }
 -- Built MapScale.H times bigger than the shapes above, and MapScale.Spread further apart.
 for _, isl in ISLANDS do
@@ -352,6 +363,48 @@ local BIOME_NODES = {
 	ember = {
 		{ "Boulder", 9, zone = "slopes" },
 		{ "Boulder", 3, zone = "camp" },
+	},
+	-- Recipe islands are zoned shore / inland / peak.
+	cay = {
+		{ "Palm", 10, { 1, 3 }, zone = "inland" },
+		{ "Palm", 4, { 1, 1 }, zone = "shore" },
+		{ "Bush", 7, zone = "inland" },
+		{ "Boulder", 2, zone = "*" },
+	},
+	atoll = {
+		{ "Palm", 16, { 1, 3 }, zone = "inland" },
+		{ "Bush", 6, zone = "inland" },
+		{ "Boulder", 3, zone = "shore" },
+	},
+	crags = { -- silver
+		{ "SilverVein", 10, zone = "inland" },
+		{ "SilverVein", 4, zone = "peak" },
+		{ "GoldVein", 2, zone = "peak" },
+		{ "Boulder", 10, zone = "inland" },
+		{ "Pine", 6, { 1, 2 }, zone = "inland" },
+	},
+	mesa = { -- gold
+		{ "GoldVein", 10, zone = "inland" },
+		{ "GoldVein", 4, zone = "peak" },
+		{ "Boulder", 8, zone = "*" },
+		{ "Bush", 4, zone = "inland" },
+		{ "Palm", 4, { 1, 1 }, zone = "shore" },
+	},
+	ruins = {
+		{ "Pine", 20, { 2, 4 }, zone = "inland" },
+		{ "Bush", 6, zone = "inland" },
+		{ "Boulder", 6, zone = "*" },
+		{ "SilverVein", 3, zone = "inland" },
+		{ "GoldVein", 3, zone = "peak" },
+	},
+	skull = {
+		{ "Boulder", 6, zone = "*" },
+		{ "SilverVein", 2, zone = "*" },
+		{ "GoldVein", 3, zone = "*" },
+	},
+	rockcay = {
+		{ "Boulder", 4, zone = "*" },
+		{ "Palm", 2, { 1, 1 }, zone = "shore" },
 	},
 }
 
@@ -453,6 +506,7 @@ local function buildTerrain()
 	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(198, 178, 130))
 	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(84, 80, 74))
 	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(44, 42, 46))
+	terrain:SetMaterialColor(Enum.Material.Sandstone, Color3.fromRGB(196, 128, 82))
 	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(74, 62, 46))
 	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(112, 88, 60))
 	terrain:SetMaterialColor(Enum.Material.Snow, Color3.fromRGB(236, 242, 246))
@@ -591,51 +645,103 @@ end
 -- Stone Shelf has its own hand-carved cave (IslandFields), and Caves.lua runs a
 -- network under the whole map. The deeper the chamber, the better the ore.
 local CAVE_NODES = {
-	upper = { { "SilverVein", 2 }, { "GoldVein", 2 } },
-	lower = { { "SunstoneVein", 2 }, { "DiamondCluster", 2 }, { "GoldVein", 1 } },
-	deep = { { "FractiteCluster", 2 }, { "AmethystGeode", 2 }, { "DiamondCluster", 1 } },
+	-- The open chambers on the main way down: common ores only.
+	upper = { { "SilverVein", 2 }, { "GoldVein", 1 } },
+	lower = { { "GoldVein", 2 }, { "SunstoneVein", 1 } },
+	deep = { { "SunstoneVein", 2 }, { "GoldVein", 1 } },
+	-- Rare ore only in the pockets at the end of the crawlways.
+	pocket_lower = { { "DiamondCluster", 2 } },
+	pocket_deep = { { "FractiteCluster", 1 }, { "AmethystGeode", 1 } },
 }
--- Odd ores along the tunnels too, by depth.
-local TUNNEL_ORE = {
-	{ above = -40, node = "GoldVein" },
-	{ above = -80, node = "SunstoneVein" },
-	{ above = -math.huge, node = "AmethystGeode" },
-}
-local CAVE_GLOW = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 255, 210) }
+-- Odd ores along the halls, by depth (and never the rare ones).
+local HALL_ORE = { upper = "SilverVein", lower = "GoldVein", deep = "SunstoneVein" }
+local CRYSTAL_GLOW = { Color3.fromRGB(120, 200, 255), Color3.fromRGB(190, 140, 255), Color3.fromRGB(120, 255, 210) }
+local TORCH_GLOW = Color3.fromRGB(255, 170, 80)
 
--- Raycast down inside a cave from `from` to find the floor.
-local function caveFloorAt(x: number, z: number, from: number): RaycastResult?
+local function terrainParams(): RaycastParams
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
 	params.FilterDescendantsInstances = { workspace.Terrain }
-	return workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -40, 0), params)
+	return params
 end
 
--- Dim glowing crystals on the floor, so the tunnels aren't pitch black.
-local function caveLight(parent: Instance, pos: Vector3, color: Color3)
-	local p = Instance.new("Part")
-	p.Name = "CaveLight"
-	p.Anchored = true
-	p.CanCollide = false
-	p.CanQuery = false
-	p.Size = Vector3.new(0.6, rng:NextNumber(1.2, 2), 0.6)
-	p.CFrame = CFrame.new(pos) * CFrame.Angles(rng:NextNumber(-0.5, 0.5), rng:NextNumber(0, 6), rng:NextNumber(-0.5, 0.5))
-	p.Material = Enum.Material.Neon
-	p.Color = color
-	p.Parent = parent
+-- Raycast down inside a cave from `from` to find the floor.
+local function caveFloorAt(x: number, z: number, from: number): RaycastResult?
+	return workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -40, 0), terrainParams())
+end
+
+-- Glowing crystals on the floor: the deep caves' light, and a sign of rare ore.
+local function crystal(parent: Instance, pos: Vector3, color: Color3, big: boolean?)
+	local k = if big then 2.2 else 1
+	for i = 1, (if big then 4 else 2) do
+		local p = Instance.new("Part")
+		p.Name = "CaveCrystal"
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.Size = Vector3.new(0.7, rng:NextNumber(1.4, 2.6), 0.7) * k
+		local off = Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1)) * k
+		p.CFrame = CFrame.new(pos + off + Vector3.new(0, p.Size.Y * 0.4, 0)) * CFrame.Angles(rng:NextNumber(-0.5, 0.5), rng:NextNumber(0, 6), rng:NextNumber(-0.5, 0.5))
+		p.Material = Enum.Material.Neon
+		p.Color = color
+		p.Parent = parent
+		if i == 1 then
+			local light = Instance.new("PointLight")
+			light.Color = color
+			light.Range = if big then 26 else 18
+			light.Brightness = 0.9
+			light.Shadows = false
+			light.Parent = p
+		end
+	end
+end
+
+-- A torch stuck in the wall: the shallow caves are lit by people, not crystals.
+local function torch(parent: Instance, wall: Vector3, normal: Vector3)
+	local m = Instance.new("Model")
+	m.Name = "CaveTorch"
+	local out = Vector3.new(normal.X, 0, normal.Z)
+	out = if out.Magnitude > 0.1 then out.Unit else Vector3.xAxis
+	local base = wall + out * 0.6
+	local stick = part(m, {
+		Name = "Stick",
+		Size = Vector3.new(0.35, 2.2, 0.35),
+		CFrame = CFrame.lookAt(base, base + out) * CFrame.Angles(math.rad(-55), 0, 0) * CFrame.new(0, 0.9, 0),
+		Color = Color3.fromRGB(96, 64, 40),
+		Material = Enum.Material.Wood,
+	})
+	stick.CanCollide = false
+	local flame = part(m, {
+		Name = "Flame",
+		Size = Vector3.new(0.5, 0.7, 0.5),
+		CFrame = stick.CFrame * CFrame.new(0, 1.3, 0),
+		Color = TORCH_GLOW,
+		Material = Enum.Material.Neon,
+	})
+	flame.CanCollide = false
+	flame.CanQuery = false
+	local fire = Instance.new("Fire")
+	fire.Size = 2
+	fire.Heat = 4
+	fire.Color = Color3.fromRGB(255, 150, 60)
+	fire.SecondaryColor = Color3.fromRGB(255, 220, 120)
+	fire.Parent = flame
 	local light = Instance.new("PointLight")
-	light.Color = color
-	light.Range = 20
-	light.Brightness = 0.8
+	light.Color = TORCH_GLOW
+	light.Range = 24
+	light.Brightness = 1.3
 	light.Shadows = false
-	light.Parent = p
+	light.Parent = flame
+	m.Parent = parent
 end
 
--- chambers: { pos = floor centre, r, tier }; paths: lists of tunnel centre points.
-local function dressCaves(nodeFolder: Folder, chambers: { any }, paths: { { Vector3 } })
+-- tunnels: { points, r, kind }; chambers: { pos = floor centre, r, tier };
+-- pockets: { pos, tier }.
+local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any }, pockets: { any })
 	local decor = workspace:FindFirstChild("CaveLights") or Instance.new("Folder")
 	decor.Name = "CaveLights"
 	decor.Parent = workspace
+	local params = terrainParams()
 	local taken = {}
 	local function free(pos: Vector3, gap: number): boolean
 		for _, o in taken do
@@ -646,53 +752,57 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, paths: { { Vect
 		return true
 	end
 
-	-- Lights every so often along each tunnel, and now and then an ore.
-	for _, path in paths do
-		local since = 0
-		for i = 1, #path - 1 do
-			local a, b = path[i], path[i + 1]
-			local len = (b - a).Magnitude
-			for d = 0, len, 26 do
-				local p = a:Lerp(b, d / math.max(len, 1))
-				local hit = caveFloorAt(p.X, p.Z, p.Y + 2)
-				if hit and hit.Position.Y < p.Y and hit.Position.Y > p.Y - 12 then
-					caveLight(decor, hit.Position + Vector3.new(rng:NextNumber(-3, 3), 0.6, rng:NextNumber(-3, 3)), CAVE_GLOW[rng:NextInteger(1, #CAVE_GLOW)])
-					since += 26
-					if since > 110 and hit.Position.Y < -15 and free(hit.Position, 30) then
-						for _, t in TUNNEL_ORE do
-							if hit.Position.Y > t.above then
-								spawnNode(nodeFolder, t.node, hit.Position + Vector3.new(rng:NextNumber(-2, 2), 0, rng:NextNumber(-2, 2)))
-								table.insert(taken, hit.Position)
-								since = 0
-								break
-							end
-						end
+	-- Along every tunnel: torches on the walls up high, crystals on the floor deep
+	-- down, and now and then a common ore in the halls.
+	for n, t in tunnels do
+		if t.kind ~= "ravine" then
+			local pts = Caves.samples(t.points)
+			local every = if t.kind == "hall" then 11 else 9 -- samples (3 studs each)
+			local sinceOre = 0
+			for i = 1, #pts - 1, every do
+				local p, q = pts[i], pts[i + 1]
+				local tier = Caves.tierAt(p.Y)
+				local dir = Vector3.new(q.X - p.X, 0, q.Z - p.Z)
+				if tier == "upper" and dir.Magnitude > 0 then
+					local side = Vector3.new(-dir.Z, 0, dir.X).Unit * (if (i // every) % 2 == 0 then 1 else -1)
+					local hit = workspace:Raycast(p, side * (t.r + 6), params)
+					if hit then
+						torch(decor, hit.Position, hit.Normal)
+					end
+				else
+					local hit = caveFloorAt(p.X + rng:NextNumber(-3, 3), p.Z + rng:NextNumber(-3, 3), p.Y + 2)
+					if hit and hit.Position.Y < p.Y then
+						crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)])
+					end
+				end
+				sinceOre += every * 3
+				if t.kind == "hall" and sinceOre > 130 and p.Y < -15 then
+					local hit = caveFloorAt(p.X, p.Z, p.Y + 2)
+					if hit and hit.Position.Y < p.Y and free(hit.Position, 40) then
+						spawnNode(nodeFolder, HALL_ORE[tier], hit.Position + Vector3.new(rng:NextNumber(-3, 3), 0, rng:NextNumber(-3, 3)))
+						table.insert(taken, hit.Position)
+						sinceOre = 0
 					end
 				end
 			end
 		end
+		if n % 6 == 0 then
+			task.wait()
+		end
 	end
 
-	-- A ring of lights and the chamber's ores.
-	for _, c in chambers do
+	local function oresIn(c, list)
 		local f, r = c.pos, c.r
-		for i = 1, 5 do
-			local a = i / 5 * math.pi * 2
-			local hit = caveFloorAt(f.X + math.cos(a) * r * 0.7, f.Z + math.sin(a) * r * 0.7, f.Y + r * 0.6)
-			if hit then
-				caveLight(decor, hit.Position + Vector3.new(0, 0.6, 0), CAVE_GLOW[(i % #CAVE_GLOW) + 1])
-			end
-		end
-		for _, entry in CAVE_NODES[c.tier] or {} do
+		for _, entry in list or {} do
 			local made = 0
-			for _ = 1, entry[2] * 10 do
+			for _ = 1, entry[2] * 12 do
 				if made >= entry[2] then
 					break
 				end
 				local a = rng:NextNumber(0, math.pi * 2)
 				local d = math.sqrt(rng:NextNumber()) * r * 0.65
 				local hit = caveFloorAt(f.X + math.cos(a) * d, f.Z + math.sin(a) * d, f.Y + r * 0.6)
-				if hit and hit.Normal.Y > 0.7 and math.abs(hit.Position.Y - f.Y) < 8 and free(hit.Position, 8) then
+				if hit and hit.Normal.Y > 0.7 and math.abs(hit.Position.Y - f.Y) < 8 and free(hit.Position, 7) then
 					spawnNode(nodeFolder, entry[1], hit.Position)
 					table.insert(taken, hit.Position)
 					made += 1
@@ -700,10 +810,47 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, paths: { { Vect
 			end
 		end
 	end
+
+	-- Chambers: a ring of torches or crystals, and their ores.
+	for _, c in chambers do
+		if c.tier ~= "pocket" then
+			local f, r = c.pos, c.r
+			for i = 1, 6 do
+				local a = i / 6 * math.pi * 2
+				local x, z = f.X + math.cos(a) * r * 0.75, f.Z + math.sin(a) * r * 0.75
+				if c.tier == "upper" then
+					local from = f + Vector3.new(0, 5, 0)
+					local hit = workspace:Raycast(from, Vector3.new(x - f.X, 0, z - f.Z).Unit * (r + 6), params)
+					if hit then
+						torch(decor, hit.Position, hit.Normal)
+					end
+				else
+					local hit = caveFloorAt(x, z, f.Y + r * 0.6)
+					if hit then
+						crystal(decor, hit.Position, CRYSTAL_GLOW[(i % #CRYSTAL_GLOW) + 1], c.tier == "deep")
+					end
+				end
+			end
+			oresIn(c, CAVE_NODES[c.tier])
+		end
+	end
+
+	-- Pockets at the end of the crawlways: big crystals and the rare ore.
+	for _, pk in pockets do
+		local c = { pos = pk.pos, r = 11 }
+		for i = 1, 3 do
+			local a = i / 3 * math.pi * 2 + rng:NextNumber(0, 1)
+			local hit = caveFloorAt(pk.pos.X + math.cos(a) * 6, pk.pos.Z + math.sin(a) * 6, pk.pos.Y + 8)
+			if hit then
+				crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], true)
+			end
+		end
+		oresIn(c, CAVE_NODES[if pk.tier == "deep" then "pocket_deep" else "pocket_lower"])
+	end
 end
 
 -- Stone Shelf's hand-carved cave, in world coordinates.
-local function shelfCave(isl: Island): ({ any }, { { Vector3 } })
+local function shelfCave(isl: Island): ({ any }, { any })
 	local H, V = MapScale.H, MapScale.V
 	local field = IslandFields.rock
 	local tiers = { chamber = "upper", vault = "lower", hollow = "deep" }
@@ -718,7 +865,11 @@ local function shelfCave(isl: Island): ({ any }, { { Vector3 } })
 		end
 		table.insert(paths, pts)
 	end
-	return chambers, paths
+	local tunnels = {}
+	for _, pts in paths do
+		table.insert(tunnels, { points = pts, r = 6, kind = "hall" })
+	end
+	return chambers, tunnels
 end
 
 -- Landmarks ----------------------------------------------------------------------
@@ -962,7 +1113,7 @@ function WorldBuilder.build()
 	local shelf = ISLANDS[3]
 	local mouth = IslandFields.rock.caveMouth
 	makeCaveMouth(Vector3.new(shelf.x + mouth.X * H, 3 * MapScale.V, shelf.z + mouth.Y * H), Vector3.new(0, 0, -1), 1.9)
-	local chambers, paths = shelfCave(shelf)
+	local chambers, tunnels = shelfCave(shelf)
 
 	-- The cave network under the whole map, with an entrance on every island.
 	local network = Caves.build(workspace.Terrain, ISLANDS, groundAt, function(isl, x, z)
@@ -972,11 +1123,15 @@ function WorldBuilder.build()
 		return far and (field == nil or field.canGrow(rx, rz))
 	end)
 	for _, e in network.entrances do
-		makeCaveMouth(e.pos, e.facing, 1.1)
+		makeCaveMouth(e.pos, e.facing, Caves.HALL_R / 7)
 	end
 	table.move(network.chambers, 1, #network.chambers, #chambers + 1, chambers)
-	table.move(network.paths, 1, #network.paths, #paths + 1, paths)
-	dressCaves(nodes, chambers, paths)
+	table.move(network.tunnels, 1, #network.tunnels, #tunnels + 1, tunnels)
+	dressCaves(nodes, chambers, tunnels, network.pockets)
+	Landmarks.build(network, ISLANDS, groundAt, function(isl)
+		return findSpot(isl, {}, 0, Vector3.new(isl.x, 0, isl.z), isl.r * 0.4, "*")
+	end)
+	Minimap.publish(ISLANDS, network, groundAt)
 	if game:GetService("RunService"):IsStudio() and workspace:GetAttribute("VerifyCaves") ~= false then
 		task.spawn(Caves.verify, workspace.Terrain, network)
 	end
@@ -985,6 +1140,36 @@ function WorldBuilder.build()
 	Animals.spawnHerd("Boar", Vector3.new(home.x + CloverIsland.Herd.X * H, 0, home.z + CloverIsland.Herd.Y * H), 5)
 	local hills = ISLANDS[2]
 	Animals.spawnHerd("Boar", Vector3.new(hills.x - 20 * H, 0, hills.z + 45 * H), 6) -- Pine Hills' meadow
+	-- Everything else, by island: { kind, herds, per herd, zone }.
+	local MOBS = {
+		["Clover Island"] = { { "Crab", 2, 3, "palms" } },
+		["Driftwood Cay"] = { { "Crab", 3, 3, "shore" } },
+		["Coral Atoll"] = { { "Crab", 4, 3, "shore" }, { "Boar", 1, 3, "inland" } },
+		["Pine Hills"] = { { "Boar", 1, 4, "forest" } },
+		["Silver Crags"] = { { "Wolf", 2, 3, "inland" } },
+		["Frost Isle"] = { { "Wolf", 3, 3, "slopes" } },
+		["Slime Marsh"] = { { "BogSlime", 4, 3, "*" } },
+		["Gold Mesa"] = { { "Boar", 2, 3, "inland" } },
+		["Old Ruins"] = { { "Wolf", 2, 3, "inland" }, { "Boar", 2, 4, "inland" } },
+		["Ember Isle"] = { { "CinderBeetle", 3, 2, "slopes" } },
+		["Skull Key"] = { { "Crab", 2, 4, "*" } },
+	}
+	for _, isl in ISLANDS do
+		for _, mob in MOBS[isl.name] or {} do
+			for _ = 1, mob[2] do
+				local spot = findSpot(isl, {}, 0, nil, nil, mob[4])
+				if spot then
+					Animals.spawnHerd(mob[1], spot, mob[3])
+				end
+			end
+		end
+	end
+	-- Cave Crawlers wait in some of the lower and deep chambers.
+	for _, c in network.chambers do
+		if (c.tier == "lower" or c.tier == "deep") and rng:NextNumber() < 0.35 then
+			Animals.spawnHerd("CaveCrawler", c.pos + Vector3.new(0, 3, 0), rng:NextInteger(1, 2))
+		end
+	end
 	Animals.start()
 
 	startDayNight()
