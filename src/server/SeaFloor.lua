@@ -386,7 +386,7 @@ local function dress(terrain: Terrain, extent: number)
 end
 
 function SeaFloor.build(islands: { Island }, tunnels: { any }, chambers: { any })
-	local terrain = Workspace.Terrain
+	local terrain = require(script.Parent.WorldBake).terrain
 	local extent = 0
 	for _, isl in islands do
 		extent = math.max(extent, math.abs(isl.x) + isl.r, math.abs(isl.z) + isl.r)

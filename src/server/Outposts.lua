@@ -660,7 +660,7 @@ function Outposts.place(parent: Instance, kind: string, label: string, centre: V
 	local c = ctxFor(m, centre, facing, ground)
 	local builder = CAMPS[kind] or OUTPOSTS[kind]
 	if CAMPS[kind] then
-		builder(c, label, hooks.banner or Props.CLOTH[1], workspace.Terrain)
+		builder(c, label, hooks.banner or Props.CLOTH[1], require(script.Parent.WorldBake).terrain)
 		m:SetAttribute("Camp", label)
 	else
 		builder(c, hooks)

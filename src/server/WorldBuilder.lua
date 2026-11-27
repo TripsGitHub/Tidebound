@@ -27,6 +27,7 @@ local Props = require(script.Parent.Props)
 local Outposts = require(script.Parent.Outposts)
 local Bosses = require(script.Parent.Bosses)
 local SeaFloor = require(script.Parent.SeaFloor)
+local WorldBake = require(script.Parent.WorldBake)
 
 local WorldBuilder = {}
 local rng = Random.new(1911)
@@ -725,7 +726,7 @@ local function island(terrain: Terrain, isl: Island)
 end
 
 local function buildTerrain()
-	local terrain = workspace.Terrain
+	local terrain = WorldBake.terrain
 	terrain:Clear()
 	terrain.WaterColor = Color3.fromRGB(64, 150, 160) -- bright turquoise shallows
 	terrain.WaterTransparency = 0.82 -- clear enough to see the sand shelf fall away
@@ -769,8 +770,10 @@ local function buildTerrain()
 		task.wait()
 	end
 
-	for _, isl in ISLANDS do
-		island(terrain, isl)
+	if not WorldBake.baked then
+		for _, isl in ISLANDS do
+			island(terrain, isl)
+		end
 	end
 
 	-- Wet sand: the strip of beach the waves reach is darker and smoother than the dry
@@ -1254,7 +1257,7 @@ local function makeSeal(nodeFolder: Folder, b)
 	-- Wall the tunnel off round the seal: a thick disc of rock across it, wider than
 	-- any bend or lobe, with a hole just smaller than the seal. Only the seal blocks
 	-- the hole, so breaking it is the only way through and nothing slips past.
-	local terrain = workspace.Terrain
+	local terrain = WorldBake.terrain
 	local disc = look * CFrame.Angles(math.pi / 2, 0, 0)
 	terrain:FillCylinder(disc, 5, b.r + 11, CAVE_SEAL_ROCK)
 	terrain:FillBall(b.pos, size / 2 - 1.2, Enum.Material.Air)
@@ -1268,7 +1271,7 @@ end
 -- (not down the hole), then clear a clean round shaft from the cave up through it,
 -- with a wider mouth at the top. Waterfalls fill with water right up to the brim.
 local function openShaft(sh)
-	local terrain = workspace.Terrain
+	local terrain = WorldBake.terrain
 	local x, z = sh.bottom.X, sh.bottom.Z
 	-- The ground level round the hole: the middle of the ring of heights, so a hill on
 	-- one side doesn't make the ladder stick up into the air.
@@ -1312,7 +1315,7 @@ local function dressShaft(sh)
 		if floor and floor.Position.Y < sh.bottom.Y - 1 and floor.Position.Y > sh.bottom.Y - 30 then
 			sh.bottom = Vector3.new(sh.bottom.X, floor.Position.Y + 1, sh.bottom.Z)
 		elseif not floor or floor.Position.Y <= sh.bottom.Y - 30 then
-			workspace.Terrain:FillBlock(CFrame.new(sh.bottom.X, sh.bottom.Y - 3, sh.bottom.Z), Vector3.new(sh.r * 2 + 6, 4, sh.r * 2 + 6), Enum.Material.Rock)
+			WorldBake.terrain:FillBlock(CFrame.new(sh.bottom.X, sh.bottom.Y - 3, sh.bottom.Z), Vector3.new(sh.r * 2 + 6, 4, sh.r * 2 + 6), Enum.Material.Rock)
 		end
 	end
 	local h = sh.top.Y - sh.bottom.Y + 2.5 -- just over the lip, so you can step off
@@ -1373,7 +1376,7 @@ local CAVE_ROCK = {
 	hills = Enum.Material.Ground,
 }
 local function tintCaveRock()
-	local terrain = workspace.Terrain
+	local terrain = WorldBake.terrain
 	for _, isl in ISLANDS do
 		local mat = CAVE_ROCK[isl.biome]
 		if mat then
@@ -1824,12 +1827,16 @@ function WorldBuilder.build()
 
 	-- The cave network under the whole map, with an entrance on every island.
 	workspace:SetAttribute("LoadingStep", "Carving the caves")
-	local network = Caves.build(workspace.Terrain, NAMED, groundAt, function(isl, x, z)
-		local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
-		local rx, rz = (x - isl.x) / H, (z - isl.z) / H
-		local far = (Vector3.new(x, 0, z) - Vector3.new(sx, 0, sz)).Magnitude > 60
-		return far and (field == nil or field.canGrow(rx, rz))
-	end)
+	-- A baked map already has its caves: load the network that was saved with it.
+	local network = if WorldBake.baked
+		then WorldBake.loadNetwork()
+		else Caves.build(WorldBake.terrain, NAMED, groundAt, function(isl, x, z)
+			local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
+			local rx, rz = (x - isl.x) / H, (z - isl.z) / H
+			local far = (Vector3.new(x, 0, z) - Vector3.new(sx, 0, sz)).Magnitude > 60
+			return far and (field == nil or field.canGrow(rx, rz))
+		end)
+	print("[World] map " .. (if WorldBake.baked then "loaded from the bake" else "built from scratch"))
 	for _, e in network.entrances do
 		makeCaveMouth(e.pos, e.facing, Caves.HALL_R / 7)
 	end
@@ -2138,6 +2145,15 @@ function WorldBuilder.build()
 
 	workspace:SetAttribute("LoadingStep", "Almost there")
 	startDayNight()
+	-- In Studio, a map built from scratch is saved, ready to bake into the place.
+	if not WorldBake.baked and game:GetService("RunService"):IsStudio() then
+		local extent = 0
+		for _, isl in ISLANDS do
+			extent = math.max(extent, math.abs(isl.x) + isl.r, math.abs(isl.z) + isl.r)
+		end
+		local half = extent + 620
+		task.spawn(WorldBake.save, network, Vector3.new(-half, Caves.BEDROCK_Y - 16, -half), Vector3.new(half, 400, half))
+	end
 end
 
 return WorldBuilder

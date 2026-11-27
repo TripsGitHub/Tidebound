@@ -140,7 +140,7 @@ local function bubbles(parent: Instance, at: Vector3, height: number)
 end
 
 local function build(site: Vector3, kind, folder: Folder, nodes: Folder, helpers: Helpers)
-	local terrain = Workspace.Terrain
+	local terrain = require(script.Parent.WorldBake).terrain
 	local model = Instance.new("Model")
 	model.Name = kind.name
 	model:SetAttribute("Grotto", true)

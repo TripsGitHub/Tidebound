@@ -5,6 +5,7 @@
 local Landmarks = {}
 
 local Props = require(script.Parent.Props)
+local WorldBake = require(script.Parent.WorldBake)
 local Meshes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Meshes"))
 
 local rng = Random.new(777)
@@ -90,7 +91,7 @@ local function rockLine(a: Vector3, b: Vector3, r0: number, r1: number, mat: Enu
 	local steps = math.max(1, math.ceil(len / (math.min(r0, r1) * 0.5)))
 	for k = 0, steps do
 		local t = k / steps
-		workspace.Terrain:FillBall(a:Lerp(b, t), r0 + (r1 - r0) * t, mat)
+		WorldBake.terrain:FillBall(a:Lerp(b, t), r0 + (r1 - r0) * t, mat)
 	end
 end
 
@@ -103,7 +104,7 @@ function BUILDERS.rock(m: Model, c: Vector3, groundAt)
 	end
 	for k = 0, 16 do
 		local a = k / 16 * math.pi
-		workspace.Terrain:FillBall(c + Vector3.new(math.cos(a) * 12, 30 + math.sin(a) * 7, 0), 5 - math.sin(a) * 0.6, rock)
+		WorldBake.terrain:FillBall(c + Vector3.new(math.cos(a) * 12, 30 + math.sin(a) * 7, 0), 5 - math.sin(a) * 0.6, rock)
 	end
 	return "The Sentinel Arch", 44
 end
@@ -197,8 +198,8 @@ function BUILDERS.crags(m: Model, c: Vector3, groundAt)
 	rockLine(base, kink, 9, 5, slate)
 	rockLine(kink, kink + Vector3.new(1.5, 28, -0.5), 5, 1.6, slate)
 	-- Two shoulders at its foot, so it grows out of the ground instead of standing on it.
-	workspace.Terrain:FillBall(base + Vector3.new(6, 4, 5), 6, slate)
-	workspace.Terrain:FillBall(base + Vector3.new(4, 2, -7), 5, slate)
+	WorldBake.terrain:FillBall(base + Vector3.new(6, 4, 5), 6, slate)
+	WorldBake.terrain:FillBall(base + Vector3.new(4, 2, -7), 5, slate)
 	return "The Needle", 62
 end
 
@@ -537,7 +538,7 @@ function Landmarks.build(network, islands: { any }, groundAt, spotOn: (any) -> V
 					local q = a:Lerp(b, j / steps)
 					for _, e in network.exits do
 						if Vector3.new(q.X - e.pos.X, 0, q.Z - e.pos.Z).Magnitude < 45 then
-							workspace.Terrain:FillBall(q, t.r, Enum.Material.Air)
+							WorldBake.terrain:FillBall(q, t.r, Enum.Material.Air)
 							break
 						end
 					end
