@@ -420,9 +420,9 @@ local function floorNear(x: number, y: number, z: number): (Vector3?, Enum.Mater
 	params.IgnoreWater = false
 	local hit = workspace:Raycast(Vector3.new(x, y + 5, z), Vector3.new(0, -14, 0), params)
 	if hit then
-		return hit.Position, hit.Material
+		return hit.Position, hit.Material, hit.Normal
 	end
-	return nil, nil
+	return nil, nil, nil
 end
 
 -- What a creature can stand on and bump into: terrain plus built structures,
@@ -448,18 +448,18 @@ end
 -- The floor right under (x, z) near height y: a short ray from a little above the
 -- creature down, so it follows slopes and floors and can't snap onto a cliff top
 -- or a roof far above it, or through the ground to a cave far below.
-local function groundFor(s: State, x: number, z: number, y: number): (Vector3?, Enum.Material?)
+local function groundFor(s: State, x: number, z: number, y: number): (Vector3?, Enum.Material?, Vector3?)
 	local hit = workspace:Raycast(Vector3.new(x, y + 2.8, z), Vector3.new(0, -10, 0), solidParams)
 	if hit and hit.Instance and hit.Instance ~= workspace.Terrain and not hit.Instance.CanCollide then
 		hit = nil
 	end
 	if hit then
-		return hit.Position, hit.Material
+		return hit.Position, hit.Material, hit.Normal
 	end
 	if s.def.cave then
 		return floorNear(x, y, z)
 	end
-	return nil, nil
+	return nil, nil, nil
 end
 
 -- A wall in the way: a ray from knee and chest height along the step, as long as
@@ -596,6 +596,16 @@ end
 local function pose(s, moving: boolean, windup: number)
 	local pivot = s.model:GetPivot()
 	local t = s.phase
+	local atk = s.attack
+	local atkK = 0
+	if atk then
+		atkK = (os.clock() - atk.t0) / atk.dur
+		if atkK > 1 then
+			s.attack, atk = nil, nil
+		elseif atkK < 0 then
+			atk = nil -- not started yet
+		end
+	end
 	for _, l in s.limbs or {} do
 		local size = l.part.Size
 		local cf = l.rest
@@ -610,6 +620,17 @@ local function pose(s, moving: boolean, windup: number)
 			end
 		elseif l.kind == "arm" then
 			local a = -windup * 1.1 + (if moving then math.sin(t * 1.6 + (if l.side > 0 then math.pi else 0)) * 0.3 else 0)
+			-- A boss's big moves (set by Bosses): both arms up and slam down, or one
+			-- arm drawn back and thrown forward.
+			if atk then
+				if atk.kind == "slam" then
+					a = if atkK < 0.75 then -2.5 * math.min(1, atkK / 0.35) else -2.5 + 3.0 * math.min(1, (atkK - 0.75) / 0.08)
+				elseif atk.kind == "throw" and l.side > 0 then
+					a = if atkK < 0.6 then 1.0 * math.min(1, atkK / 0.4) else 1.0 - 3.2 * math.min(1, (atkK - 0.6) / 0.12)
+				elseif atk.kind == "lunge" then
+					a = -1.4 * math.sin(math.min(1, atkK) * math.pi)
+				end
+			end
 			if l.hinge then
 				-- Every arm part on this side (arm, fist, pincer) turns about one shoulder.
 				cf = CFrame.new(l.hinge) * CFrame.Angles(a, 0, 0) * CFrame.new(-l.hinge) * cf
@@ -617,7 +638,8 @@ local function pose(s, moving: boolean, windup: number)
 				cf = cf * CFrame.new(0, size.Y / 2, 0) * CFrame.Angles(a, 0, 0) * CFrame.new(0, -size.Y / 2, 0)
 			end
 		elseif l.kind == "head" then
-			cf = CFrame.new(0, (if moving then math.sin(t * 3.2) * 0.12 else math.sin(os.clock() * 1.5) * 0.06) + windup * 0.4, windup * 0.5) * cf
+			local lift = if atk and atk.kind == "slam" then (if atkK < 0.75 then 0.6 else -0.4) else 0
+			cf = CFrame.new(0, (if moving then math.sin(t * 3.2) * 0.12 else math.sin(os.clock() * 1.5) * 0.06) + windup * 0.4 + lift, windup * 0.5) * cf
 		elseif l.kind == "tail" then
 			cf = cf * CFrame.Angles(0, math.sin(t * 2.4 + os.clock() * 2) * 0.3, 0)
 		end
@@ -709,6 +731,12 @@ local function step(s: State, dt: number)
 	local model = s.model
 	local pivot = model:GetPivot()
 	local pos = pivot.Position
+	-- A boss that got out of its lair anyhow (knocked, glitched) goes straight back.
+	if s.def.boss and ((pos - s.home) * Vector3.new(1, 0, 1)).Magnitude > 70 or (s.def.boss and math.abs(pos.Y - s.home.Y) > 30) then
+		model:PivotTo(CFrame.new(s.home + Vector3.new(0, s.foot or 0, 0)))
+		s.target = nil
+		return
+	end
 	local speed = s.def.walkSpeed
 	local goal: Vector3? = nil
 
@@ -807,11 +835,15 @@ local function step(s: State, dt: number)
 				local dir = (CFrame.Angles(0, math.rad(turn), 0) * flat.Unit)
 				if not blockedAhead(s, feet, dir, dist) then
 					local nextPos = feet + dir * dist
-					local ground, mat = groundFor(s, nextPos.X, nextPos.Z, feet.Y)
-					-- No climbing sheer steps or walking off ledges, and no swimming.
-					if ground and mat ~= Enum.Material.Water and ground.Y - feet.Y < 2.6 and feet.Y - ground.Y < 6 then
+					local ground, mat, normal = groundFor(s, nextPos.X, nextPos.Z, feet.Y)
+					-- No climbing sheer steps, walls or cave sides (only a gentle slope when
+					-- going up), no walking off ledges, and no swimming. Bosses stay in their lair.
+					local rise = if ground then ground.Y - feet.Y else 0
+					local steep = rise > 0.4 and normal ~= nil and normal.Y < 0.62
+					local strays = s.def.boss and Vector3.new(nextPos.X - s.home.X, 0, nextPos.Z - s.home.Z).Magnitude > (s.def.roam or 42)
+					if ground and mat ~= Enum.Material.Water and rise < 2.6 and -rise < 6 and not steep and not strays then
 						s.phase += dt * speed
-						local bob = math.abs(math.sin(s.phase * 1.2)) * 0.15
+						local bob = math.abs(math.sin(s.phase * 1.2)) * (if s.def.boss then 0.6 else 0.15)
 						local at = ground + Vector3.new(0, (s.foot or 0) + bob, 0)
 						model:PivotTo(CFrame.lookAt(at, at + dir))
 						moved = true
