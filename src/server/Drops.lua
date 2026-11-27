@@ -23,6 +23,7 @@ function Drops.spawn(itemId: string, amount: number, position: Vector3, directio
 		return nil
 	end
 	local model = ItemModels.build(itemId)
+	model:ScaleTo(Config.DropScale)
 	model.Name = "Drop"
 	model:SetAttribute("ItemId", itemId)
 	model:SetAttribute("Amount", amount)

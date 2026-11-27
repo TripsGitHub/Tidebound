@@ -83,7 +83,7 @@ end
 
 function builders.StoneWall(model: Model, cf: CFrame, size: Vector3)
 	local core = part(model, true, { Name = "Core", Size = size - Vector3.new(0.3, 0.3, 0.4), CFrame = cf, Color = STONE_DARK, Material = Enum.Material.Slate })
-	for row = 0, 3 do
+	for row = 0, math.floor((size.Y - 1) / 2.2) - 1 do
 		local y = -size.Y / 2 + 1.1 + row * 2.2
 		for x = -size.X / 2 + 1, size.X / 2 - 1, 2 do
 			boulder(model, rng:NextNumber(2.1, 2.6), cf * CFrame.new(x + (row % 2), y, 0), if rng:NextNumber() < 0.5 then STONE else STONE_DARK)
