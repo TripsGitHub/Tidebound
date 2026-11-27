@@ -84,8 +84,8 @@ local KEYS: { { h: number, look: Look } } = {
 	{ h = 16.3, look = { -- golden afternoon
 		brightness = 2.9, exposure = 0.12,
 		ambient = rgb(84, 72, 62), outdoor = rgb(176, 152, 120),
-		atmoColor = rgb(250, 222, 176), atmoDecay = rgb(214, 170, 120), density = 0.34, haze = 2.4, glare = 2.0,
-		tint = rgb(255, 238, 212), contrast = 0.06, saturation = -0.02, bloom = 0.75, rays = 0.2,
+		atmoColor = rgb(244, 228, 200), atmoDecay = rgb(208, 184, 148), density = 0.31, haze = 2.0, glare = 1.3,
+		tint = rgb(255, 242, 220), contrast = 0.05, saturation = -0.04, bloom = 0.65, rays = 0.16,
 		clouds = rgb(255, 236, 210), cover = 0.44, water = rgb(88, 142, 146),
 	} },
 	{ h = 18.2, look = { -- sunset: deep orange to rose

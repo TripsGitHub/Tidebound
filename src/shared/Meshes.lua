@@ -11,6 +11,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MeshColors = require(script.Parent.MeshColors)
+-- Hand-tuned colours that win over the ones exported from Blender (MeshColors is
+-- generated, so tweaks live here): calmer greens for the softer daytime look.
+local RECOLOUR: { [string]: Color3 } = {
+	["palm__Leaves"] = Color3.fromRGB(104, 152, 78),
+}
 
 local Meshes = {}
 
@@ -162,7 +167,7 @@ function Meshes.build(name: string, options: Options?): Model?
 		p.CFrame = CFrame.new((src.Position - origin) * k) * rot
 		local colour = MeshColors[src.Name]
 		if colour then
-			p.Color = colour[1]
+			p.Color = RECOLOUR[src.Name] or colour[1]
 			p:SetAttribute("Mat", colour[2]) -- the Blender material name, for tints
 			local look = LOOKS[colour[2]]
 			if look then

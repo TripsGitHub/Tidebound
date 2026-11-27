@@ -139,7 +139,7 @@ local function rebuildHotbar()
 				TweenService:Create(glow, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.93, Size = UDim2.fromScale(0.96, 0.96) }):Play()
 			end
 			-- Long names shrink to fit the slot so neighbours never overlap.
-			local name = label({ Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 10, 0, 16), ZIndex = if selected then 3 else 1, Text = Items[id].name, TextScaled = true, TextStrokeTransparency = 0.4, TextColor3 = if selected then C.star else C.text })
+			local name = label({ Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, -2, 0, 16), ZIndex = if selected then 3 else 1, Text = Items[id].name, TextScaled = true, TextStrokeTransparency = 0.4, TextColor3 = if selected then C.star else C.text })
 			new("UITextSizeConstraint", { Parent = name, MaxTextSize = 15 })
 			if (state.items[id] or 0) > 1 then
 				label({ Parent = slot, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.fromOffset(44, 16), Text = tostring(state.items[id]), TextScaled = false, TextSize = 15, ZIndex = 3 })
