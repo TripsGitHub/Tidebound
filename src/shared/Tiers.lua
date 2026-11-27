@@ -32,10 +32,19 @@ local LIST: { Tier } = {
 } :: any
 
 local Tiers = { list = LIST }
+-- Side sets that aren't part of the tool ladder (no sword or harvester): armour only.
+-- They're found by Tiers.get / Tiers.split but never appear in Tiers.list.
+local EXTRA = {
+	{ id = "slime", name = "Slime", style = "wood", plate = rgb(122, 200, 88), trim = rgb(70, 130, 52), accent = rgb(200, 255, 150), strap = rgb(60, 96, 40), glow = false, rank = 3 },
+}
+Tiers.extra = EXTRA
 local byId: { [string]: Tier } = {}
 for i, t in LIST do
 	t.rank = i
 	byId[t.id] = t
+end
+for _, t in EXTRA do
+	byId[t.id] = t :: any
 end
 
 function Tiers.get(id: string): Tier?

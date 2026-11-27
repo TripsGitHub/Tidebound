@@ -155,25 +155,7 @@ function builders.Campfire(model: Model, cf: CFrame, size: Vector3)
 	light.Shadows = true
 	light.Parent = core
 
-	-- Cook raw meat here.
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Cook meat"
-	prompt.ObjectText = "Campfire"
-	prompt.HoldDuration = 1.2
-	prompt.MaxActivationDistance = 12
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = core
-	prompt.Triggered:Connect(function(who)
-		local raw = Inventory.count(who, "raw_meat")
-		if raw <= 0 then
-			Remotes.Notify:FireClient(who, "You have no raw meat", "warn")
-			return
-		end
-		if Inventory.take(who, "raw_meat", raw) then
-			Inventory.add(who, "cooked_meat", raw, true)
-			Remotes.Notify:FireClient(who, "Cooked " .. raw .. " meat", "good")
-		end
-	end)
+	-- Cooking and smelting: drop raw meat or ore into the fire (Smelting.lua).
 	return core
 end
 

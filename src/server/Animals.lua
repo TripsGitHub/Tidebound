@@ -788,7 +788,7 @@ local function step(s: State, dt: number)
 				s.windupUntil = nil
 				s.nextBite = now + s.def.attackCooldown
 				if flat.Magnitude < reach + 1.5 then
-					local defense = Inventory.defense(s.attacker :: Player)
+					local defense = Inventory.defense(s.attacker :: Player, "mob")
 					attackerHum:TakeDamage(s.def.damage * (1 - defense))
 					Remotes.HitFeedback:FireAllClients(s.attacker.Character)
 				end

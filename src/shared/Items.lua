@@ -146,6 +146,48 @@ for _, tier in Tiers.list do
 	Items[harvester].order = 3 + r * 0.1 + 0.02
 end
 
+-- How well each set stands up to mobs and to other players (multipliers on its
+-- defence). Slime soaks up beasts but does little against a blade in a player's hand;
+-- obsidian is strong against both and best of all against players.
+Items.ARMOUR_VS = {
+	wood = { mob = 1.0, player = 0.9 },
+	stone = { mob = 1.1, player = 0.9 },
+	silver = { mob = 1.0, player = 1.05 },
+	gold = { mob = 0.9, player = 1.1 },
+	sunsteel = { mob = 1.15, player = 0.95 },
+	diamond = { mob = 1.05, player = 1.05 },
+	fractite = { mob = 1.2, player = 0.9 },
+	amethyst = { mob = 0.95, player = 1.2 },
+	obsidian = { mob = 1.2, player = 1.4 },
+	lunar = { mob = 1.15, player = 1.15 },
+	slime = { mob = 1.8, player = 0.45 },
+}
+for _, tier in Tiers.extra do
+	for i, piece in ARMOUR do
+		Items[tier.id .. "_" .. piece.key] = {
+			name = tier.name .. " " .. piece.label,
+			kind = "armour",
+			slot = piece.slot,
+			defense = round(0.22 * piece.share / 14),
+			order = 40 + tier.rank * 0.1 + 0.05 + i * 0.01,
+		}
+	end
+end
+for id, item in Items do
+	if type(item) == "table" and item.kind == "armour" and item.defense then
+		local tier = string.match(id, "^(%a+)_")
+		local vs = Items.ARMOUR_VS[tier or ""] or { mob = 1, player = 1 }
+		item.vsMob, item.vsPlayer = vs.mob, vs.player
+	end
+end
+
+-- Bars: raw metal ore smelted in a campfire (Smelting.lua). Metal gear is made from
+-- bars, not raw ore.
+Items.silver_bar = { name = "Silver Bar", kind = "resource", order = 61.1, description = "Silver Ore smelted in a campfire. Used for Silver gear." }
+Items.gold_bar = { name = "Gold Bar", kind = "resource", order = 61.2, description = "Gold Ore smelted in a campfire. Used for Gold gear." }
+Items.sunsteel_bar = { name = "Sunsteel Bar", kind = "resource", order = 61.3, description = "Sunstone smelted in a campfire. Used for Sunsteel gear." }
+Items.BAR_FOR = { silver_ore = "silver_bar", gold_ore = "gold_bar", sunstone = "sunsteel_bar" }
+
 -- A bag for every ore tier, each one bigger than the last (after the Leather Bag,
 -- Hide Pack and Explorer Pack). Recipes are in Recipes.lua.
 Items.BAG_SIZES = { silver = 200, gold = 250, sunsteel = 310, diamond = 380, fractite = 460, amethyst = 550, obsidian = 650, lunar = 800 }

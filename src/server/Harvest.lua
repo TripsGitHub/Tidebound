@@ -85,6 +85,17 @@ local function deplete(player: Player, model: Model, def, _awayFrom: Vector3)
 	end
 end
 
+-- A warning at most once every 20 seconds per kind, so hitting doesn't spam it.
+local warned: { [Player]: { [string]: number } } = setmetatable({}, { __mode = "k" }) :: any
+local function warnOnce(player: Player, kind: string, text: string)
+	local t = warned[player] or {}
+	warned[player] = t
+	if (t[kind] or 0) + 20 < os.clock() then
+		t[kind] = os.clock()
+		Remotes.Notify:FireClient(player, text, "warn")
+	end
+end
+
 local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 	local def = Nodes[model:GetAttribute("NodeType")]
 	if not def or model:GetAttribute("Depleted") then
@@ -98,16 +109,18 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 			Remotes.Notify:FireClient(player, "Cave seals can only be broken with a sword", "warn")
 			return
 		end
+		local dmg = item.damage or 1
 		if def.swordTier then
-			-- Tide and Abyss Seals: only a strong enough sword even scratches them.
+			-- Tide and Abyss Seals: any sword chips them, but each tier short of the one
+			-- they're meant for makes every hit count for much less.
 			local need = Tiers.get(def.swordTier)
 			local have = Tiers.split(held)
-			if need and (not have or tierRank(have.id) < tierRank(need.id)) then
-				Remotes.Notify:FireClient(player, "Only a " .. need.name .. " sword or better can crack the " .. def.name, "warn")
-				return
+			local short = if need then tierRank(need.id) - (if have then tierRank(have.id) else 0) else 0
+			if short > 0 then
+				dmg = math.max(1, math.floor(dmg * 0.45 ^ short + 0.5))
+				warnOnce(player, "seal", "Your sword is weak against the " .. def.name .. ": a " .. need.name .. " sword breaks it much faster")
 			end
 		end
-		local dmg = item.damage or 1
 		local left = math.max((model:GetAttribute("HP") or def.hp) - dmg, 0)
 		Remotes.Marker:FireClient(player, model:GetBoundingBox().Position, dmg, "hit", Inventory.getEquipped(player))
 		model:SetAttribute("HP", left)
@@ -123,8 +136,11 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 		return
 	end
 	if def.minPower and power < def.minPower then
-		Remotes.Notify:FireClient(player, "You need a stronger harvester to mine " .. def.name, "warn")
-		return
+		-- A weaker harvester still works, just slowly: the further below what the ore
+		-- wants, the less each hit takes off.
+		local ratio = power / def.minPower
+		power = math.max(1, math.floor(power * ratio * ratio * 0.6 + 0.5))
+		warnOnce(player, "ore", "Your harvester is weak for " .. def.name .. ": it'll take a while")
 	end
 	-- Hits only wear it down; the loot and XP come out when it breaks.
 	local hp = math.max((model:GetAttribute("HP") or def.hp) - power, 0)
@@ -163,7 +179,7 @@ local function hitPlayer(attacker: Player, victimCharacter: Model, item)
 	if victimCharacter:FindFirstChildOfClass("ForceField") then
 		return
 	end
-	local defense = Inventory.defense(victim)
+	local defense = Inventory.defense(victim, "player")
 	local dealt = (item.damage or Config.UnarmedDamage) * (1 - defense)
 	humanoid:TakeDamage(dealt)
 	-- Tally who hurt whom, for loot priority when they die (see Death.lua).

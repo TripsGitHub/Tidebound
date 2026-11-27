@@ -197,14 +197,18 @@ function Inventory.toggleWear(player: Player, itemId: string)
 end
 
 -- Total damage reduction from worn armour (0 to 0.9).
-function Inventory.defense(player: Player): number
+-- How much of a hit the player's armour blocks (0..0.9). `vs` is what's hitting them:
+-- "mob" (animals, bosses) or "player"; each set is better against one or the other.
+function Inventory.defense(player: Player, vs: string?): number
 	local d = data[player]
 	if not d then
 		return 0
 	end
 	local total = 0
 	for _, itemId in d.armour do
-		total += Items[itemId].defense or 0
+		local item = Items[itemId]
+		local mult = if vs == "mob" then item.vsMob elseif vs == "player" then item.vsPlayer else 1
+		total += (item.defense or 0) * (mult or 1)
 	end
 	return math.min(total, 0.9)
 end

@@ -232,6 +232,19 @@ function builders.sticky_slime(m)
 	return core
 end
 
+-- Bars: a bevelled ingot in the tier's colour, with a lighter top face.
+for _, bar in { "silver", "gold", "sunsteel" } do
+	builders[bar .. "_bar"] = function(m)
+		local tier = Tiers.get(bar) :: any
+		local core = part(m, Vector3.new(1.3, 0.42, 0.62), CFrame.new(), tier.plate, Enum.Material.Metal)
+		part(m, Vector3.new(1.1, 0.12, 0.46), CFrame.new(0, 0.25, 0), tier.plate:Lerp(Color3.new(1, 1, 1), 0.25), Enum.Material.Metal)
+		for sx = -1, 1, 2 do
+			part(m, Vector3.new(0.12, 0.38, 0.56), CFrame.new(sx * 0.66, -0.01, 0) * CFrame.Angles(0, 0, sx * 0.35), tier.trim, Enum.Material.Metal)
+		end
+		return core
+	end
+end
+
 -- Ores and crystals: tier-coloured nuggets on a chip of rock, or a small cluster of shards.
 for _, ore in require(script.Parent.Ores) do
 	builders[ore.item] = function(m)

@@ -29,6 +29,7 @@ Players.CharacterAutoLoads = false
 
 WorldBuilder.build()
 Survival.start()
+require(Systems.Smelting).start()
 Save.start()
 Events.start()
 Oxygen.start()

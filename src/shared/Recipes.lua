@@ -18,15 +18,21 @@ local Recipes = {
 	{ id = "stone_legs", tab = "Armour", level = 8, cost = { stone = 14, leather = 3, sticky_slime = 1 } },
 	{ id = "stone_body", tab = "Armour", level = 8, cost = { stone = 18, leather = 4, sticky_slime = 2 } },
 	{ id = "aqua_mask", tab = "Armour", level = 6, cost = { leather = 4, sticky_slime = 6, stone = 4 } },
-	{ id = "pearl_helm", tab = "Armour", level = 15, cost = { silver_ore = 8, sticky_slime = 10, leather = 6 } },
+	{ id = "pearl_helm", tab = "Armour", level = 15, cost = { silver_bar = 8, sticky_slime = 10, leather = 6 } },
 	{ id = "hide_pack", tab = "Armour", level = 8, cost = { leather = 10, sticky_slime = 3 } },
-	{ id = "explorer_pack", tab = "Armour", level = 14, cost = { leather = 16, gold_ore = 4, sticky_slime = 4 } },
+	{ id = "explorer_pack", tab = "Armour", level = 14, cost = { leather = 16, gold_bar = 4, sticky_slime = 4 } },
 
 	-- Cave and boss gear (levels on the 1-20 scale like the rest)
-	{ id = "maw_key", tab = "Tools", level = 9, cost = { key_fragment = 3, gold_ore = 4 } },
+	{ id = "maw_key", tab = "Tools", level = 9, cost = { key_fragment = 3, gold_bar = 4 } },
 	{ id = "fang_blade", tab = "Tools", level = 19, cost = { queen_fang = 1, diamond = 6, leather = 6 } },
 	{ id = "golem_harvester", tab = "Tools", level = 20, cost = { golem_heart = 1, obsidian = 8, stick = 6 } },
 	{ id = "warden_pack", tab = "Armour", level = 19, cost = { warden_core = 1, amethyst = 4, leather = 12 } },
+
+	-- Slime armour: soaks up beasts' bites, weak against other players' blades.
+	{ id = "slime_boots", tab = "Armour", level = 9, cost = { sticky_slime = 10, leather = 2 } },
+	{ id = "slime_helmet", tab = "Armour", level = 9, cost = { sticky_slime = 14, leather = 2 } },
+	{ id = "slime_legs", tab = "Armour", level = 10, cost = { sticky_slime = 18, leather = 3 } },
+	{ id = "slime_body", tab = "Armour", level = 10, cost = { sticky_slime = 24, leather = 4 } },
 
 	-- Buildables
 	{ id = "campfire", tab = "Buildables", level = 1, cost = { log = 3, stick = 2, stone = 3 } },
@@ -35,7 +41,7 @@ local Recipes = {
 	{ id = "storage_chest", tab = "Buildables", level = 3, cost = { log = 10, stick = 4 } },
 	{ id = "wood_gate", tab = "Buildables", level = 4, cost = { log = 8, sticky_slime = 1 } },
 	{ id = "stone_base", tab = "Buildables", level = 8, cost = { stone = 50, sticky_slime = 4 } },
-	{ id = "large_stone_base", tab = "Buildables", level = 12, cost = { stone = 90, sticky_slime = 8, silver_ore = 4 } },
+	{ id = "large_stone_base", tab = "Buildables", level = 12, cost = { stone = 90, sticky_slime = 8, silver_bar = 4 } },
 	{ id = "stone_wall", tab = "Buildables", level = 8, cost = { stone = 14, sticky_slime = 2 } },
 }
 
@@ -43,14 +49,19 @@ local Recipes = {
 -- tier's ore), then armour. Each piece takes that tier's ore, and the bigger pieces
 -- also take some of the tier below's, so you can't skip a tier.
 local Ores = require(script.Parent.Ores)
+-- Metal ores have to be smelted into bars first (Smelting.lua); crystals are used as cut.
+local BAR = { silver_ore = "silver_bar", gold_ore = "gold_bar", sunstone = "sunsteel_bar" }
+local function material(item: string): string
+	return BAR[item] or item
+end
 for i, ore in Ores do
 	local prev = Ores[i - 1]
 	local m = 1 + 0.1 * (i - 1) -- later tiers need a bit more ore
 	local function cost(n: number, extra: { [string]: number }, prevAmount: number?)
 		local c = table.clone(extra)
-		c[ore.item] = math.ceil(n * m)
+		c[material(ore.item)] = math.ceil(n * m)
 		if prev and prevAmount then
-			c[prev.item] = prevAmount
+			c[material(prev.item)] = prevAmount
 		end
 		return c
 	end

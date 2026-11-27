@@ -58,7 +58,7 @@ local function playersIn(centre: Vector3, radius: number): { { player: Player, h
 end
 
 local function hurt(target, amount: number)
-	local defense = Inventory.defense(target.player)
+	local defense = Inventory.defense(target.player, "mob")
 	target.hum:TakeDamage(amount * (1 - defense))
 	Remotes.HitFeedback:FireAllClients(target.player.Character)
 end
