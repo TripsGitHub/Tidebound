@@ -555,6 +555,10 @@ local function spawnAnimal(kind: string, home: Vector3): Model
 			if kind then
 				local rest = pivot:ToObjectSpace(p.CFrame)
 				table.insert(limbs, { part = p, rest = rest, kind = kind, side = if rest.Position.X >= 0 then 1 else -1, front = rest.Position.Z < 0 })
+			elseif def.boss and p.Name ~= "HumanoidRootPart" then
+				-- A boss's trunk moves too: it leans, crouches and breathes (see bodyPose).
+				local rest = pivot:ToObjectSpace(p.CFrame)
+				table.insert(limbs, { part = p, rest = rest, kind = "body", side = if rest.Position.X >= 0 then 1 else -1, front = rest.Position.Z < 0 })
 			end
 		end
 	end
@@ -599,6 +603,95 @@ local function spawnAnimal(kind: string, home: Vector3): Model
 	return model
 end
 
+-- Easing for boss moves: slow in, snap, settle. Everything is keyed off one 0..1
+-- clock per attack, split into anticipation, strike, hold and recovery.
+local function easeOut(x: number): number
+	x = math.clamp(x, 0, 1)
+	return 1 - (1 - x) ^ 3
+end
+local function easeIn(x: number): number
+	x = math.clamp(x, 0, 1)
+	return x * x * x
+end
+local function easeInOut(x: number): number
+	x = math.clamp(x, 0, 1)
+	return -(math.cos(math.pi * x) - 1) / 2
+end
+local function span(k: number, a: number, b: number): number
+	return math.clamp((k - a) / (b - a), 0, 1)
+end
+
+-- The whole upper body of a boss, relative to its feet: breathing when still, a
+-- heavy side-to-side weight shift when walking, and a full-body lean, rise and
+-- crouch for each big move so the weight reads (the arms follow it). Returns the
+-- body offset and the arm swing (radians, + is back) for the attack, if any.
+local function bodyPose(s, moving: boolean, atk, k: number): (CFrame, number?, number?)
+	local now = os.clock()
+	local y, pitch, roll, yaw = 0, 0, 0, 0
+	local size = s.radius or 3
+	-- breathing / idle sway
+	y += math.sin(now * 1.3) * 0.08 * size
+	pitch += math.sin(now * 1.3 + 0.6) * 0.015
+	if moving then
+		roll += math.sin(s.phase * 0.6) * 0.07
+		pitch -= 0.06
+	end
+	-- a flinch when hit
+	if s.hitAt then
+		local h = now - s.hitAt
+		if h < 0.35 then
+			local f = math.sin(h / 0.35 * math.pi) * (1 - h / 0.35)
+			pitch += 0.12 * f
+			y -= 0.2 * size * f
+		end
+	end
+	local armL, armR
+	if atk then
+		if atk.kind == "slam" then
+			-- rise and rear back, hang, then drop the whole body into the slam
+			local up = easeOut(span(k, 0, 0.45))
+			local hit = easeIn(span(k, 0.45, 0.58))
+			local back = easeInOut(span(k, 0.72, 1))
+			local shake = if k > 0.58 and k < 0.72 then math.sin(now * 60) * 0.03 else 0
+			y += (0.35 * up - 0.75 * hit) * size * (1 - back)
+			pitch += (0.22 * up - 0.52 * hit) * (1 - back) + shake
+			local arm = (-2.6 * up + 3.3 * hit) * (1 - back)
+			armL, armR = arm, arm
+		elseif atk.kind == "throw" then
+			-- twist back on the right side, then whip round and through
+			local wind = easeOut(span(k, 0, 0.5))
+			local rel = easeIn(span(k, 0.5, 0.62))
+			local back = easeInOut(span(k, 0.7, 1))
+			yaw += (0.45 * wind - 0.8 * rel) * (1 - back)
+			pitch += (0.12 * wind - 0.3 * rel) * (1 - back)
+			y -= 0.12 * size * wind * (1 - back)
+			armR = (1.4 * wind - 3.6 * rel) * (1 - back)
+			armL = (-0.4 * wind + 0.6 * rel) * (1 - back)
+		elseif atk.kind == "lunge" then
+			-- crouch low, spring (stretched out) and land in a squash
+			local crouch = easeOut(span(k, 0, 0.45))
+			local leap = span(k, 0.5, 0.75)
+			local land = span(k, 0.75, 0.85)
+			local back = easeInOut(span(k, 0.85, 1))
+			if k < 0.5 then
+				y -= 0.35 * size * crouch
+				pitch -= 0.18 * crouch
+				armL, armR = 0.9 * crouch, 0.9 * crouch
+			elseif k < 0.75 then
+				y += 0.15 * size * math.sin(leap * math.pi)
+				pitch += 0.2 - 0.45 * leap
+				armL, armR = -1.6, -1.6
+			else
+				local sq = math.sin(land * math.pi) * (1 - back)
+				y -= 0.3 * size * sq
+				pitch -= 0.25 * (1 - back)
+				armL, armR = -1.2 * (1 - back), -1.2 * (1 - back)
+			end
+		end
+	end
+	return CFrame.new(0, y, 0) * CFrame.Angles(pitch, yaw, roll), armL, armR
+end
+
 -- Pose the limbs: legs swing in a trot while moving, the head dips and rises, arms and
 -- jaws pull back during a wind-up and snap forward on the strike.
 local function pose(s, moving: boolean, windup: number)
@@ -614,10 +707,16 @@ local function pose(s, moving: boolean, windup: number)
 			atk = nil -- not started yet
 		end
 	end
+	local body, armL, armR = CFrame.identity, nil, nil
+	if s.def.boss then
+		body, armL, armR = bodyPose(s, moving, atk, atkK)
+	end
 	for _, l in s.limbs or {} do
 		local size = l.part.Size
 		local cf = l.rest
-		if l.kind == "leg" then
+		if l.kind == "body" then
+			cf = body * cf
+		elseif l.kind == "leg" then
 			local a = if moving then math.sin(t * 1.6 + (if l.front == (l.side > 0) then 0 else math.pi)) * 0.5 else 0
 			if size.Y >= size.X then
 				-- Upright leg: swing about its top.
@@ -630,7 +729,12 @@ local function pose(s, moving: boolean, windup: number)
 			local a = -windup * 1.1 + (if moving then math.sin(t * 1.6 + (if l.side > 0 then math.pi else 0)) * 0.3 else 0)
 			-- A boss's big moves (set by Bosses): both arms up and slam down, or one
 			-- arm drawn back and thrown forward.
-			if atk then
+			if s.def.boss then
+				local swing = if l.side > 0 then armR else armL
+				if swing then
+					a = swing
+				end
+			elseif atk then
 				if atk.kind == "slam" then
 					a = if atkK < 0.75 then -2.5 * math.min(1, atkK / 0.35) else -2.5 + 3.0 * math.min(1, (atkK - 0.75) / 0.08)
 				elseif atk.kind == "throw" and l.side > 0 then
@@ -645,11 +749,17 @@ local function pose(s, moving: boolean, windup: number)
 			else
 				cf = cf * CFrame.new(0, size.Y / 2, 0) * CFrame.Angles(a, 0, 0) * CFrame.new(0, -size.Y / 2, 0)
 			end
+			cf = body * cf
 		elseif l.kind == "head" then
 			local lift = if atk and atk.kind == "slam" then (if atkK < 0.75 then 0.6 else -0.4) else 0
+			if s.def.boss then
+				-- the head lags the body a touch (follow-through) and looks about when idle
+				lift = 0
+				cf = body * CFrame.Angles(0, if moving or atk then 0 else math.sin(os.clock() * 0.4) * 0.25, 0) * cf
+			end
 			cf = CFrame.new(0, (if moving then math.sin(t * 3.2) * 0.12 else math.sin(os.clock() * 1.5) * 0.06) + windup * 0.4 + lift, windup * 0.5) * cf
 		elseif l.kind == "tail" then
-			cf = cf * CFrame.Angles(0, math.sin(t * 2.4 + os.clock() * 2) * 0.3, 0)
+			cf = body * cf * CFrame.Angles(0, math.sin(t * 2.4 + os.clock() * 2) * 0.3, 0)
 		end
 		l.part.CFrame = pivot * cf
 	end
@@ -695,6 +805,7 @@ function Animals.damage(model: Model, amount: number, attacker: Player)
 	end
 	local hp = (model:GetAttribute("HP") or 0) - amount
 	model:SetAttribute("HP", hp)
+	s.hitAt = os.clock()
 	s.damageBy = s.damageBy or {}
 	s.damageBy[attacker] = (s.damageBy[attacker] or 0) + amount
 	if hp <= 0 then

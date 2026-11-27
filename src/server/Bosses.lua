@@ -112,16 +112,31 @@ local function pounce(s, target: BasePart)
 		want = s.home + off.Unit * roam + Vector3.new(0, want.Y - s.home.Y, 0)
 	end
 	local at = floorAt(want)
-	s.busyUntil = os.clock() + 1.6
-	s.attack = { kind = "lunge", t0 = os.clock() + 0.9, dur = 0.6 }
-	telegraph(at, 10, 1.2, function()
-		if s.model.Parent then
-			local from = s.model:GetPivot()
-			local dir = (at - from.Position) * Vector3.new(1, 0, 1)
-			local feet = at + Vector3.new(0, s.foot or 0, 0)
-			local look = CFrame.lookAt(feet, feet + (if dir.Magnitude > 0.01 then dir.Unit else from.LookVector * Vector3.new(1, 0, 1)))
-			s.model:PivotTo(look)
+	s.busyUntil = os.clock() + 1.9
+	-- 1.6 s move: crouch (0 to 0.8 s), leap in an arc (0.8 to 1.2 s), land and recover.
+	s.attack = { kind = "lunge", t0 = os.clock(), dur = 1.6 }
+	task.delay(0.8, function()
+		if not s.model.Parent then
+			return
 		end
+		local from = s.model:GetPivot()
+		local dir = (at - from.Position) * Vector3.new(1, 0, 1)
+		local feet = at + Vector3.new(0, s.foot or 0, 0)
+		local face = if dir.Magnitude > 0.01 then dir.Unit else from.LookVector * Vector3.new(1, 0, 1)
+		local start = from.Position
+		local height = 6 + dir.Magnitude * 0.25
+		local t0 = os.clock()
+		while s.model.Parent and os.clock() - t0 < 0.4 do
+			local k = (os.clock() - t0) / 0.4
+			local p = start:Lerp(feet, k) + Vector3.new(0, math.sin(k * math.pi) * height, 0)
+			s.model:PivotTo(CFrame.lookAt(p, p + face))
+			task.wait()
+		end
+		if s.model.Parent then
+			s.model:PivotTo(CFrame.lookAt(feet, feet + face))
+		end
+	end)
+	telegraph(at, 10, 1.2, function()
 		burst(at, Color3.fromRGB(120, 90, 110), 22)
 		for _, t in playersIn(at, 10) do
 			hurt(t, 42)
@@ -150,8 +165,8 @@ local function summon(s, spawnMinion)
 end
 
 local function spikes(s, targets)
-	s.busyUntil = os.clock() + 1.3
-	s.attack = { kind = "slam", t0 = os.clock(), dur = 1.2 }
+	s.busyUntil = os.clock() + 1.9
+	s.attack = { kind = "slam", t0 = os.clock(), dur = 1.9 } -- impact lands as the spikes rise (1.1 s)
 	for _, t in targets do
 		local at = floorAt(t.Position + Vector3.new(rng:NextNumber(-3, 3), 0, rng:NextNumber(-3, 3)))
 		telegraph(at, 7, 1.1, function()
@@ -177,7 +192,7 @@ end
 -- An expanding ring along the floor: you have to jump as it passes.
 local function shockwave(s, radius: number, damage: number, color: Color3)
 	s.busyUntil = os.clock() + 2.2
-	s.attack = { kind = "slam", t0 = os.clock(), dur = 0.75 }
+	s.attack = { kind = "slam", t0 = os.clock(), dur = 1.1 }
 	local centre = floorAt(s.model:GetPivot().Position)
 	local ring = Instance.new("Part")
 	ring.Shape = Enum.PartType.Cylinder
@@ -214,8 +229,8 @@ end
 local function fireball(s, target: BasePart)
 	local from = s.model:GetPivot().Position + Vector3.new(0, 18, 0)
 	local at = floorAt(target.Position)
-	s.busyUntil = os.clock() + 0.9
-	s.attack = { kind = "throw", t0 = os.clock(), dur = 0.9 }
+	s.busyUntil = os.clock() + 1.2
+	s.attack = { kind = "throw", t0 = os.clock(), dur = 1.2 }
 	local ball = Instance.new("Part")
 	ball.Shape = Enum.PartType.Ball
 	ball.Anchored, ball.CanCollide, ball.CanQuery = true, false, false
@@ -265,8 +280,8 @@ end
 
 local function stomp(s)
 	local at = floorAt(s.model:GetPivot().Position)
-	s.busyUntil = os.clock() + 1.8
-	s.attack = { kind = "slam", t0 = os.clock(), dur = 1.7 }
+	s.busyUntil = os.clock() + 2.8
+	s.attack = { kind = "slam", t0 = os.clock(), dur = 2.6 } -- impact lands with the blast (1.5 s)
 	telegraph(at, 22, 1.5, function()
 		burst(at, Color3.fromRGB(255, 120, 40), 46)
 		for _, t in playersIn(at, 22) do
