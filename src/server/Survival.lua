@@ -6,6 +6,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Items = require(Shared.Items)
 local Inventory = require(script.Parent.Inventory)
+local Drops = require(script.Parent.Drops)
 
 local Survival = {}
 local lastEat: { [Player]: number } = {}
@@ -40,9 +41,42 @@ function Survival.consume(player: Player, itemId: string): boolean
 	return true
 end
 
--- Eat from the bag.
+-- Opens a Supply Crate: one to three random stacks, weighted towards the common ones.
+-- Anything that doesn't fit in the bag lands on the ground.
+local function openCrate(player: Player)
+	local now = os.clock()
+	if (lastEat[player] or 0) + 0.5 > now or not Inventory.take(player, "supply_crate", 1) then
+		return
+	end
+	lastEat[player] = now
+	local total = 0
+	for _, e in Items.CRATE_LOOT do
+		total += e[4]
+	end
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	for _ = 1, math.random(1, 3) do
+		local roll = math.random() * total
+		for _, e in Items.CRATE_LOOT do
+			roll -= e[4]
+			if roll <= 0 then
+				local amount = math.random(e[2], e[3])
+				local added = Inventory.add(player, e[1], amount)
+				if added < amount and root then
+					Drops.spawn(e[1], amount - added, root.Position + Vector3.new(0, 2, 0))
+				end
+				break
+			end
+		end
+	end
+end
+
+-- Eat from the bag (or open a crate).
 function Survival.eat(player: Player, itemId: unknown)
 	if type(itemId) ~= "string" or Inventory.count(player, itemId) <= 0 then
+		return
+	end
+	if Items[itemId] and Items[itemId].kind == "crate" then
+		openCrate(player)
 		return
 	end
 	if Survival.consume(player, itemId) then

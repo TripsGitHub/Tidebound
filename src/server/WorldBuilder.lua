@@ -23,6 +23,7 @@ local Landmarks = require(script.Parent.Landmarks)
 local Minimap = require(script.Parent.Minimap)
 local Props = require(script.Parent.Props)
 local Camps = require(script.Parent.Camps)
+local Bosses = require(script.Parent.Bosses)
 
 local WorldBuilder = {}
 local rng = Random.new(1911)
@@ -1030,10 +1031,10 @@ end
 -- Cave seals, ladders and waterfalls ---------------------------------------------------
 local SEAL_NODE = { layer2 = "CaveSealLower", layer3 = "CaveSealDeep", crystal = "CaveSealCrystal", maw = "CaveSealMaw" }
 local SEAL_GLOW = {
-	layer2 = Color3.fromRGB(255, 170, 80),
-	layer3 = Color3.fromRGB(120, 200, 255),
-	crystal = Color3.fromRGB(200, 140, 255),
-	maw = Color3.fromRGB(255, 70, 50),
+	layer2 = Color3.fromRGB(150, 96, 44),
+	layer3 = Color3.fromRGB(60, 110, 150),
+	crystal = Color3.fromRGB(120, 80, 160),
+	maw = Color3.fromRGB(150, 40, 30),
 }
 
 -- A boulder of cracked rock jammed in the tunnel, with light leaking through the cracks.
@@ -1057,7 +1058,7 @@ local function makeSeal(nodeFolder: Folder, b)
 	for side = -1, 1, 2 do
 		for k = 1, 4 do
 			local a = rng:NextNumber(0, math.pi * 2)
-			Props.part(m, { Name = "Crack", Size = Vector3.new(0.4, size * rng:NextNumber(0.25, 0.45), 0.3), CFrame = look * CFrame.new(0, 0, side * size * 0.49) * CFrame.Angles(0, 0, a) * CFrame.new(0, size * 0.12 * k / 2, 0), Color = glow, Material = Enum.Material.Neon, CanCollide = false })
+			Props.part(m, { Name = "Crack", Size = Vector3.new(0.25, size * rng:NextNumber(0.2, 0.35), 0.2), CFrame = look * CFrame.new(0, 0, side * size * 0.49) * CFrame.Angles(0, 0, a) * CFrame.new(0, size * 0.12 * k / 2, 0), Color = glow, Material = Enum.Material.Neon, CanCollide = false })
 		end
 	end
 	local light = Instance.new("PointLight")
@@ -1092,10 +1093,12 @@ local function dressShaft(sh)
 		truss.Name = "Rungs"
 		truss.Size = Vector3.new(2, math.floor(h / 2) * 2, 2)
 		truss.CFrame = CFrame.new(mid + Vector3.new(sh.r - 1.6, 0, 0))
-		truss.Color = Props.WOOD
-		truss.Material = Enum.Material.Wood
+		truss.Transparency = 1 -- the climbable part; the wooden rungs below are what you see
 		truss.Anchored = true
 		truss.Parent = m
+		for y = 1, truss.Size.Y, 2 do
+			Props.part(m, { Name = "Rung", Size = Vector3.new(0.4, 0.4, 2.6), CFrame = CFrame.new(mid + Vector3.new(sh.r - 1.6, y - truss.Size.Y / 2, 0)), Color = Props.WOOD_LIGHT, Material = Enum.Material.Wood, CanCollide = false })
+		end
 		for side = -1, 1, 2 do
 			Props.part(m, { Name = "Rail", Size = Vector3.new(0.5, h, 0.5), CFrame = CFrame.new(mid + Vector3.new(sh.r - 1.6, 0, side * 1.2)), Color = Props.WOOD_DARK, Material = Enum.Material.Wood })
 		end
@@ -1542,7 +1545,12 @@ function WorldBuilder.build()
 	tintCaveRock()
 	dressCaves(nodes, chambers, tunnels, network.pockets)
 	for _, b in network.barriers do
-		makeSeal(nodes, b)
+		local boss = string.match(b.kind, "^gate_(.+)$")
+		if boss then
+			Bosses.makeGate(b, boss)
+		else
+			makeSeal(nodes, b)
+		end
 	end
 	for _, sh in network.shafts do
 		dressShaft(sh)

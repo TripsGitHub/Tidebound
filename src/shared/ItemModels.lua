@@ -348,6 +348,69 @@ for _, tier in Tiers.list do
 	end
 end
 
+-- Cave loot ------------------------------------------------------------------------
+
+function builders.supply_crate(m)
+	local core = part(m, Vector3.new(1.6, 1.3, 1.6), CFrame.new(), C.wood, Enum.Material.WoodPlanks)
+	for _, y in { -0.55, 0.55 } do
+		part(m, Vector3.new(1.7, 0.18, 1.7), CFrame.new(0, y, 0), C.woodDark, Enum.Material.Wood)
+	end
+	part(m, Vector3.new(0.3, 0.4, 0.1), CFrame.new(0, 0.1, -0.82), Color3.fromRGB(220, 180, 70), Enum.Material.Metal)
+	return core
+end
+
+local function keyShape(m, color: Color3, broken: boolean)
+	local core = part(m, Vector3.new(0.25, 0.25, 1.4), CFrame.new(), color, Enum.Material.Metal)
+	local ring = part(m, Vector3.new(0.18, 0.8, 0.8), CFrame.new(0, 0, 0.9), color, Enum.Material.Metal)
+	ring.Shape = Enum.PartType.Cylinder
+	if not broken then
+		part(m, Vector3.new(0.18, 0.4, 0.25), CFrame.new(0, -0.25, -0.55), color, Enum.Material.Metal)
+		part(m, Vector3.new(0.18, 0.3, 0.25), CFrame.new(0, -0.2, -0.25), color, Enum.Material.Metal)
+	end
+	return core
+end
+builders.maw_key = function(m)
+	return keyShape(m, Color3.fromRGB(150, 50, 40), false)
+end
+builders.key_fragment = function(m)
+	return keyShape(m, Color3.fromRGB(120, 110, 100), true)
+end
+
+function builders.queen_fang(m)
+	local core = part(m, Vector3.new(0.5, 1.8, 0.5), CFrame.Angles(0, 0, 0.2), Color3.fromRGB(236, 226, 206), Enum.Material.SmoothPlastic)
+	part(m, Vector3.new(0.6, 0.4, 0.6), CFrame.new(-0.18, -0.9, 0), Color3.fromRGB(120, 60, 90), Enum.Material.SmoothPlastic)
+	return core
+end
+function builders.warden_core(m)
+	local core = part(m, Vector3.new(1, 1.4, 1), CFrame.Angles(0, math.rad(45), 0), Color3.fromRGB(200, 150, 255), Enum.Material.Neon)
+	part(m, Vector3.new(0.6, 1.8, 0.6), CFrame.Angles(0, math.rad(20), math.rad(10)), Color3.fromRGB(150, 90, 230), Enum.Material.Glass)
+	return core
+end
+function builders.golem_heart(m)
+	local core = part(m, Vector3.new(1.2, 1.2, 1.2), CFrame.new(), Color3.fromRGB(255, 110, 30), Enum.Material.Neon)
+	core.Shape = Enum.PartType.Ball
+	part(m, Vector3.new(1.4, 0.4, 1.4), CFrame.new(0, 0.2, 0), Color3.fromRGB(44, 36, 34), Enum.Material.Basalt)
+	return core
+end
+function builders.warden_pack(m)
+	local core = part(m, Vector3.new(1.8, 2, 0.9), CFrame.new(), Color3.fromRGB(70, 66, 92), Enum.Material.Slate)
+	part(m, Vector3.new(0.6, 0.9, 0.2), CFrame.new(0, 0.2, -0.5), Color3.fromRGB(200, 150, 255), Enum.Material.Neon)
+	return core
+end
+function builders.fang_blade(m)
+	local grip = part(m, Vector3.new(0.3, 1.2, 0.3), CFrame.new(), C.leather, Enum.Material.Fabric)
+	part(m, Vector3.new(1.2, 0.25, 0.3), CFrame.new(0, 0.7, 0), Color3.fromRGB(120, 60, 90), Enum.Material.SmoothPlastic)
+	local blade = part(m, Vector3.new(0.35, 3.6, 0.15), CFrame.new(0, 2.6, 0) * CFrame.Angles(0, 0, 0.08), Color3.fromRGB(236, 226, 206), Enum.Material.SmoothPlastic)
+	blade.Reflectance = 0.15
+	return grip
+end
+function builders.golem_harvester(m)
+	local grip = part(m, Vector3.new(0.35, 3, 0.35), CFrame.new(0, 1, 0), C.woodDark, Enum.Material.Wood)
+	part(m, Vector3.new(2.2, 0.7, 0.5), CFrame.new(0, 2.6, 0), Color3.fromRGB(44, 36, 34), Enum.Material.Basalt)
+	part(m, Vector3.new(0.5, 0.5, 0.55), CFrame.new(0, 2.6, 0), Color3.fromRGB(255, 110, 30), Enum.Material.Neon)
+	return grip
+end
+
 -- Buildable icons ----------------------------------------------------------------
 
 function builders.campfire(m)

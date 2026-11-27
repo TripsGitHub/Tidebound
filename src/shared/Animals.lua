@@ -1,4 +1,6 @@
 -- Animals you can hunt.
+-- loot: { item, min, max, chance? } rolled when it dies; chance is the odds that line
+-- drops at all (none means always). Bosses drop parts you can't get anywhere else.
 local Animals = {
 	Boar = {
 		name = "Boar",
@@ -9,7 +11,7 @@ local Animals = {
 		runSpeed = 16,
 		xp = 10,
 		respawn = 60,
-		drops = { { item = "raw_meat", amount = 2 }, { item = "leather", amount = 2 } },
+		loot = { { "raw_meat", 1, 3 }, { "leather", 1, 3 }, { "supply_crate", 1, 1, 0.02 } },
 	},
 	-- Beaches and atolls. Scuttles off, pinches back.
 	Crab = {
@@ -21,7 +23,7 @@ local Animals = {
 		runSpeed = 14,
 		xp = 6,
 		respawn = 45,
-		drops = { { item = "raw_meat", amount = 1 } },
+		loot = { { "raw_meat", 1, 1 }, { "stone", 0, 2 }, { "supply_crate", 1, 1, 0.01 } },
 	},
 	-- Mountain goats on the Crags and the Mesa. Skittish; butts back if cornered.
 	Goat = {
@@ -33,7 +35,7 @@ local Animals = {
 		runSpeed = 17,
 		xp = 9,
 		respawn = 60,
-		drops = { { item = "raw_meat", amount = 1 }, { item = "leather", amount = 2 } },
+		loot = { { "raw_meat", 1, 2 }, { "leather", 1, 3 }, { "silver_ore", 1, 1, 0.08 } },
 	},
 	-- Turtles plod along the beaches. Tough shells, slow to anger.
 	Turtle = {
@@ -45,7 +47,7 @@ local Animals = {
 		runSpeed = 5,
 		xp = 12,
 		respawn = 90,
-		drops = { { item = "raw_meat", amount = 2 }, { item = "leather", amount = 1 } },
+		loot = { { "raw_meat", 2, 3 }, { "leather", 1, 2 }, { "supply_crate", 1, 1, 0.05 } },
 	},
 	-- Frost Isle and the Silver Crags. Hunts in packs: comes for you if you get close.
 	Wolf = {
@@ -58,7 +60,7 @@ local Animals = {
 		xp = 22,
 		respawn = 90,
 		aggro = 32,
-		drops = { { item = "raw_meat", amount = 2 }, { item = "leather", amount = 3 } },
+		loot = { { "raw_meat", 1, 3 }, { "leather", 2, 4 }, { "silver_ore", 1, 2, 0.15 }, { "supply_crate", 1, 1, 0.04 } },
 	},
 	-- Slime Marsh. Wobbles at you if you stand too close.
 	BogSlime = {
@@ -71,7 +73,7 @@ local Animals = {
 		xp = 14,
 		respawn = 60,
 		aggro = 14,
-		drops = { { item = "sticky_slime", amount = 3 } },
+		loot = { { "sticky_slime", 2, 4 }, { "gold_ore", 1, 1, 0.06 } },
 	},
 	-- Ember Isle's slopes. Slow, tough, hits hard.
 	CinderBeetle = {
@@ -84,7 +86,7 @@ local Animals = {
 		xp = 40,
 		respawn = 120,
 		aggro = 24,
-		drops = { { item = "stone", amount = 4 }, { item = "leather", amount = 2 } },
+		loot = { { "stone", 3, 6 }, { "leather", 1, 2 }, { "sunstone", 1, 1, 0.1 }, { "supply_crate", 1, 1, 0.06 } },
 	},
 	-- The lower and deep caves. Waits in the dark and rushes anyone who comes near:
 	-- go down with friends.
@@ -99,7 +101,7 @@ local Animals = {
 		respawn = 150,
 		aggro = 30,
 		cave = true,
-		drops = { { item = "leather", amount = 2 }, { item = "sticky_slime", amount = 2 } },
+		loot = { { "leather", 1, 3 }, { "sticky_slime", 1, 3 }, { "gold_ore", 1, 2, 0.2 }, { "key_fragment", 1, 1, 0.12 }, { "supply_crate", 1, 1, 0.08 } },
 	},
 
 	-- Bosses: one in each lair below the Maw. `reach` is how close they bite from,
@@ -117,7 +119,7 @@ local Animals = {
 		reach = 9,
 		cave = true,
 		boss = true,
-		drops = { { item = "fractite", amount = 6 }, { item = "diamond", amount = 4 }, { item = "leather", amount = 8 } },
+		loot = { { "queen_fang", 1, 1 }, { "supply_crate", 2, 3 }, { "key_fragment", 1, 2 }, { "diamond", 2, 4 }, { "fractite", 1, 2, 0.5 } },
 	},
 	CrystalWarden = {
 		name = "Crystal Warden",
@@ -132,7 +134,7 @@ local Animals = {
 		reach = 11,
 		cave = true,
 		boss = true,
-		drops = { { item = "amethyst", amount = 6 }, { item = "fractite", amount = 4 } },
+		loot = { { "warden_core", 1, 1 }, { "supply_crate", 2, 3 }, { "key_fragment", 1, 2 }, { "amethyst", 1, 3, 0.6 }, { "fractite", 2, 3 } },
 	},
 	MagmaGolem = {
 		name = "Magma Golem",
@@ -147,7 +149,7 @@ local Animals = {
 		reach = 12,
 		cave = true,
 		boss = true,
-		drops = { { item = "obsidian", amount = 4 }, { item = "amethyst", amount = 4 }, { item = "sunstone", amount = 6 } },
+		loot = { { "golem_heart", 1, 1 }, { "supply_crate", 3, 4 }, { "key_fragment", 1, 2 }, { "obsidian", 2, 4 }, { "amethyst", 1, 2, 0.5 } },
 	},
 }
 

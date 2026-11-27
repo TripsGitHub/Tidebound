@@ -9,10 +9,12 @@ local AnimalDefs = require(Shared.Animals)
 local Meshes = require(Shared.Meshes)
 local Inventory = require(script.Parent.Inventory)
 local Drops = require(script.Parent.Drops)
+local Remotes = require(Shared.Remotes)
 local Progression = require(script.Parent.Progression)
 local Quests = require(script.Parent.Quests)
 
 local Animals = {}
+local Bosses -- required lazily (it needs Inventory, which is fine, but keeps start-up order simple)
 
 type State = {
 	model: Model,
@@ -26,6 +28,9 @@ type State = {
 	phase: number,
 	nearest: Player?,
 	nearestDist: number,
+	limbs: { { part: BasePart, rest: CFrame, kind: string, side: number } }?,
+	windupUntil: number?,
+	busyUntil: number?,
 }
 
 local states: { [Model]: State } = {}
@@ -308,7 +313,7 @@ local function pickWanderTarget(s: State): Vector3?
 	return nil
 end
 
-local function spawnAnimal(kind: string, home: Vector3)
+local function spawnAnimal(kind: string, home: Vector3): Model
 	local def = AnimalDefs[kind]
 	local model = builders[kind]()
 	model.Name = kind
@@ -338,6 +343,18 @@ local function spawnAnimal(kind: string, home: Vector3)
 		tag.Parent = model
 	end
 	model.Parent = folder()
+	-- Remember where each limb sits on the body so the step can swing it.
+	local limbs = {}
+	local pivot = model:GetPivot()
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") then
+			local kind = if p.Name == "Leg" then "leg" elseif p.Name == "Arm" or p.Name == "Fist" or p.Name == "Claw" or p.Name == "Mandible" or p.Name == "Fang" then "arm" elseif p.Name == "Head" or p.Name == "Snout" or p.Name == "Eye" or p.Name == "Ear" or p.Name == "Horn" or p.Name == "Beard" then "head" elseif p.Name == "Tail" then "tail" else nil
+			if kind then
+				local rest = pivot:ToObjectSpace(p.CFrame)
+				table.insert(limbs, { part = p, rest = rest, kind = kind, side = if rest.Position.X >= 0 then 1 else -1, front = rest.Position.Z < 0 })
+			end
+		end
+	end
 	states[model] = {
 		model = model,
 		def = def,
@@ -350,7 +367,49 @@ local function spawnAnimal(kind: string, home: Vector3)
 		phase = rng:NextNumber(0, 6),
 		nearest = nil,
 		nearestDist = math.huge,
+		limbs = limbs,
 	}
+	return model
+end
+
+-- Pose the limbs: legs swing in a trot while moving, the head dips and rises, arms and
+-- jaws pull back during a wind-up and snap forward on the strike.
+local function pose(s, moving: boolean, windup: number)
+	local pivot = s.model:GetPivot()
+	local t = s.phase
+	for _, l in s.limbs or {} do
+		local size = l.part.Size
+		local cf = l.rest
+		if l.kind == "leg" then
+			local a = if moving then math.sin(t * 1.6 + (if l.front == (l.side > 0) then 0 else math.pi)) * 0.5 else 0
+			if size.Y >= size.X then
+				-- Upright leg: swing about its top.
+				cf = cf * CFrame.new(0, size.Y / 2, 0) * CFrame.Angles(a, 0, 0) * CFrame.new(0, -size.Y / 2, 0)
+			else
+				-- Spidery leg sticking out sideways: lift and drop it.
+				cf = cf * CFrame.Angles(0, a * 0.5, a * 0.4 * l.side)
+			end
+		elseif l.kind == "arm" then
+			local a = -windup * 1.1 + (if moving then math.sin(t * 1.6 + (if l.side > 0 then math.pi else 0)) * 0.3 else 0)
+			cf = cf * CFrame.new(0, size.Y / 2, 0) * CFrame.Angles(a, 0, 0) * CFrame.new(0, -size.Y / 2, 0)
+		elseif l.kind == "head" then
+			cf = CFrame.new(0, (if moving then math.sin(t * 3.2) * 0.12 else math.sin(os.clock() * 1.5) * 0.06) + windup * 0.4, windup * 0.5) * cf
+		elseif l.kind == "tail" then
+			cf = cf * CFrame.Angles(0, math.sin(t * 2.4 + os.clock() * 2) * 0.3, 0)
+		end
+		l.part.CFrame = pivot * cf
+	end
+end
+
+-- One animal at a cave floor or ground spot near `at`; returns its model.
+function Animals.spawnOne(kind: string, at: Vector3): Model?
+	local pos = if AnimalDefs[kind].cave then floorNear(at.X, at.Y, at.Z) else groundAt(at.X, at.Z)
+	if not pos then
+		return nil
+	end
+	local model = spawnAnimal(kind, pos)
+	model:SetAttribute("Minion", true) -- called up by a boss: doesn't come back when killed
+	return model
 end
 
 function Animals.spawnHerd(kind: string, center: Vector3, count: number)
@@ -375,21 +434,31 @@ function Animals.damage(model: Model, amount: number, attacker: Player)
 	if hp <= 0 then
 		states[model] = nil
 		local pos = model:GetPivot().Position + Vector3.new(0, 2, 0)
-		for _, drop in s.def.drops do
-			Drops.spawn(drop.item, drop.amount, pos)
+		for _, line in s.def.loot or {} do
+			if not line[4] or rng:NextNumber() < line[4] then
+				for _ = 1, rng:NextInteger(line[2], line[3]) do
+					Drops.spawn(line[1], 1, pos)
+				end
+			end
 		end
 		Progression.addXp(attacker, s.def.xp)
 		Quests.record(attacker, "hunt", model:GetAttribute("AnimalType"), 1)
+		local minion = model:GetAttribute("Minion")
 		model:Destroy()
 		local kind, home = model.Name, s.home
-		task.delay(s.def.respawn, function()
-			spawnAnimal(kind, home)
-		end)
+		if not minion then
+			task.delay(s.def.respawn, function()
+				spawnAnimal(kind, home)
+			end)
+		end
 		return
 	end
-	-- Run first, then come back angry.
+	-- Run first, then come back angry. Hunters and bosses turn on you straight away.
 	s.attacker = attacker
-	if s.mode ~= "angry" then
+	if s.def.aggro and s.mode ~= "angry" then
+		s.mode = "angry"
+		s.modeUntil = os.clock() + 12
+	elseif s.mode ~= "angry" then
 		s.mode = "flee"
 		s.modeUntil = os.clock() + 2
 	end
@@ -425,17 +494,44 @@ local function step(s: State, dt: number)
 		speed = s.def.runSpeed * 0.85
 		local toward = attackerRoot.Position - pos
 		local flat = Vector3.new(toward.X, 0, toward.Z)
-		if flat.Magnitude < (s.def.reach or 4.5) then
+		local reach = s.def.reach or 4.5
+		local busy = false
+		if s.def.boss then
+			Bosses = Bosses or require(script.Parent.Bosses)
+			busy = Bosses.think(s, attackerRoot, function(kind, at)
+				return Animals.spawnOne(kind, at)
+			end)
+			s.modeUntil = now + 12 -- a boss doesn't lose interest while you're in its lair
+		end
+		if busy then
+			goal = nil
+		elseif s.windupUntil then
+			-- Mid wind-up: hold still, then strike whoever is still in reach.
+			goal = nil
+			if now >= s.windupUntil then
+				s.windupUntil = nil
+				s.nextBite = now + s.def.attackCooldown
+				if flat.Magnitude < reach + 1.5 then
+					local defense = Inventory.defense(s.attacker :: Player)
+					attackerHum:TakeDamage(s.def.damage * (1 - defense))
+					Remotes.HitFeedback:FireAllClients(s.attacker.Character)
+				end
+			end
+		elseif flat.Magnitude < reach then
 			goal = nil
 			if now >= s.nextBite then
-				s.nextBite = now + s.def.attackCooldown
-				local defense = Inventory.defense(s.attacker :: Player)
-				attackerHum:TakeDamage(s.def.damage * (1 - defense))
+				-- A short, visible wind-up before every bite, so you can back off or block.
+				s.windupUntil = now + (if s.def.boss then 0.6 else 0.35)
 			end
 		else
 			goal = attackerRoot.Position
 		end
-		if now > s.modeUntil or flat.Magnitude > 80 then
+		-- Face the target even when standing still.
+		if not goal and flat.Magnitude > 0.1 then
+			model:PivotTo(CFrame.lookAt(pos, pos + flat.Unit))
+		end
+		local leash = if s.def.boss then (pos - s.home).Magnitude > 70 else flat.Magnitude > 80
+		if now > s.modeUntil or leash then
 			s.mode = "idle"
 			s.attacker = nil
 			s.modeUntil = now + 3
@@ -476,6 +572,8 @@ local function step(s: State, dt: number)
 			end
 		end
 	end
+	local windup = if s.windupUntil then 1 - math.clamp((s.windupUntil - now) / 0.6, 0, 1) else 0
+	pose(s, goal ~= nil, windup)
 end
 
 function Animals.start()

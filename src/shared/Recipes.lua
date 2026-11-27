@@ -20,6 +20,12 @@ local Recipes = {
 	{ id = "hide_pack", tab = "Armour", level = 8, cost = { leather = 10, sticky_slime = 3 } },
 	{ id = "explorer_pack", tab = "Armour", level = 14, cost = { leather = 16, gold_ore = 4, sticky_slime = 4 } },
 
+	-- Cave and boss gear (levels on the 1-20 scale like the rest)
+	{ id = "maw_key", tab = "Tools", level = 13, cost = { key_fragment = 3, gold_ore = 4 } },
+	{ id = "fang_blade", tab = "Tools", level = 19, cost = { queen_fang = 1, diamond = 6, leather = 6 } },
+	{ id = "golem_harvester", tab = "Tools", level = 20, cost = { golem_heart = 1, obsidian = 8, stick = 6 } },
+	{ id = "warden_pack", tab = "Armour", level = 19, cost = { warden_core = 1, amethyst = 4, leather = 12 } },
+
 	-- Buildables
 	{ id = "campfire", tab = "Buildables", level = 1, cost = { log = 3, stick = 2, stone = 3 } },
 	{ id = "wood_base", tab = "Buildables", level = 3, cost = { log = 20 } },

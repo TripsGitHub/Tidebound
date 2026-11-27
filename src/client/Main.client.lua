@@ -84,6 +84,7 @@ Anim.start()
 task.spawn(Gates.start)
 Nameplates.start()
 Minimap.init(UI.root :: ScreenGui)
+require(script.Parent.BossBar).init(UI.root :: ScreenGui)
 Effects.startAmbient()
 
 -- Swinging -----------------------------------------------------------------------
@@ -116,7 +117,7 @@ local function primaryAction()
 	if item.kind == "tool" then
 		holdingClick = true
 		trySwing()
-	elseif item.kind == "food" then
+	elseif item.kind == "food" or item.kind == "crate" then
 		Remotes.Eat:FireServer(equipped)
 		Anim.play(player.Character, "eat")
 	elseif item.kind == "placeable" then

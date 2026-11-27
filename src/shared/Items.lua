@@ -52,6 +52,35 @@ local Items = {
 	leather = { name = "Leather", kind = "resource", order = 105 },
 }
 
+-- Cave loot -----------------------------------------------------------------------
+-- Key Fragments drop from deep cave creatures and bosses; three make a Maw Key, which
+-- opens one boss gate. Supply Crates drop rarely from creatures: open one for a
+-- random haul. Boss parts drop from nothing else, and make the best gear in the game.
+Items.key_fragment = { name = "Key Fragment", kind = "resource", order = 130 }
+Items.maw_key = { name = "Maw Key", kind = "resource", order = 131 }
+Items.supply_crate = { name = "Supply Crate", kind = "crate", order = 132 }
+Items.queen_fang = { name = "Queen's Fang", kind = "resource", order = 133 }
+Items.warden_core = { name = "Warden Core", kind = "resource", order = 134 }
+Items.golem_heart = { name = "Golem Heart", kind = "resource", order = 135 }
+Items.fang_blade = { name = "Fang Blade", kind = "tool", swing = "slash", order = 4.9, gather = { wood = 2, plant = 2 }, cooldown = 0.55, damage = 110 }
+Items.golem_harvester = { name = "Golem Harvester", kind = "tool", order = 4.95, gather = { wood = 12, stone = 12, plant = 10, slime = 10 }, cooldown = 0.5, damage = 40 }
+Items.warden_pack = { name = "Warden Pack", kind = "armour", slot = "bag", order = 45.9, bagSize = 1000 }
+
+-- What a Supply Crate can hold: { item, min, max, weight }.
+Items.CRATE_LOOT = {
+	{ "log", 8, 16, 10 },
+	{ "stone", 8, 16, 10 },
+	{ "leather", 3, 6, 8 },
+	{ "sticky_slime", 3, 6, 6 },
+	{ "cooked_meat", 2, 4, 6 },
+	{ "silver_ore", 2, 5, 6 },
+	{ "gold_ore", 2, 4, 4 },
+	{ "sunstone", 1, 3, 2.5 },
+	{ "key_fragment", 1, 1, 1.5 },
+	{ "diamond", 1, 2, 0.8 },
+	{ "fractite", 1, 1, 0.3 },
+}
+
 -- Ores and crystals (see Ores.lua), one per tier from Silver up.
 for i, ore in require(script.Parent.Ores) do
 	Items[ore.item] = { name = ore.name, kind = "resource", order = 110 + i }

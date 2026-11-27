@@ -81,6 +81,8 @@ local function describe(id: string): string
 		return "Fills " .. (item.hunger or 0) .. " hunger"
 	elseif item.kind == "placeable" then
 		return "Build it on your land"
+	elseif item.kind == "crate" then
+		return "Open it for random loot"
 	end
 	return "Used for crafting"
 end
@@ -248,6 +250,10 @@ local function bagCard(id: string)
 		end)
 	elseif item.kind == "food" then
 		act(1, "Eat", function()
+			callbacks.onEat(id)
+		end)
+	elseif item.kind == "crate" then
+		act(1, "Open", function()
 			callbacks.onEat(id)
 		end)
 	end

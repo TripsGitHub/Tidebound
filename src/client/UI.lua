@@ -71,7 +71,7 @@ function UI.hotbarIds(): { string }
 	local ids = {}
 	for id, count in state.items do
 		local kind = Items[id] and Items[id].kind
-		if count > 0 and (kind == "tool" or kind == "food" or kind == "placeable") then
+		if count > 0 and (kind == "tool" or kind == "food" or kind == "placeable" or kind == "crate") then
 			table.insert(ids, id)
 		end
 	end
