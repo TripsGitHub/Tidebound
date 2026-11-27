@@ -52,6 +52,15 @@ UI.init({
 	onCancelBuild = function()
 		hold(nil)
 	end,
+	onPickupDrop = function(target)
+		Remotes.PickUp:FireServer(target)
+		UI.selectDrop(nil)
+	end,
+	onEatDrop = function(target)
+		Remotes.EatDrop:FireServer(target)
+		Anim.play(player.Character, "eat")
+		UI.selectDrop(nil)
+	end,
 })
 InventoryScreen.init(UI.root :: ScreenGui, {
 	onCraft = function(id)
@@ -156,11 +165,16 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		Pointer.setTouch(nil)
-		primaryAction()
-	elseif input.UserInputType == Enum.UserInputType.Touch then
-		Pointer.setTouch(input.Position)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		Pointer.setTouch(if input.UserInputType == Enum.UserInputType.Touch then input.Position else nil)
+		-- Clicking a dropped item pops up its pickup prompt instead of swinging.
+		Hover.refresh()
+		local info = Hover.get()
+		if info.kind == "drop" and info.target and info.inRange then
+			UI.selectDrop(info.target)
+			return
+		end
+		UI.selectDrop(nil)
 		primaryAction()
 	elseif KEYS[input.KeyCode] then
 		equipSlot(KEYS[input.KeyCode])

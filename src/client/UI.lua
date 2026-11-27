@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -38,6 +39,8 @@ local promptFrame: BillboardGui
 local promptName: TextLabel
 local promptKeys: Frame
 local promptKeyFor = ""
+local selectedDrop: Model? = nil -- the drop you clicked; its prompt stays up
+local promptTarget: Model? = nil
 local popupLayer: Frame
 local popup: (string, Color3) -> ()
 local lastHit: Model? = nil
@@ -84,13 +87,14 @@ local function rebuildHotbar()
 		end
 	end
 	local ids = UI.hotbarIds()
-	for i = 1, math.max(5, #ids) do
+	for i = 1, math.max(8, #ids) do
 		local id = ids[i]
 		local selected = id ~= nil and id == state.equipped
 		-- Round flat tan slot; the item's name sits above it, the stack count inside
-		-- at the bottom. The held item's slot is a little bigger with a gold rim.
-		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(84, 86), BackgroundTransparency = 1 })
-		local size = if selected then 64 else 58
+		-- at the bottom. All eight slots always show, like Island Tribes; the held
+		-- item's slot gets a gold rim.
+		local holder = new("Frame", { Parent = hotbar, LayoutOrder = i, Size = UDim2.fromOffset(58, 72), BackgroundTransparency = 1 })
+		local size = 52
 		local slot = new("TextButton", {
 			Parent = holder,
 			AnchorPoint = Vector2.new(0.5, 1),
@@ -104,10 +108,10 @@ local function rebuildHotbar()
 		if id then
 			Icons.make(id, slot, UDim2.fromScale(0.78, 0.78), UDim2.fromScale(0.11, 0.06))
 			-- Long names shrink to fit the slot so neighbours never overlap.
-			local name = label({ Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, if selected then 20 else 0, 0, 18), ZIndex = if selected then 3 else 1, Text = Items[id].name, TextScaled = true, TextColor3 = if selected then C.star else C.text })
-			new("UITextSizeConstraint", { Parent = name, MaxTextSize = if selected then 17 else 15 })
+			local name = label({ Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 10, 0, 16), ZIndex = if selected then 3 else 1, Text = Items[id].name, TextScaled = true, TextStrokeTransparency = 0.4, TextColor3 = if selected then C.star else C.text })
+			new("UITextSizeConstraint", { Parent = name, MaxTextSize = 13 })
 			if (state.items[id] or 0) > 1 then
-				label({ Parent = slot, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.fromOffset(40, 16), Text = tostring(state.items[id]), TextScaled = false, TextSize = 16, ZIndex = 3 })
+				label({ Parent = slot, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.fromOffset(40, 14), Text = tostring(state.items[id]), TextScaled = false, TextSize = 13, ZIndex = 3 })
 			end
 			slot.MouseButton1Click:Connect(function()
 				callbacks.onSlot(i)
@@ -119,11 +123,13 @@ end
 -- Stat bars ----------------------------------------------------------------------
 
 local function statBar(parent: Instance, order: number, name: string, color: Color3)
-	local row = new("Frame", { Parent = parent, LayoutOrder = order, Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1 })
-	label({ Parent = row, Size = UDim2.new(0, 56, 1, 0), Text = name, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 16 })
-	local back = new("Frame", { Parent = row, Position = UDim2.fromOffset(58, 1), Size = UDim2.new(1, -58, 1, -2), BackgroundColor3 = C.cardDark, BorderSizePixel = 0 }, { UIKit.round() })
+	-- Roomy rows with a softer outline: the label, then a wide rounded bar with the
+	-- value centred in it.
+	local row = new("Frame", { Parent = parent, LayoutOrder = order, Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1 })
+	label({ Parent = row, Size = UDim2.new(0, 74, 1, 0), Text = name, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 18, TextStrokeTransparency = 0.55 })
+	local back = new("Frame", { Parent = row, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 78, 0.5, 0), Size = UDim2.new(1, -78, 0, 20), BackgroundColor3 = C.barBack, BorderSizePixel = 0 }, { UIKit.round() })
 	local fill = new("Frame", { Parent = back, Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0 }, { UIKit.round() })
-	local text = label({ Parent = back, Size = UDim2.fromScale(1, 1), Text = "", TextScaled = false, TextSize = 14, ZIndex = 2 })
+	local text = label({ Parent = back, Size = UDim2.fromScale(1, 1), Text = "", TextScaled = false, TextSize = 15, TextStrokeTransparency = 0.5, ZIndex = 2 })
 	bars[name] = { fill = fill, text = text }
 end
 
@@ -255,7 +261,7 @@ function UI.heart(amount: number)
 	end
 	local heart = label({ Parent = popupLayer, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(150, 130), Text = "♥", TextColor3 = C.xp, TextStrokeTransparency = 1, TextScaled = true })
 	local pill = new("Frame", { Parent = heart, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(64, 26), BackgroundColor3 = C.text }, { UIKit.round() })
-	local num = UIKit.new("TextLabel", { Parent = pill, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Font = UIKit.Font, TextSize = 20, TextColor3 = Color3.fromRGB(70, 140, 60), Text = "+" .. amount })
+	local num = UIKit.new("TextLabel", { Parent = pill, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, FontFace = UIKit.FontFace, TextSize = 20, TextColor3 = Color3.fromRGB(70, 140, 60), Text = "+" .. amount })
 	task.delay(0.6, function()
 		local info = TweenInfo.new(0.35)
 		TweenService:Create(heart, info, { TextTransparency = 1 }):Play()
@@ -313,6 +319,26 @@ local function showTarget(name: string?, hp: number?, maxHp: number?)
 	targetFill.Size = UDim2.fromScale(math.clamp(hp / maxHp, 0, 1), 1)
 end
 
+-- A tan pill in the pickup prompt. On keyboards it carries the key in a small box;
+-- on touch screens it is just the word.
+local touchOnly = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local function promptButton(order: number, key: string, text: string, enabled: boolean, onClick: () -> ())
+	local b = new("TextButton", { Parent = promptKeys, LayoutOrder = order, Size = UDim2.fromOffset(if touchOnly then 108 else 124, 36), BackgroundColor3 = C.panel, BackgroundTransparency = if enabled then 0.05 else 0.4, Text = "", AutoButtonColor = enabled }, {
+		corner(8),
+		stroke(C.rim, 2),
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	if not touchOnly then
+		local cap = new("Frame", { Parent = b, LayoutOrder = 1, Size = UDim2.fromOffset(20, 20), BackgroundColor3 = C.cardDark, BorderSizePixel = 0 }, { corner(4) })
+		label({ Parent = cap, Size = UDim2.fromScale(1, 1), Text = key, TextScaled = false, TextSize = 14, TextStrokeTransparency = 0.5 })
+	end
+	label({ Parent = b, LayoutOrder = 2, Size = UDim2.fromOffset(0, 30), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 22 })
+	if enabled then
+		b.MouseButton1Click:Connect(onClick)
+	end
+	return b
+end
+
 local function updateHover()
 	local info = Hover.get()
 	-- Target bar: whatever you're pointing at that has health, else what you last hit.
@@ -327,16 +353,34 @@ local function updateHover()
 		showTarget(nil)
 	end
 
-	-- Pickup prompt: the item's name in big letters, with its keys under it.
-	if info.target and info.kind == "drop" and info.inRange then
-		-- Shown in the world, over the item itself.
-		local anchor = info.target.PrimaryPart or info.target:FindFirstChildWhichIsA("BasePart", true)
+	-- Pickup prompt over the item: its name, then tan "Pickup" (and "Eat") buttons.
+	-- Clicking or tapping a drop selects it, so the prompt stays until you pick it
+	-- up, walk away or click something else; hovering shows it too.
+	local target, name, inRange = nil, nil, false
+	if selectedDrop then
+		if selectedDrop.Parent then
+			local n, ok, d = Hover.dropInfo(selectedDrop)
+			if d <= Config.PickupRange + 4 then
+				target, name, inRange = selectedDrop, n, ok
+			else
+				selectedDrop = nil
+			end
+		else
+			selectedDrop = nil
+		end
+	end
+	if not target and info.target and info.kind == "drop" and info.inRange then
+		target, name, inRange = info.target, info.name, true
+	end
+	if target then
+		local anchor = target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart", true)
 		promptFrame.Adornee = anchor
 		promptFrame.Enabled = anchor ~= nil
-		promptName.Text = info.name or ""
-		local itemId = info.target:GetAttribute("ItemId")
+		promptName.Text = name or ""
+		promptTarget = target
+		local itemId = target:GetAttribute("ItemId")
 		local food = Items[itemId] and Items[itemId].kind == "food"
-		local want = if food then "FE" else "F"
+		local want = (if food then "FE" else "F") .. (if inRange then "" else "-")
 		if promptKeyFor ~= want then
 			promptKeyFor = want
 			for _, c in promptKeys:GetChildren() do
@@ -344,14 +388,27 @@ local function updateHover()
 					c:Destroy()
 				end
 			end
-			UIKit.keyCap(promptKeys, "F", "Pickup", 1)
+			promptButton(1, "F", "Pickup", inRange, function()
+				if promptTarget then
+					callbacks.onPickupDrop(promptTarget)
+				end
+			end)
 			if food then
-				UIKit.keyCap(promptKeys, "E", "Eat", 2)
+				promptButton(2, "E", "Eat", inRange, function()
+					if promptTarget then
+						callbacks.onEatDrop(promptTarget)
+					end
+				end)
 			end
 		end
 	else
 		promptFrame.Enabled = false
+		promptTarget = nil
 	end
+end
+
+function UI.selectDrop(model: Model?)
+	selectedDrop = model
 end
 
 -- Compass ------------------------------------------------------------------------
@@ -571,22 +628,22 @@ function UI.init(cb)
 	local shellsLabel = label({ Parent = shellsHolder, Position = UDim2.fromOffset(0, 54), Size = UDim2.new(1, 0, 0, 18), Text = "0", TextScaled = false, TextSize = 20 })
 
 	-- Hotbar (bottom centre)
-	hotbar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(8 * 88, 86), BackgroundTransparency = 1 }, {
+	hotbar = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(8 * 62, 72), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 
 	-- Stats (bottom right)
-	local stats = UIKit.panel({ Parent = gui, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Size = UDim2.fromOffset(200, 74) })
-	new("UIPadding", { Parent = stats, PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 7) })
-	new("UIListLayout", { Parent = stats, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder })
+	local stats = UIKit.panel({ Parent = gui, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Size = UDim2.fromOffset(268, 112) })
+	new("UIPadding", { Parent = stats, PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10) })
+	new("UIListLayout", { Parent = stats, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center })
 	statBar(stats, 1, "Health", C.health)
 	statBar(stats, 2, "Bag", C.bag)
 	statBar(stats, 3, "Hunger", C.hunger)
 
 	-- Pickup prompt, floating over the item in the world: its name, then "[F] Pickup"
-	promptFrame = new("BillboardGui", { Parent = player:WaitForChild("PlayerGui"), Name = "TideboundPickup", Size = UDim2.fromOffset(260, 64), StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0), AlwaysOnTop = true, LightInfluence = 0, ResetOnSpawn = false, Enabled = false })
+	promptFrame = new("BillboardGui", { Parent = player:WaitForChild("PlayerGui"), Name = "TideboundPickup", Size = UDim2.fromOffset(280, 76), StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0), AlwaysOnTop = true, Active = true, LightInfluence = 0, ResetOnSpawn = false, Enabled = false })
 	promptName = UIKit.hudText({ Parent = promptFrame, Size = UDim2.new(1, 0, 0, 30), Text = "", TextScaled = false, TextSize = 26 })
-	promptKeys = new("Frame", { Parent = promptFrame, Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1 }, {
+	promptKeys = new("Frame", { Parent = promptFrame, Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 
