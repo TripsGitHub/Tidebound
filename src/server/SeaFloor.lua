@@ -98,6 +98,11 @@ local function targetDepth(islands, grid, x: number, z: number): number?
 	return depth
 end
 
+local floorParams = RaycastParams.new()
+floorParams.FilterType = Enum.RaycastFilterType.Include
+floorParams.IgnoreWater = true
+floorParams.FilterDescendantsInstances = { Workspace.Terrain }
+
 local function scoop(terrain: Terrain, islands, grid, extent: number)
 	local STEP, R = 44, 34
 	local rng = Random.new(4242)
@@ -116,7 +121,17 @@ local function scoop(terrain: Terrain, islands, grid, extent: number)
 						worst = math.max(worst, roof + 16)
 					end
 				end
-				if worst < SURFACE_FLOOR - 4 then
+				-- Not under an island's underwater slope either: a bowl cut in under it
+				-- leaves a lid of sand floating over the hole with drips hanging off it.
+				local open = true
+				for _, o in { Vector3.zero, Vector3.new(R, 0, 0), Vector3.new(-R, 0, 0), Vector3.new(0, 0, R), Vector3.new(0, 0, -R) } do
+					local hit = Workspace:Raycast(Vector3.new(px + o.X, -1, pz + o.Z), Vector3.new(0, -60, 0), floorParams)
+					if hit and hit.Position.Y > SURFACE_FLOOR + 3 then
+						open = false
+						break
+					end
+				end
+				if open and worst < SURFACE_FLOOR - 4 then
 					-- A round-bottomed bowl: a ball for the bottom and a column of water
 					-- above it up through the top of the sand bed (a ball alone would
 					-- leave a lid of sand over a hidden pocket).
@@ -143,9 +158,6 @@ local function scoop(terrain: Terrain, islands, grid, extent: number)
 	end
 end
 
-local floorParams = RaycastParams.new()
-floorParams.FilterType = Enum.RaycastFilterType.Include
-floorParams.IgnoreWater = true
 
 local function floorAt(x: number, z: number): RaycastResult?
 	floorParams.FilterDescendantsInstances = { Workspace.Terrain }

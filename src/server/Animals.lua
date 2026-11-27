@@ -515,6 +515,14 @@ local function spawnAnimal(kind: string, home: Vector3): Model
 	model:SetAttribute("MaxHP", def.hp)
 	model:PivotTo(CFrame.new(home))
 	if def.boss then
+		-- Lit from within, so it reads in a dark lair (lava orange for the golem).
+		local core = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+		if core then
+			local glow = Instance.new("PointLight")
+			glow.Color = if kind == "MagmaGolem" then Color3.fromRGB(255, 130, 50) else Color3.fromRGB(200, 220, 255)
+			glow.Range, glow.Brightness, glow.Shadows = 34, 1.6, false
+			glow.Parent = core
+		end
 		-- A boss's name hangs over it so you know what you've walked into.
 		local _, size = model:GetBoundingBox()
 		local tag = Instance.new("BillboardGui")

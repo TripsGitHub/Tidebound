@@ -46,22 +46,22 @@ local KEYS: { { h: number, look: Look } } = {
 	{ h = 0, look = { -- midnight
 		brightness = 1.6, exposure = 0.25,
 		ambient = rgb(38, 40, 66), outdoor = rgb(78, 90, 136),
-		atmoColor = rgb(74, 58, 104), atmoDecay = rgb(34, 26, 58), density = 0.34, haze = 1.6, glare = 0,
-		tint = rgb(196, 204, 255), contrast = 0.16, saturation = -0.12, bloom = 0.9, rays = 0.02,
+		atmoColor = rgb(104, 70, 146), atmoDecay = rgb(52, 32, 86), density = 0.36, haze = 2.4, glare = 0,
+		tint = rgb(204, 200, 255), contrast = 0.16, saturation = -0.06, bloom = 0.45, rays = 0.02,
 		clouds = rgb(48, 42, 70), cover = 0.62, water = rgb(14, 26, 44),
 	} },
 	{ h = 4.8, look = { -- deep night before dawn
 		brightness = 1.6, exposure = 0.25,
 		ambient = rgb(40, 42, 70), outdoor = rgb(80, 92, 140),
-		atmoColor = rgb(80, 62, 110), atmoDecay = rgb(36, 28, 60), density = 0.34, haze = 1.6, glare = 0,
-		tint = rgb(198, 206, 255), contrast = 0.16, saturation = -0.12, bloom = 0.9, rays = 0.02,
+		atmoColor = rgb(108, 74, 150), atmoDecay = rgb(54, 34, 88), density = 0.36, haze = 2.4, glare = 0,
+		tint = rgb(206, 202, 255), contrast = 0.16, saturation = -0.06, bloom = 0.45, rays = 0.02,
 		clouds = rgb(52, 46, 74), cover = 0.6, water = rgb(16, 28, 48),
 	} },
 	{ h = 6.2, look = { -- dawn: pink haze, long shadows
 		brightness = 2.2, exposure = 0.15,
 		ambient = rgb(70, 56, 64), outdoor = rgb(150, 118, 122),
-		atmoColor = rgb(255, 176, 156), atmoDecay = rgb(176, 104, 126), density = 0.32, haze = 2.0, glare = 1.6,
-		tint = rgb(255, 222, 214), contrast = 0.14, saturation = 0.08, bloom = 0.8, rays = 0.22,
+		atmoColor = rgb(250, 190, 170), atmoDecay = rgb(170, 116, 136), density = 0.29, haze = 1.6, glare = 1.0,
+		tint = rgb(255, 232, 224), contrast = 0.14, saturation = 0.06, bloom = 0.5, rays = 0.2,
 		clouds = rgb(255, 196, 186), cover = 0.5, water = rgb(70, 110, 140),
 	} },
 	{ h = 8.5, look = { -- morning
@@ -72,7 +72,7 @@ local KEYS: { { h: number, look: Look } } = {
 		clouds = rgb(250, 248, 244), cover = 0.42, water = rgb(58, 148, 162),
 	} },
 	{ h = 12.5, look = { -- midday: bright sun, darker ambient so shadows have depth
-		brightness = 3.5, exposure = 0,
+		brightness = 3.1, exposure = -0.05,
 		ambient = rgb(46, 46, 52), outdoor = rgb(118, 118, 110),
 		atmoColor = rgb(228, 226, 210), atmoDecay = rgb(160, 170, 160), density = 0.22, haze = 1.0, glare = 0.8,
 		tint = rgb(255, 250, 238), contrast = 0.18, saturation = 0.18, bloom = 0.5, rays = 0.12,
@@ -88,15 +88,15 @@ local KEYS: { { h: number, look: Look } } = {
 	{ h = 18.2, look = { -- sunset: deep orange to rose
 		brightness = 2.4, exposure = 0.12,
 		ambient = rgb(68, 48, 56), outdoor = rgb(156, 106, 100),
-		atmoColor = rgb(255, 150, 110), atmoDecay = rgb(150, 74, 100), density = 0.32, haze = 2.2, glare = 2.2,
-		tint = rgb(255, 214, 196), contrast = 0.16, saturation = 0.12, bloom = 0.85, rays = 0.26,
+		atmoColor = rgb(250, 182, 136), atmoDecay = rgb(160, 104, 118), density = 0.28, haze = 1.6, glare = 1.1,
+		tint = rgb(255, 230, 214), contrast = 0.16, saturation = 0.06, bloom = 0.5, rays = 0.22,
 		clouds = rgb(240, 150, 140), cover = 0.48, water = rgb(70, 90, 120),
 	} },
 	{ h = 19.6, look = { -- dusk: mauve sky, first stars
 		brightness = 1.8, exposure = 0.22,
 		ambient = rgb(46, 40, 66), outdoor = rgb(98, 90, 134),
 		atmoColor = rgb(132, 92, 140), atmoDecay = rgb(58, 38, 80), density = 0.33, haze = 1.8, glare = 0.4,
-		tint = rgb(220, 210, 255), contrast = 0.16, saturation = -0.04, bloom = 0.85, rays = 0.06,
+		tint = rgb(220, 210, 255), contrast = 0.16, saturation = -0.04, bloom = 0.5, rays = 0.06,
 		clouds = rgb(96, 70, 108), cover = 0.55, water = rgb(26, 36, 62),
 	} },
 	{ h = 24, look = nil :: any }, -- filled in below: same as midnight
@@ -264,9 +264,9 @@ function Ambience.start()
 		b.LightEmission = 1
 		b.LightInfluence = 0
 		b.Color = ColorSequence.new(rgb(200, 250, 255))
-		b.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.78), NumberSequenceKeypoint.new(0.6, 0.9), NumberSequenceKeypoint.new(1, 1) })
-		b.Width0 = 3 + (k % 3) * 2
-		b.Width1 = b.Width0 * 2.2
+		b.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(0.6, 0.95), NumberSequenceKeypoint.new(1, 1) })
+		b.Width0 = 1.5 + (k % 3)
+		b.Width1 = b.Width0 * 2.5
 		b.Segments = 1
 		b.Enabled = false
 		b.Parent = anchor
@@ -332,7 +332,7 @@ function Ambience.start()
 		Lighting.ShadowSoftness = 0.15
 		Lighting.EnvironmentDiffuseScale = 1
 		Lighting.EnvironmentSpecularScale = 1
-		bloom.Intensity, bloom.Size, bloom.Threshold = look.bloom, 30, 1.25
+		bloom.Intensity, bloom.Size, bloom.Threshold = look.bloom, 28, 1.6
 		rays.Intensity, rays.Spread = look.rays, 0.75
 		grade.TintColor, grade.Contrast, grade.Saturation, grade.Brightness = look.tint, look.contrast, look.saturation, 0.02
 		clouds.Color, clouds.Cover = look.clouds, look.cover
