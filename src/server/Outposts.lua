@@ -430,27 +430,6 @@ function CAMPS.quarry(c: Ctx, name: string, banner: Color3, terrain: Terrain)
 			terrain:FillCylinder(CFrame.new(p + Vector3.new(0, -0.6, 0)), 2.4, rng:NextNumber(10, 16), Enum.Material.Pebble)
 		end)
 	end
-	-- Cut stone, stacked.
-	for s = 0, 3 do
-		local base = c.cf(-24 + s * 6, 14 + (s % 2) * 4, rng:NextNumber(-0.2, 0.2))
-		for row = 0, 2 - (s % 2) do
-			for k = 0, 1 do
-				part(c.m, { Name = "CutStone", Size = Vector3.new(2.6, 1.8, 2.6), CFrame = base * CFrame.new(k * 2.7 - 1.35, 0.9 + row * 1.85, 0) * CFrame.Angles(0, rng:NextNumber(-0.06, 0.06), 0), Color = STONE:Lerp(STONE_DARK, rng:NextNumber()), Material = Enum.Material.Slate })
-			end
-		end
-	end
-	-- The crane: an A-frame, a long arm, a rope and a block hanging off it.
-	local foot = c.cf(14, 6, 0.6)
-	for side = -1, 1, 2 do
-		part(c.m, { Name = "CraneLeg", Size = Vector3.new(1.2, 18, 1.2), CFrame = foot * CFrame.new(side * 3, 8.5, 0) * CFrame.Angles(0, 0, side * -0.18), Color = LOG, Material = Enum.Material.Wood })
-	end
-	part(c.m, { Name = "CraneArm", Size = Vector3.new(1, 1, 22), CFrame = foot * CFrame.new(0, 17, -6) * CFrame.Angles(0.25, 0, 0), Color = LOG_DARK, Material = Enum.Material.Wood })
-	local tip = (foot * CFrame.new(0, 19.6, -16.5)).Position
-	local blockAt = c.ground(tip.X, tip.Z)
-	local blockY = (if blockAt then blockAt.Position.Y else tip.Y - 12) + 4
-	part(c.m, { Name = "Rope", Size = Vector3.new(0.25, tip.Y - blockY, 0.25), CFrame = CFrame.new(tip.X, (tip.Y + blockY) / 2, tip.Z), Color = Props.ROPE, Material = Enum.Material.Fabric, CanCollide = false })
-	part(c.m, { Name = "HangingBlock", Size = Vector3.new(3.2, 2.4, 3.2), CFrame = CFrame.new(tip.X, blockY - 1.2, tip.Z), Color = STONE, Material = Enum.Material.Slate })
-	part(c.m, { Name = "Winch", Shape = Enum.PartType.Cylinder, Size = Vector3.new(4, 1.6, 1.6), CFrame = foot * CFrame.new(0, 2.2, 1.6), Color = LOG_DARK, Material = Enum.Material.Wood })
 	-- Ore carts on a short run of track.
 	for k = 0, 5 do
 		local p = c.cf(-6, -6 - k * 3, 0)

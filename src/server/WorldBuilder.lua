@@ -300,8 +300,8 @@ local TINTS = {
 	dark = { Leaf = rgbc(46, 92, 70) },
 	blueberry = { Berry = rgbc(70, 90, 200) },
 	blossom = { Berry = rgbc(255, 190, 220), BushLeaf = rgbc(120, 170, 70) },
-	sandstone = { Basalt = rgbc(196, 132, 86), Moss = rgbc(180, 120, 80) },
-	ashen = { Basalt = rgbc(46, 42, 48), Moss = rgbc(90, 40, 34) },
+	sandstone = { Basalt = rgbc(190, 134, 92), Moss = rgbc(190, 134, 92) },
+	ashen = { Basalt = rgbc(70, 66, 70), Moss = rgbc(70, 66, 70) },
 	snowcap = { Moss = rgbc(240, 244, 248) },
 	bare = { Moss = rgbc(120, 116, 110) },
 	lush = { Frond = rgbc(110, 190, 70) },
@@ -317,11 +317,11 @@ local VARIANTS = {
 	},
 	Bush = { default = { { nil, 4 }, { "blueberry", 1 }, { "blossom", 1 } }, snow = { { "snowy", 1 } } },
 	Boulder = {
-		default = { { nil, 3 }, { "bare", 1 } },
+		default = { { nil, 1 } },
 		mesa = { { "sandstone", 1 } },
 		ember = { { "ashen", 1 } },
 		skull = { { "ashen", 2 }, { nil, 1 } },
-		maw = { { "ashen", 2 }, { "bare", 1 } },
+		maw = { { "ashen", 1 } },
 		snow = { { "snowcap", 2 }, { nil, 1 } },
 	},
 	Palm = { default = { { nil, 3 }, { "lush", 1 } } },
@@ -822,7 +822,13 @@ WorldBuilder.settle = settle
 
 local function spawnNode(nodeFolder: Folder, nodeType: string, pos: Vector3)
 	local model = makeNode(nodeType, CFrame.new(pos - Vector3.new(0, 0.3, 0)))
-	settle(model, pos, 0.2)
+	local sink = 0.2
+	if nodeType == "Boulder" then
+		-- Bedded into the ground a little, not perched on it.
+		local _, size = model:GetBoundingBox()
+		sink = size.Y * 0.15
+	end
+	settle(model, pos, sink)
 	model.Name = nodeType
 	model:SetAttribute("NodeType", nodeType)
 	model:SetAttribute("DisplayName", Nodes[nodeType].name)
@@ -882,6 +888,12 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 		local nodeType, clump, zone = entry[1], entry[3], entry.zone
 		-- Same density as the hand-tuned 1x map (scaled by Density), over more land.
 		local count = math.max(1, math.round(entry[2] * MapScale.H * MapScale.H * MapScale.Density))
+		if nodeType == "Boulder" then
+			-- Rocks: well under half as many, in groups of one to three with open ground
+			-- between, rather than sprinkled evenly over every slope.
+			count = math.max(1, math.round(count * 0.4))
+			clump = clump or { 1, 3 }
+		end
 		local made = 0
 		for _ = 1, count * 3 do
 			if made >= count then
@@ -1315,10 +1327,7 @@ local function dressShaft(sh)
 		for side = -1, 1, 2 do
 			Props.part(m, { Name = "Rail", Size = Vector3.new(0.5, h, 0.5), CFrame = CFrame.new(mid + Vector3.new(sh.r - 1.6, 0, side * 1.2)), Color = Props.WOOD_DARK, Material = Enum.Material.Wood })
 		end
-		-- A post frame and a lantern at the top so you can spot it from the surface.
-		for _, o in { Vector3.new(sh.r + 1, 0, sh.r + 1), Vector3.new(-sh.r - 1, 0, sh.r + 1), Vector3.new(sh.r + 1, 0, -sh.r - 1), Vector3.new(-sh.r - 1, 0, -sh.r - 1) } do
-			Props.part(m, { Name = "Post", Size = Vector3.new(0.8, 4, 0.8), CFrame = CFrame.new(sh.top + o + Vector3.new(0, 1.5, 0)), Color = Props.WOOD_DARK, Material = Enum.Material.Wood })
-		end
+		-- A lantern at the top so you can spot it from the surface.
 		Props.torchPost(m, sh.top + Vector3.new(sh.r + 3, 0, 0), 5)
 	else
 		local spray = Props.part(m, { Name = "Spray", Size = Vector3.new(sh.r * 2 - 2, h, sh.r * 2 - 2), CFrame = CFrame.new(mid), Transparency = 1, CanCollide = false, CanQuery = false })
@@ -1419,6 +1428,19 @@ local function makeCaveMouth(centre: Vector3, facing: Vector3, size: number?)
 		local hit = groundAt(base.X, base.Z)
 		local y = if hit then hit.Position.Y else base.Y
 		local h = (if k % 2 == 0 then 7 else 10) * k0
+		-- Big rocks round the mouth, half sunk, the way a real cave opens out of a hill.
+		local rockMesh = Meshes.has("boulder") and Meshes.build("boulder", { scale = k0 * rng:NextNumber(0.55, 0.85) * (if k % 2 == 0 then 1 else 1.25) })
+		if rockMesh then
+			local _, size = rockMesh:GetBoundingBox()
+			rockMesh:PivotTo(CFrame.new(base.X, y - size.Y * 0.3, base.Z) * CFrame.Angles(0, a + rng:NextNumber(-0.6, 0.6), math.rad(rng:NextNumber(-8, 8))))
+			for _, p in rockMesh:GetDescendants() do
+				if p:IsA("BasePart") then
+					p.Color = Color3.fromRGB(112, 106, 98)
+				end
+			end
+			rockMesh.Parent = m
+			continue
+		end
 		part(m, {
 			Name = "Fang",
 			Size = Vector3.new(2.6, h / k0, 2.6) * k0,
