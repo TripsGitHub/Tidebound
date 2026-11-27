@@ -24,6 +24,7 @@ local Caves = require(script.Parent.Caves)
 local Landmarks = require(script.Parent.Landmarks)
 local Minimap = require(script.Parent.Minimap)
 local Props = require(script.Parent.Props)
+local Ambient = require(script.Parent.Ambient)
 local Outposts = require(script.Parent.Outposts)
 local Bosses = require(script.Parent.Bosses)
 local SeaFloor = require(script.Parent.SeaFloor)
@@ -1928,6 +1929,32 @@ function WorldBuilder.build(bakeOnly: boolean?)
 			light.Shadows = false
 			light.Parent = p
 			p.Parent = glow
+			-- Glowing cracks on the wall itself: find the nearest wall and lay a few thin
+			-- neon slivers into it, so the vein reads as lit from inside.
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Include
+			params.FilterDescendantsInstances = { workspace.Terrain }
+			local best
+			for k = 0, 7 do
+				local a = k / 8 * math.pi * 2
+				local hit = workspace:Raycast(at, Vector3.new(math.cos(a), 0, math.sin(a)) * 10, params)
+				if hit and (not best or hit.Distance < best.Distance) then
+					best = hit
+				end
+			end
+			if best then
+				local rng = Random.new(n)
+				local base = CFrame.lookAt(best.Position, best.Position + best.Normal)
+				for c = 1, 4 do
+					local crack = Instance.new("Part")
+					crack.Anchored, crack.CanCollide, crack.CanQuery, crack.CanTouch, crack.CastShadow = true, false, false, false, false
+					crack.Material = Enum.Material.Neon
+					crack.Color = Color3.fromRGB(255, rng:NextInteger(70, 130), 30)
+					crack.Size = Vector3.new(rng:NextNumber(0.25, 0.45), rng:NextNumber(3, 7), 0.6)
+					crack.CFrame = base * CFrame.new(rng:NextNumber(-2.5, 2.5), rng:NextNumber(-4, 4), 0.1) * CFrame.Angles(0, 0, rng:NextNumber(-0.7, 0.7))
+					crack.Parent = glow
+				end
+			end
 		end
 	end
 	dressCaves(nodes, chambers, tunnels, network.pockets)
@@ -2126,6 +2153,68 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		WorldBake.save(network)
 		return
 	end
+	-- Small lived-in scenes between the camps: one to three per island.
+	local ambient = Instance.new("Folder")
+	ambient.Name = "Ambient"
+	ambient.Parent = workspace
+	local inland = {}
+	for _, k in Ambient.KINDS do
+		if not Ambient.SHORE[k] then
+			table.insert(inland, k)
+		end
+	end
+	local campSpots = {}
+	for _, c in places:GetChildren() do
+		table.insert(campSpots, c:GetPivot().Position)
+	end
+	local placedAmbient, kindIx = 0, 0
+	for _, isl in ISLANDS do
+		if isl.r >= 60 then
+			local n = if isl.r > 200 then 3 elseif isl.r > 110 then 2 else 1
+			local wantShore = rng:NextNumber() < 0.5
+			for i = 1, n do
+				local kind, spot
+				if i == 1 and wantShore then
+					kind = "fishRack"
+					spot = coastSpot(isl)
+				else
+					kindIx += 1
+					kind = inland[(kindIx - 1) % #inland + 1]
+					spot = flatSpot(isl, 7, 3)
+				end
+				if spot then
+					local clear = true
+					for _, c in campSpots do
+						if (c - spot).Magnitude < 60 then
+							clear = false
+							break
+						end
+					end
+					if clear then
+						for _, nd in nodes:GetChildren() do
+							if (nd:GetPivot().Position - spot).Magnitude < 10 then
+								nd:Destroy()
+							end
+						end
+						for _, d in workspace.Decor:GetChildren() do
+							if (d.Position - spot).Magnitude < 10 then
+								d:Destroy()
+							end
+						end
+						local ok, err = pcall(Ambient.place, ambient, kind, spot, rng:NextNumber(0, math.pi * 2))
+						if ok then
+							placedAmbient += 1
+							table.insert(campSpots, spot)
+						else
+							warn("[World] ambient " .. kind .. " failed: " .. tostring(err))
+						end
+					end
+				end
+			end
+			task.wait()
+		end
+	end
+	print("[World] ambient scenes: " .. placedAmbient)
 	Minimap.publish(ISLANDS, network, groundAt)
 	if game:GetService("RunService"):IsStudio() and workspace:GetAttribute("VerifyCaves") ~= false then
 		task.spawn(Caves.verify, workspace.Terrain, network)
