@@ -768,7 +768,7 @@ local function buildTerrain()
 		(terrain :: any).Decoration = true
 	end)
 	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(134, 152, 76))
-	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(204, 170, 82)) -- autumn grass (Old Ruins)
+	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(178, 156, 70)) -- autumn grass (Old Ruins)
 	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(228, 212, 168))
 	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(112, 104, 94))
 	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(44, 42, 46))
@@ -1923,8 +1923,8 @@ function WorldBuilder.build(bakeOnly: boolean?)
 			p.Position = at
 			local light = Instance.new("PointLight")
 			light.Color = Color3.fromRGB(255, 96, 40)
-			light.Range = 16
-			light.Brightness = 1.6
+			light.Range = 22
+			light.Brightness = 3
 			light.Shadows = false
 			light.Parent = p
 			p.Parent = glow

@@ -607,7 +607,7 @@ IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 20, hills = 6, po
 IslandFields.fruit = make({ name = "Sunfruit Isle", r = 66, peak = 16, hills = 5, ponds = 3, seed = 97, low = M.Grass, high = M.Grass })
 IslandFields.skull = make({ name = "Skull Key", r = 34, peak = 22, hills = 1, seed = 71, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 -- The cave hub: a big snow-capped rock you can see from every island near the middle.
-IslandFields.maw = make({ name = "Maw Rock", r = 58, peak = 14, hills = 3, spires = 4, mountain = 125, cap = M.Snow, capAt = 92, seed = 89, low = M.Rock, high = M.Slate, cliff = M.Rock, shore = M.Sand })
+IslandFields.maw = make({ name = "Maw Rock", r = 58, peak = 14, hills = 3, spires = 4, mountain = 125, cap = M.Snow, capAt = 92, seed = 89, low = M.Slate, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 IslandFields.rockcay = make({ name = "Gull Rock", r = 28, peak = 14, hills = 2, spires = 3, seed = 83, low = M.Rock, high = M.Rock })
 -- The nameless islands: small, each its own shape.
 IslandFields.isle1 = make({ name = "", r = 30, peak = 16, hills = 2, spires = 4, seed = 101, low = M.Grass, high = M.Rock, cliff = M.Slate })
