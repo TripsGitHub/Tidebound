@@ -894,6 +894,10 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 			count = math.max(1, math.round(count * 0.4))
 			clump = clump or { 1, 3 }
 		end
+		if Nodes[nodeType] and Nodes[nodeType].ore then
+			-- Ore veins in small seams of two or three rather than dotted evenly about.
+			clump = clump or { 2, 3 }
+		end
 		local made = 0
 		for _ = 1, count * 3 do
 			if made >= count then
@@ -1725,7 +1729,7 @@ end
 local function decorate(isl: Island)
 	local f = workspace:FindFirstChild("Decor") or folder("Decor")
 	local kinds = DECOR[isl.biome] or DECOR.default
-	local count = math.floor((isl.r / 10) ^ 2 * 0.08)
+	local count = math.floor((isl.r / 10) ^ 2 * 0.04) -- light touches, not a carpet
 	for i = 1, count do
 		local spot = findSpot(isl, {}, 0, nil, nil, "*")
 		if spot then
