@@ -8,6 +8,7 @@
 -- blocks; actions are plain outlined words, not boxed buttons.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Items = require(Shared.Items)
@@ -155,21 +156,34 @@ local craftCards: { [string]: { card: Frame, costs: { [string]: TextLabel }, foo
 local function craftCard(i: number, recipe)
 	local card = block({ Parent = craftGrid, LayoutOrder = i, BackgroundColor3 = C.card })
 	hoverable(card, recipe.id)
-	label({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.new(1, -8, 0, 16), Text = Items[recipe.id].name, TextScaled = false, TextSize = 15 })
+	local title = label({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.new(1, -26, 0, 16), Text = Items[recipe.id].name, TextScaled = true })
+	new("UITextSizeConstraint", { Parent = title, MaxTextSize = 15 })
 
 	local iconBox = block({ Parent = card, Position = UDim2.fromOffset(5, 20), Size = UDim2.fromOffset(50, 50), BackgroundColor3 = C.cardDark })
 	Icons.make(recipe.id, iconBox, UDim2.fromScale(0.9, 0.9), UDim2.fromScale(0.05, 0.05))
 
+	-- Ingredients share the box evenly however many there are (no names here, so they
+	-- never overlap: the (i) panel shows them big with names).
 	local costs = block({ Parent = card, Position = UDim2.fromOffset(59, 20), Size = UDim2.new(1, -64, 0, 50), BackgroundColor3 = C.cardDark }, nil)
-	new("UIListLayout", { Parent = costs, FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 1) })
+	new("UIListLayout", { Parent = costs, FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder })
 	local counts = {}
-	for id, amount in recipe.cost do
-		local cell = new("Frame", { Parent = costs, Size = UDim2.fromOffset(26, 50), BackgroundTransparency = 1 })
-		local short = string.match(Items[id].name, "(%S+)$") or Items[id].name
-		label({ Parent = cell, Size = UDim2.new(1, 0, 0, 11), Text = short, TextScaled = false, TextSize = 10 })
-		Icons.make(id, cell, UDim2.fromOffset(24, 24), UDim2.fromOffset(1, 11))
-		counts[id] = label({ Parent = cell, Position = UDim2.fromOffset(0, 35), Size = UDim2.new(1, 0, 0, 14), Text = tostring(amount), TextScaled = false, TextSize = 15 })
+	local n = 0
+	for _ in recipe.cost do
+		n += 1
 	end
+	local cellW = math.min(30, math.floor((CARD.X.Offset - 64 - 4 - (n - 1) * 2) / math.max(n, 1)))
+	for id, amount in recipe.cost do
+		local cell = new("Frame", { Parent = costs, Size = UDim2.fromOffset(cellW, 48), BackgroundTransparency = 1 })
+		Icons.make(id, cell, UDim2.fromOffset(cellW - 2, cellW - 2), UDim2.fromOffset(1, 4))
+		counts[id] = label({ Parent = cell, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 14), Text = tostring(amount), TextScaled = false, TextSize = if cellW < 24 then 12 else 15 })
+	end
+	-- (i): opens the big detail panel for this recipe.
+	local info = textButton({ Parent = card, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -3, 0, 2), Size = UDim2.fromOffset(18, 18), Text = "i", TextScaled = false, TextSize = 15, ZIndex = 4 }, function()
+		Screen.details(recipe)
+	end)
+	info.BackgroundColor3 = C.cardDark
+	info.BackgroundTransparency = 0
+	new("UICorner", { Parent = info, CornerRadius = UDim.new(1, 0) })
 
 	local foot = block({ Parent = card, Position = UDim2.fromOffset(5, 76), Size = UDim2.new(1, -10, 0, 29), BackgroundColor3 = C.cardDark })
 	local entry = { card = card, costs = counts, foot = foot, locked = nil }
@@ -361,6 +375,83 @@ end
 
 function Screen.close()
 	root.Visible = false
+	if Screen.closeDetails then
+		Screen.closeDetails()
+	end
+end
+
+-- The (i) panel: zooms in over the screen with the item turning slowly on a pedestal,
+-- what it does, each ingredient big with its name and have/need, and Craft.
+local detail: Frame? = nil
+function Screen.closeDetails()
+	if detail then
+		local d = detail
+		detail = nil
+		local sc = d:FindFirstChildOfClass("UIScale")
+		if sc then
+			TweenService:Create(sc, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Scale = 0.9 }):Play()
+		end
+		TweenService:Create(d, TweenInfo.new(0.14), { GroupTransparency = 1 }):Play()
+		task.delay(0.15, function()
+			d:Destroy()
+		end)
+	end
+end
+
+function Screen.details(recipe)
+	Screen.closeDetails()
+	local item = Items[recipe.id]
+	local level = player:GetAttribute("Level") or 1
+	local d = new("CanvasGroup", { Parent = root, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(440, 360), BackgroundColor3 = C.panel, BackgroundTransparency = 0.04, GroupTransparency = 1, ZIndex = 50 }, {
+		new("UICorner", { CornerRadius = UDim.new(0, 14) }),
+		new("UIStroke", { Color = C.rim, Thickness = 3 }),
+	})
+	detail = d
+	local sc = new("UIScale", { Parent = d, Scale = 0.85 })
+	TweenService:Create(sc, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(d, TweenInfo.new(0.18), { GroupTransparency = 0 }):Play()
+
+	label({ Parent = d, Position = UDim2.fromOffset(0, 10), Size = UDim2.new(1, 0, 0, 30), Text = item.name, TextScaled = false, TextSize = 28 })
+	UIKit.closeButton({ Parent = d, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 8), TextScaled = false, TextSize = 18 }, function()
+		Screen.closeDetails()
+	end)
+	-- Pedestal: a soft round glow with the item turning on it.
+	local stage = new("Frame", { Parent = d, Position = UDim2.fromOffset(18, 50), Size = UDim2.fromOffset(170, 170), BackgroundColor3 = C.cardDark, BorderSizePixel = 0 }, {
+		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+	})
+	local glow = new("Frame", { Parent = stage, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.8, 0.8), BackgroundColor3 = C.star, BackgroundTransparency = 0.82, BorderSizePixel = 0 }, {
+		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+	})
+	TweenService:Create(glow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Size = UDim2.fromScale(0.95, 0.95), BackgroundTransparency = 0.92 }):Play()
+	local big = Icons.make(recipe.id, stage, UDim2.fromScale(0.86, 0.86), UDim2.fromScale(0.07, 0.07))
+	Icons.spin(big, 0.8)
+
+	-- What it does, in a sentence or two.
+	local about = label({ Parent = d, Position = UDim2.fromOffset(200, 54), Size = UDim2.fromOffset(222, 100), Text = item.description or describe(recipe.id), TextScaled = false, TextSize = 18, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
+	label({ Parent = d, Position = UDim2.fromOffset(200, 160), Size = UDim2.fromOffset(222, 22), Text = (if level >= recipe.level then "Unlocked" else "Unlocks at level " .. recipe.level), TextScaled = false, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = if level >= recipe.level then C.good else C.bad })
+	_ = about
+
+	-- Ingredients, big, with names and what you have.
+	local row = new("Frame", { Parent = d, Position = UDim2.fromOffset(14, 230), Size = UDim2.new(1, -28, 0, 76), BackgroundTransparency = 1 }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	for id, amount in recipe.cost do
+		local have = state.items[id] or 0
+		local cell = block({ Parent = row, Size = UDim2.fromOffset(86, 76), BackgroundColor3 = C.cardDark })
+		label({ Parent = cell, Position = UDim2.fromOffset(2, 2), Size = UDim2.new(1, -4, 0, 16), Text = Items[id].name, TextScaled = true })
+		Icons.make(id, cell, UDim2.fromOffset(36, 36), UDim2.new(0.5, -18, 0, 18))
+		label({ Parent = cell, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 18), Text = have .. " / " .. amount, TextScaled = false, TextSize = 16, TextColor3 = if have >= amount then C.good else C.bad })
+	end
+	if level >= recipe.level then
+		textButton({ Parent = d, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(180, 34), Text = "Craft", TextScaled = false, TextSize = 24 }, function()
+			callbacks.onCraft(recipe.id)
+			task.defer(function()
+				if detail == d then
+					Screen.details(recipe)
+				end
+			end)
+		end)
+	end
 end
 
 function Screen.init(parent: ScreenGui, cb)
