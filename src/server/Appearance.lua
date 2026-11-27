@@ -79,7 +79,7 @@ local SLOT_PARTS = {
 		{ names = { "RightFoot", "Right Leg" }, offset = CFrame.new(0, 0, -0.1), scale = 1, half = "right", foot = true },
 	},
 	bag = { { names = { "UpperTorso", "Torso" }, offset = CFrame.new(0, 0.1, 0.95), scale = 1 } },
-	shield = { { names = { "LeftLowerArm", "Left Arm" }, offset = CFrame.new(-0.35, 0, 0), scale = 1 } },
+	shield = { { names = { "LeftLowerArm", "Left Arm" }, offset = CFrame.new(-0.75, 0.1, 0), scale = 1 } },
 }
 
 local function simplePiece(itemId: string, attach: BasePart, spec): Model

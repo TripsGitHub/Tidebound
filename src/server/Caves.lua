@@ -619,6 +619,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	end
 
 	Caves.fixLeaks(result)
+	Caves.fixWindows(result)
 	-- Where a tunnel runs close under the ground its balls break the surface and leave
 	-- round dirt craters. Away from the mouths, put the ground back over it: rock down to
 	-- a roof a little over the middle of the tunnel, the island's own top layer on top.
@@ -960,6 +961,124 @@ function Caves.fixLeaks(result: Result)
 	print("[Caves] " .. summary)
 end
 
+-- Round "air bubble" windows: two tunnels that pass close by each other without
+-- meeting leave a thin wall, and a 4-stud voxel wall that thin breaks into round holes
+-- you can see (or fall) through. Wherever two bits of tunnel pass within their radii
+-- plus THICK of each other away from a real junction:
+--   * same zone and already overlapping: open it into a proper, wide junction;
+--   * otherwise: a ball of rock in the gap, so the wall between is solid.
+local THICK = 9
+function Caves.fixWindows(result: Result)
+	local CELL = 48
+	local balls = {}
+	for ti, t in result.tunnels do
+		local s = samples(t.points)
+		for i, p in s do
+			local z = t.zone
+			for _, seal in t.seals or {} do
+				if i >= seal.i then
+					z = seal.after
+				end
+			end
+			table.insert(balls, { p = p, r = t.r, zone = z, t = ti, i = i })
+		end
+	end
+	local grid = {}
+	for n, b in balls do
+		local key = math.floor(b.p.X / CELL) .. "," .. math.floor(b.p.Y / CELL) .. "," .. math.floor(b.p.Z / CELL)
+		grid[key] = grid[key] or {}
+		table.insert(grid[key], n)
+	end
+	local function eachNear(a, n, fn)
+		local cx, cy, cz = math.floor(a.p.X / CELL), math.floor(a.p.Y / CELL), math.floor(a.p.Z / CELL)
+		for dx = -1, 1 do
+			for dy = -1, 1 do
+				for dz = -1, 1 do
+					for _, m in grid[(cx + dx) .. "," .. (cy + dy) .. "," .. (cz + dz)] or {} do
+						if m > n then
+							fn(balls[m])
+						end
+					end
+				end
+			end
+		end
+	end
+	-- Pass 1: where tunnels really join (one runs into the other), per pair of tunnels.
+	local joins: { [string]: { Vector3 } } = {}
+	for n, a in balls do
+		eachNear(a, n, function(b)
+			if a.t ~= b.t and (a.p - b.p).Magnitude < math.max(a.r, b.r) then
+				local key = math.min(a.t, b.t) .. "/" .. math.max(a.t, b.t)
+				local list = joins[key]
+				if not list then
+					list = {}
+					joins[key] = list
+				end
+				if #list < 40 then
+					table.insert(list, (a.p + b.p) / 2)
+				end
+			end
+		end)
+		if n % 4000 == 0 then
+			task.wait()
+		end
+	end
+	local function nearJoin(a, b): boolean
+		local list = joins[math.min(a.t, b.t) .. "/" .. math.max(a.t, b.t)]
+		if not list then
+			return false
+		end
+		local reach = a.r + b.r + THICK + 14
+		for _, j in list do
+			if (a.p - j).Magnitude < reach or (b.p - j).Magnitude < reach then
+				return true
+			end
+		end
+		return false
+	end
+	-- Pass 2: the thin walls.
+	local opens, fills = {}, {}
+	local doneOpen, doneFill = {}, {}
+	for n, a in balls do
+		eachNear(a, n, function(b)
+			local d = (a.p - b.p).Magnitude
+			if d >= a.r + b.r + THICK then
+				return
+			end
+			if a.t == b.t then
+				-- A tunnel's own bends: only where it loops back on itself.
+				if math.abs(a.i - b.i) * STEP < (a.r + b.r + THICK) * 2.2 then
+					return
+				end
+			elseif nearJoin(a, b) then
+				return
+			end
+			local mid = (a.p + b.p) / 2
+			local cell = math.floor(mid.X / 8) .. "," .. math.floor(mid.Y / 8) .. "," .. math.floor(mid.Z / 8)
+			local gap = d - a.r - b.r
+			if gap < 1 and a.zone == b.zone then
+				if not doneOpen[cell] then
+					doneOpen[cell] = true
+					table.insert(opens, { pos = mid, r = math.min(a.r, b.r) * 0.85 })
+				end
+			elseif a.zone ~= b.zone or gap >= 1 then
+				if not doneFill[cell] and d > 0.1 then
+					doneFill[cell] = true
+					local dir = (b.p - a.p) / d
+					local at = a.p + dir * (a.r + math.max(gap, 0) / 2)
+					table.insert(fills, { pos = at, r = math.max(gap, 0) / 2 + 2.5 })
+				end
+			end
+		end)
+		if n % 4000 == 0 then
+			task.wait()
+		end
+	end
+	result.windowOpens = opens
+	result.windowFills = fills
+	print(string.format("[Caves] thin walls: %d opened into junctions, %d filled solid", #opens, #fills))
+end
+
 -- Carves everything at once, in an order where nothing undoes anything else:
 -- 1. rock shells round every deep tunnel, chamber, room and ravine, 2. hollow the
 -- chambers, 3. lay their flat floors, 4. bore every tunnel (through those floors
@@ -1059,6 +1178,13 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 		local cf = CFrame.lookAt(room.pos, room.pos + room.facing)
 		terrain:FillBlock(cf, Vector3.new(room.size.Z, room.size.Y, room.size.X), M.Air)
 		terrain:FillBlock(cf - Vector3.new(0, room.size.Y / 2 + 1, 0), Vector3.new(room.size.Z, 2, room.size.X), M.Slate)
+	end
+	-- Thin walls between tunnels that pass close (see Caves.fixWindows).
+	for _, w in result.windowFills or {} do
+		terrain:FillBall(w.pos, w.r, M.Rock)
+	end
+	for _, w in result.windowOpens or {} do
+		terrain:FillBall(w.pos, w.r, M.Air)
 	end
 	-- Rock slabs between bits of cave in different zones that the gap fixer couldn't part.
 	for _, pt in result.plugs or {} do
