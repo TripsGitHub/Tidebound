@@ -36,6 +36,11 @@
           "$path": "src/character/Animate.client.lua"
         }
       }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
     }
   }
 }

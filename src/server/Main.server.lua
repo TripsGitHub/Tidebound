@@ -20,6 +20,11 @@ local Shop = require(Systems.Shop)
 local Drops = require(Systems.Drops)
 local Save = require(Systems.Save)
 
+-- Characters are spawned by hand (see onPlayerAdded), once the world exists and the
+-- player's save has loaded; otherwise they drop in at the map's centre before the
+-- spawn point is built. Also set in default.project.json.
+Players.CharacterAutoLoads = false
+
 WorldBuilder.build()
 Survival.start()
 Save.start()
@@ -42,6 +47,11 @@ local function onCharacterAdded(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
 	humanoid.Died:Connect(function()
 		Death.onDied(player, character)
+		task.delay(Players.RespawnTime, function()
+			if player.Parent and player.Character == character then
+				player:LoadCharacter()
+			end
+		end)
 	end)
 end
 
@@ -59,6 +69,8 @@ local function onPlayerAdded(player: Player)
 	end)
 	if player.Character then
 		task.spawn(onCharacterAdded, player, player.Character)
+	else
+		player:LoadCharacter()
 	end
 	task.delay(1, function()
 		Inventory.sync(player)

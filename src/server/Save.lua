@@ -62,7 +62,7 @@ local function retry(label: string, fn: () -> any): (boolean, any)
 		end
 		lastErr = result
 		local msg = tostring(result)
-		if string.find(msg, "StudioAccessToApisNotAllowed") or string.find(msg, "publish") then
+		if string.find(msg, "StudioAccessToApisNotAllowed") or string.find(msg, "API access") or string.find(msg, "publish") then
 			-- Studio without API access (or an unpublished place): retrying won't help.
 			warn("[Save] Saving is off: turn on Game Settings > Security > Enable Studio Access to API Services")
 			store = nil
