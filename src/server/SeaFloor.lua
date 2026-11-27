@@ -120,12 +120,15 @@ local function scoop(terrain: Terrain, islands, grid, extent: number)
 					-- leave a lid of sand over a hidden pocket).
 					-- Water doesn't displace solid terrain (with shorelines they share a
 					-- voxel), so clear to air first and then flood it.
-					local mid = worst + R
+					-- The ball's top stays well under the sea surface: water filled above it
+					-- stands up as a mound on the sea.
+					local r = math.min(R, (-6 - worst) / 2)
+					local mid = worst + r
 					for _, mat in { M.Air, M.Water } do
-						terrain:FillBall(Vector3.new(px, mid, pz), R, mat)
+						terrain:FillBall(Vector3.new(px, mid, pz), r, mat)
 						if mid < SURFACE_FLOOR + 2 then
 							local top = SURFACE_FLOOR + 2
-							terrain:FillCylinder(CFrame.new(px, (mid + top) / 2, pz), top - mid, R * 0.97, mat)
+							terrain:FillCylinder(CFrame.new(px, (mid + top) / 2, pz), top - mid, r * 0.97, mat)
 						end
 					end
 				end
