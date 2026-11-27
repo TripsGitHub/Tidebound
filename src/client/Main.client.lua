@@ -18,6 +18,7 @@ local Pointer = require(Client.Pointer)
 local Hover = require(Client.Hover)
 local Anim = require(Client.Anim)
 local Gates = require(Client.Gates)
+local Nameplates = require(Client.Nameplates)
 
 local player = Players.LocalPlayer
 local equipped: string? = nil
@@ -71,6 +72,7 @@ InventoryScreen.init(UI.root :: ScreenGui, {
 Hover.start()
 Anim.start()
 task.spawn(Gates.start)
+Nameplates.start()
 Effects.startAmbient()
 
 -- Swinging -----------------------------------------------------------------------
@@ -88,6 +90,7 @@ local function trySwing()
 	local info = Hover.get()
 	if info.target and info.kind ~= "drop" and info.inRange then
 		Remotes.Hit:FireServer(info.target)
+		UI.targetHit(info.target)
 	elseif player.Character then
 		-- Swinging at nothing still swings.
 		task.spawn(Effects.swing, player.Character)

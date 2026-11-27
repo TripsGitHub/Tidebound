@@ -10,6 +10,7 @@ local Items = require(Shared.Items)
 local Structures = require(Shared.Structures)
 local Remotes = require(Shared.Remotes)
 local Pointer = require(script.Parent.Pointer)
+local Anim = require(script.Parent.Anim)
 
 local player = Players.LocalPlayer
 local BuildMode = {}
@@ -64,6 +65,7 @@ end
 function BuildMode.tryPlace()
 	if ghost and currentItem and valid then
 		Remotes.Place:FireServer(currentItem, ghost.Position, rotation)
+		Anim.play(Players.LocalPlayer.Character, "place")
 	end
 end
 

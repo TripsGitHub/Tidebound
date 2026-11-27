@@ -1,26 +1,37 @@
--- Shared look for all UI: sun-bleached parchment panels with dark driftwood edges.
+-- Shared look for all UI, taken from how Island Tribes-style survival games read in
+-- play: flat tan panels that let the world show through a little, a thin cream rim,
+-- small rounded corners, and bold white text with a dark outline. No textures,
+-- gradients or bevels. Buttons are mostly just words ("Equip  Drop"); only Trade
+-- (green) and close (red) get a coloured pill.
 local UIKit = {}
 
 UIKit.Colors = {
-	panel = Color3.fromRGB(232, 214, 174),
-	panelDark = Color3.fromRGB(205, 182, 136),
-	card = Color3.fromRGB(214, 192, 148),
-	cardLocked = Color3.fromRGB(120, 104, 84),
-	edge = Color3.fromRGB(88, 62, 38),
-	text = Color3.fromRGB(70, 48, 30),
-	textLight = Color3.fromRGB(252, 244, 226),
-	button = Color3.fromRGB(122, 86, 52),
-	good = Color3.fromRGB(92, 150, 62),
-	bad = Color3.fromRGB(206, 84, 62),
-	warn = Color3.fromRGB(232, 128, 52),
-	health = Color3.fromRGB(214, 86, 86),
-	hunger = Color3.fromRGB(222, 150, 70),
-	bag = Color3.fromRGB(110, 168, 196),
-	xp = Color3.fromRGB(236, 196, 84),
+	panel = Color3.fromRGB(196, 176, 130), -- main tan
+	panelDark = Color3.fromRGB(170, 150, 108), -- tab / bar backs
+	card = Color3.fromRGB(178, 158, 114), -- a card inside a panel
+	cardDark = Color3.fromRGB(150, 131, 92), -- icon squares, ingredient boxes, "Craft" strip
+	cardLocked = Color3.fromRGB(104, 92, 70),
+	rim = Color3.fromRGB(236, 224, 190), -- the thin cream edge on panels
+	edge = Color3.fromRGB(46, 34, 20), -- text outline
+	text = Color3.fromRGB(255, 255, 255),
+	textLight = Color3.fromRGB(255, 255, 255),
+	button = Color3.fromRGB(150, 131, 92),
+	good = Color3.fromRGB(88, 186, 74), -- "Trade", have-enough counts
+	bad = Color3.fromRGB(232, 86, 80), -- close X, missing counts
+	warn = Color3.fromRGB(236, 140, 60),
+	health = Color3.fromRGB(236, 120, 150), -- pink
+	hunger = Color3.fromRGB(236, 120, 150),
+	bag = Color3.fromRGB(130, 190, 236), -- light blue
+	xp = Color3.fromRGB(122, 214, 92), -- green, like the XP orbs
+	gold = Color3.fromRGB(246, 200, 72),
+	star = Color3.fromRGB(250, 214, 90),
 }
 
-UIKit.Font = Enum.Font.GothamBold
-UIKit.FontHeavy = Enum.Font.GothamBlack
+-- Plain bold sans everywhere. The outline does the work, not the typeface.
+UIKit.Font = Enum.Font.SourceSansBold
+UIKit.FontHeavy = Enum.Font.SourceSansBold
+
+UIKit.PANEL_ALPHA = 0.12 -- how see-through panels are
 
 function UIKit.new(className: string, props, children: { Instance }?): any
 	local inst = Instance.new(className)
@@ -42,36 +53,103 @@ function UIKit.corner(r: number?)
 	return UIKit.new("UICorner", { CornerRadius = UDim.new(0, r or 8) })
 end
 
-function UIKit.stroke(color: Color3?, thickness: number?)
-	return UIKit.new("UIStroke", { Color = color or UIKit.Colors.edge, Thickness = thickness or 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+function UIKit.round()
+	return UIKit.new("UICorner", { CornerRadius = UDim.new(1, 0) })
 end
 
+function UIKit.stroke(color: Color3?, thickness: number?)
+	return UIKit.new("UIStroke", { Color = color or UIKit.Colors.rim, Thickness = thickness or 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+end
+
+-- White text with a dark outline. This is the only text style in the game.
 function UIKit.label(props)
 	props.BackgroundTransparency = props.BackgroundTransparency or 1
 	props.Font = props.Font or UIKit.Font
 	props.TextColor3 = props.TextColor3 or UIKit.Colors.text
+	props.TextStrokeColor3 = props.TextStrokeColor3 or UIKit.Colors.edge
+	props.TextStrokeTransparency = props.TextStrokeTransparency or 0
 	if props.TextScaled == nil and props.TextSize == nil then
 		props.TextScaled = true
 	end
 	return UIKit.new("TextLabel", props)
 end
 
+UIKit.hudText = UIKit.label
+
+-- A word you can click, with no box around it ("Equip", "Drop", "Craft").
+function UIKit.textButton(props, onClick: () -> ())
+	props.BackgroundTransparency = props.BackgroundTransparency or 1
+	props.Font = props.Font or UIKit.Font
+	props.TextColor3 = props.TextColor3 or UIKit.Colors.text
+	props.TextStrokeColor3 = props.TextStrokeColor3 or UIKit.Colors.edge
+	props.TextStrokeTransparency = 0
+	props.AutoButtonColor = false
+	if props.TextScaled == nil and props.TextSize == nil then
+		props.TextScaled = true
+	end
+	local b = UIKit.new("TextButton", props)
+	b.MouseEnter:Connect(function()
+		b.TextColor3 = UIKit.Colors.star
+	end)
+	b.MouseLeave:Connect(function()
+		b.TextColor3 = props.TextColor3
+	end)
+	b.MouseButton1Click:Connect(onClick)
+	return b
+end
+
+-- A small rounded coloured pill with white text: green "Trade", red "X".
 function UIKit.button(props, onClick: () -> ())
 	props.Font = props.Font or UIKit.Font
-	props.TextColor3 = props.TextColor3 or UIKit.Colors.textLight
+	props.TextColor3 = props.TextColor3 or UIKit.Colors.text
+	props.TextStrokeColor3 = UIKit.Colors.edge
+	props.TextStrokeTransparency = 0
 	props.BackgroundColor3 = props.BackgroundColor3 or UIKit.Colors.button
 	if props.TextScaled == nil and props.TextSize == nil then
 		props.TextScaled = true
 	end
 	props.AutoButtonColor = true
-	local b = UIKit.new("TextButton", props, { UIKit.corner(6), UIKit.stroke(UIKit.Colors.edge, 1.5) })
+	local b = UIKit.new("TextButton", props, { UIKit.corner(6) })
 	b.MouseButton1Click:Connect(onClick)
 	return b
 end
 
+-- The red close pill used under every window.
+function UIKit.closeButton(props, onClick: () -> ())
+	props.BackgroundColor3 = UIKit.Colors.bad
+	props.Text = "X"
+	props.Size = props.Size or UDim2.fromOffset(64, 26)
+	return UIKit.button(props, onClick)
+end
+
+-- A small key box like [F] followed by what it does, for prompts.
+function UIKit.keyCap(parent: Instance, key: string, action: string, order: number)
+	local row = UIKit.new("Frame", { Parent = parent, LayoutOrder = order, Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1 }, {
+		UIKit.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 5) }),
+	})
+	local cap = UIKit.new("Frame", { Parent = row, LayoutOrder = 1, Size = UDim2.fromOffset(22, 22), BackgroundColor3 = UIKit.Colors.panel, BackgroundTransparency = UIKit.PANEL_ALPHA }, { UIKit.corner(4), UIKit.stroke(UIKit.Colors.rim, 1.5) })
+	UIKit.label({ Parent = cap, Size = UDim2.fromScale(1, 1), Text = key, TextScaled = false, TextSize = 16 })
+	UIKit.label({ Parent = row, LayoutOrder = 2, Size = UDim2.fromOffset(0, 22), AutomaticSize = Enum.AutomaticSize.X, Text = action, TextScaled = false, TextSize = 18 })
+	return row
+end
+
+-- A flat tan panel with a thin cream rim.
 function UIKit.panel(props)
 	props.BackgroundColor3 = props.BackgroundColor3 or UIKit.Colors.panel
-	return UIKit.new("Frame", props, { UIKit.corner(10), UIKit.stroke(UIKit.Colors.edge, 3) })
+	props.BackgroundTransparency = props.BackgroundTransparency or UIKit.PANEL_ALPHA
+	return UIKit.new("Frame", props, { UIKit.corner(8), UIKit.stroke(UIKit.Colors.rim, 2) })
+end
+
+-- A darker block inside a panel (cards, icon squares). No rim.
+function UIKit.block(props)
+	props.BackgroundColor3 = props.BackgroundColor3 or UIKit.Colors.card
+	props.BorderSizePixel = 0
+	return UIKit.new("Frame", props, { UIKit.corner(6) })
+end
+
+-- A window title in big outlined text.
+function UIKit.title(parent: Instance, text: string, y: number?)
+	return UIKit.label({ Parent = parent, Position = UDim2.fromOffset(0, y or 6), Size = UDim2.new(1, 0, 0, 30), Text = text, TextScaled = false, TextSize = 30 })
 end
 
 return UIKit

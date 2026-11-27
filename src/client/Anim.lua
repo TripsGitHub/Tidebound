@@ -20,13 +20,14 @@ local HOLD: Pose = {
 }
 
 local ANIMS: { [string]: { Key } } = {
-	-- Overhead chop: wind the arm up behind the head, twist, then bring it down hard.
+	-- Overhead chop, Island Tribes style: short and snappy (about 0.4s). The arm goes
+	-- up, comes straight down hard, and settles; the body only leans a little.
 	swing = {
 		{ t = 0 },
-		{ t = 0.13, pose = { RightShoulder = Vector3.new(172, 0, -12), RightElbow = Vector3.new(45, 0, 0), Waist = Vector3.new(6, -18, 0), Neck = Vector3.new(6, 0, 0) } },
-		{ t = 0.21, pose = { RightShoulder = Vector3.new(18, 0, 10), RightElbow = Vector3.new(4, 0, 0), Waist = Vector3.new(-14, 14, 0), Neck = Vector3.new(-8, 0, 0) } },
-		{ t = 0.3, pose = { RightShoulder = Vector3.new(10, 0, 8), RightElbow = Vector3.new(10, 0, 0), Waist = Vector3.new(-9, 9, 0), Neck = Vector3.new(-5, 0, 0) } },
-		{ t = 0.52 },
+		{ t = 0.1, pose = { RightShoulder = Vector3.new(165, 0, -8), RightElbow = Vector3.new(40, 0, 0), Waist = Vector3.new(4, -8, 0), Neck = Vector3.new(4, 0, 0) } },
+		{ t = 0.17, pose = { RightShoulder = Vector3.new(14, 0, 6), RightElbow = Vector3.new(4, 0, 0), Waist = Vector3.new(-10, 8, 0), Neck = Vector3.new(-6, 0, 0) } },
+		{ t = 0.24, pose = { RightShoulder = Vector3.new(22, 0, 6), RightElbow = Vector3.new(12, 0, 0), Waist = Vector3.new(-6, 5, 0), Neck = Vector3.new(-3, 0, 0) } },
+		{ t = 0.4 },
 	},
 	-- Bring food to the mouth and chew twice.
 	eat = {
@@ -36,6 +37,13 @@ local ANIMS: { [string]: { Key } } = {
 		{ t = 0.45, pose = { RightShoulder = Vector3.new(75, 0, -28), RightElbow = Vector3.new(115, 0, 0), Neck = Vector3.new(-6, 0, 0) } },
 		{ t = 0.6, pose = { RightShoulder = Vector3.new(68, 0, -28), RightElbow = Vector3.new(105, 0, 0), Neck = Vector3.new(-14, 0, 0) } },
 		{ t = 0.85 },
+	},
+	-- Set a wall or campfire down: reach forward and press it into place.
+	place = {
+		{ t = 0 },
+		{ t = 0.12, pose = { RightShoulder = Vector3.new(70, 0, 4), RightElbow = Vector3.new(20, 0, 0), Waist = Vector3.new(-12, 0, 0), Neck = Vector3.new(-8, 0, 0) } },
+		{ t = 0.22, pose = { RightShoulder = Vector3.new(40, 0, 4), RightElbow = Vector3.new(6, 0, 0), Waist = Vector3.new(-20, 0, 0), Neck = Vector3.new(-12, 0, 0) } },
+		{ t = 0.42 },
 	},
 	-- Bend down and grab something off the ground.
 	pickup = {
