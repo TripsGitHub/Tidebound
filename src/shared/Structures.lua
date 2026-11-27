@@ -8,6 +8,7 @@ local Structures = {
 	WoodWall = { size = Vector3.new(8, 18, 1.2), hp = 300 },
 	StoneWall = { size = Vector3.new(8, 18, 2), hp = 900 },
 	WoodGate = { size = Vector3.new(8, 18, 1.2), hp = 250 },
+	Chest = { size = Vector3.new(5, 3.4, 3.4), hp = 260 },
 }
 
 function Structures.snap(position: Vector3): Vector3

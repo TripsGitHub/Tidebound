@@ -12,6 +12,7 @@ local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
 local Quests = require(script.Parent.Quests)
 local Crafting = require(script.Parent.Crafting)
+local Chests = require(script.Parent.Chests)
 
 local Building = {}
 
@@ -105,6 +106,19 @@ function builders.WoodGate(model: Model, cf: CFrame, size: Vector3)
 	end
 	local diag = math.sqrt(size.X ^ 2 + (size.Y / 2) ^ 2)
 	part(model, false, { Name = "Brace", Size = Vector3.new(diag - 0.6, 0.5, 0.45), CFrame = cf * CFrame.new(0, 0, -size.Z / 2 - 0.2) * CFrame.Angles(0, 0, math.atan2(size.Y / 2, size.X)), Color = WOOD_LIGHT, Material = Enum.Material.Wood, CanCollide = false })
+	return core
+end
+
+-- A wooden storage chest: planked box, darker lid, iron bands and a brass lock.
+function builders.Chest(model: Model, cf: CFrame, size: Vector3)
+	local bodyH = size.Y * 0.68
+	local core = part(model, true, { Name = "Core", Size = Vector3.new(size.X, bodyH, size.Z), CFrame = cf * CFrame.new(0, -size.Y / 2 + bodyH / 2, 0), Color = WOOD, Material = Enum.Material.WoodPlanks })
+	local lidH = size.Y - bodyH
+	part(model, false, { Name = "Lid", Size = Vector3.new(size.X + 0.2, lidH, size.Z + 0.2), CFrame = cf * CFrame.new(0, size.Y / 2 - lidH / 2, 0), Color = WOOD_DARK, Material = Enum.Material.WoodPlanks })
+	for _, x in { -size.X * 0.32, size.X * 0.32 } do
+		part(model, false, { Name = "Band", Size = Vector3.new(0.35, size.Y + 0.05, size.Z + 0.3), CFrame = cf * CFrame.new(x, 0, 0), Color = Color3.fromRGB(80, 80, 86), Material = Enum.Material.Metal })
+	end
+	part(model, false, { Name = "Lock", Size = Vector3.new(0.7, 0.8, 0.25), CFrame = cf * CFrame.new(0, size.Y / 2 - lidH - 0.1, -size.Z / 2 - 0.2), Color = Color3.fromRGB(214, 176, 72), Material = Enum.Material.Metal })
 	return core
 end
 
@@ -203,7 +217,7 @@ local function ownedCount(userId: number): number
 end
 
 -- Builds the structure at cf, owned by userId. No checks: callers check first.
-local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, cf: CFrame, tiles: number, hp: number?): Model
+local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, cf: CFrame, tiles: number, hp: number?, stored: any?): Model
 	local item = Items[itemId]
 	local def = Structures[item.structure]
 	local size = Structures.sizeFor(item.structure, tiles)
@@ -220,6 +234,9 @@ local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, 
 	model:SetAttribute("HP", math.min(hp or maxHp, maxHp))
 	model:SetAttribute("MaxHP", maxHp)
 	model:SetAttribute("OwnerId", ownerId)
+	if item.structure == "Chest" then
+		Chests.setup(model, stored)
+	end
 	model.Parent = workspace.Structures
 	return model
 end
@@ -324,7 +341,12 @@ function Building.export(player: Player): { any }
 		local itemId = m:GetAttribute("ItemId")
 		if m:GetAttribute("OwnerId") == player.UserId and itemId and m:IsA("Model") and m.PrimaryPart then
 			local cf = m.PrimaryPart.CFrame
-			if Structures.isFloor(m:GetAttribute("StructureType")) or m:GetAttribute("StructureType") == "Campfire" then
+			local st = m:GetAttribute("StructureType")
+			if st == "Chest" then
+				-- the chest's core is its lower body; the build centre is higher up
+				local size = Structures.sizeFor("Chest")
+				cf = cf * CFrame.new(0, size.Y / 2 - size.Y * 0.34, 0)
+			elseif Structures.isFloor(st) or st == "Campfire" then
 				-- cores of floors/campfires are offset down from the build centre
 				cf = cf * CFrame.new(0, if m:GetAttribute("StructureType") == "Campfire" then (Structures.sizeFor("Campfire").Y / 2 - 0.2) else 0.15, 0)
 			end
@@ -337,6 +359,7 @@ function Building.export(player: Player): { any }
 				r = Structures.snapRotation(math.deg(ry)),
 				n = m:GetAttribute("Tiles") or 1,
 				hp = math.floor(m:GetAttribute("HP") or 0),
+				c = if st == "Chest" then Chests.export(m) else nil,
 			})
 			if #list >= Config.MaxStructures then
 				break
@@ -372,7 +395,7 @@ function Building.restore(player: Player, list: any)
 			local size = Structures.sizeFor(item.structure, n)
 			local cf = CFrame.new(e.x, e.y, e.z) * CFrame.Angles(0, math.rad(tonumber(e.r) or 0), 0)
 			if not mine[key] and not blocked(cf, size) then
-				construct(player.UserId, player, e.i, cf, n, if (tonumber(e.hp) or 0) > 0 then e.hp else nil)
+				construct(player.UserId, player, e.i, cf, n, if (tonumber(e.hp) or 0) > 0 then e.hp else nil, e.c)
 				count += 1
 			end
 		end

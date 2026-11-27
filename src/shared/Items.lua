@@ -45,6 +45,7 @@ local Items = {
 	wood_gate = { name = "Wood Gate", kind = "placeable", order = 33, structure = "WoodGate" },
 	stone_base = { name = "Stone Base", kind = "placeable", order = 34, structure = "StoneBase" },
 	stone_wall = { name = "Stone Wall", kind = "placeable", order = 35, structure = "StoneWall" },
+	storage_chest = { name = "Storage Chest", kind = "placeable", order = 36, structure = "Chest" },
 
 	-- Resources --------------------------------------------------------
 	log = { name = "Small Log", kind = "resource", order = 100 },

@@ -577,7 +577,84 @@ local function rebuildShop()
 	end
 end
 
-local rebuilders = { quests = rebuildQuests, shop = rebuildShop }
+-- Storage chest: what's inside on top, your bag underneath. Click a stack to move it.
+local chest: { model: Model?, contents: { [string]: number }, cap: number } = { model = nil, contents = {}, cap = 0 }
+
+local function sortedIds(map: { [string]: number }): { string }
+	local ids = {}
+	for id, n in map do
+		if Items[id] and n > 0 then
+			table.insert(ids, id)
+		end
+	end
+	table.sort(ids, function(a, b)
+		local oa, ob = Items[a].order or 999, Items[b].order or 999
+		if oa ~= ob then
+			return oa < ob
+		end
+		return a < b
+	end)
+	return ids
+end
+
+local function stackGrid(list: Instance, order: number, title: string, map: { [string]: number }, empty: string, onClick: (string) -> ())
+	label({ Parent = list, LayoutOrder = order, Size = UDim2.new(1, -8, 0, 22), Text = title, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 19 })
+	local grid = new("Frame", { Parent = list, LayoutOrder = order + 1, Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1 }, {
+		new("UIGridLayout", { CellSize = UDim2.fromOffset(52, 52), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local ids = sortedIds(map)
+	if #ids == 0 then
+		label({ Parent = list, LayoutOrder = order + 1, Size = UDim2.new(1, -8, 0, 20), Text = empty, TextColor3 = C.textLight, TextScaled = false, TextSize = 15 })
+		grid:Destroy()
+		return
+	end
+	for i, id in ids do
+		local cell = new("TextButton", { Parent = grid, LayoutOrder = i, Text = "", AutoButtonColor = true, BackgroundColor3 = C.cardDark }, { corner(6), stroke(C.rim, 1.5) })
+		Icons.make(id, cell, UDim2.fromScale(0.84, 0.84), UDim2.fromScale(0.08, 0.08))
+		label({ Parent = cell, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -3, 1, 0), Size = UDim2.fromOffset(40, 16), Text = tostring(map[id]), TextXAlignment = Enum.TextXAlignment.Right, TextScaled = false, TextSize = 15, ZIndex = 3 })
+		cell.MouseButton1Click:Connect(function()
+			onClick(id)
+		end)
+	end
+end
+
+local function rebuildChest()
+	local list = panelLists.chest
+	clear(list)
+	local model = chest.model
+	if not model then
+		return
+	end
+	local used = 0
+	for _, n in chest.contents do
+		used += n
+	end
+	stackGrid(list, 1, "In the chest  (" .. used .. " / " .. chest.cap .. ")", chest.contents, "Empty. Click items in your bag to store them.", function(id)
+		callbacks.onChestMove(model, id, "take")
+	end)
+	stackGrid(list, 10, "Your bag", state.items, "Your bag is empty.", function(id)
+		callbacks.onChestMove(model, id, "put")
+	end)
+end
+
+local rebuilders = { quests = rebuildQuests, shop = rebuildShop, chest = rebuildChest }
+
+-- Opens or refreshes the chest panel; contents == nil closes it (the chest broke).
+function UI.showChest(model: Model?, contents: { [string]: number }?, cap: number?)
+	if not model or not contents then
+		chest.model = nil
+		if openPanel == "chest" then
+			UI.closePanels()
+		end
+		return
+	end
+	chest.model, chest.contents, chest.cap = model, contents, cap or 0
+	if openPanel == "chest" then
+		rebuildChest()
+	else
+		UI.openPanel("chest")
+	end
+end
 
 function UI.openPanel(name: string)
 	UI.closePanels()
@@ -753,6 +830,18 @@ function UI.init(cb)
 
 	makePanel("quests", "Quest Board")
 	makePanel("shop", "Trader")
+	makePanel("chest", "Storage Chest")
+	-- Walk away from an open chest and it closes.
+	RunService.Heartbeat:Connect(function()
+		if openPanel == "chest" then
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local m = chest.model
+			if not m or not m.Parent or not root or (m:GetPivot().Position - root.Position).Magnitude > 16 then
+				chest.model = nil
+				UI.closePanels()
+			end
+		end
+	end)
 
 	player:GetAttributeChangedSignal("DataLoaded"):Connect(function()
 		lastLevel, lastXp = player:GetAttribute("Level") or 1, player:GetAttribute("XP") or 0

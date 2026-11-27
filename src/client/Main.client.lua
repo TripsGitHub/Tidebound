@@ -60,6 +60,9 @@ UI.init({
 	onBuy = function(id)
 		Remotes.Buy:FireServer(id)
 	end,
+	onChestMove = function(model, id, dir)
+		Remotes.ChestMove:FireServer(model, id, dir)
+	end,
 	onInventory = function()
 		InventoryScreen.toggle()
 	end,
@@ -270,6 +273,12 @@ end)
 Remotes.HitFeedback.OnClientEvent:Connect(Effects.hit)
 Remotes.WorldFx.OnClientEvent:Connect(Effects.worldFx)
 Remotes.QuestState.OnClientEvent:Connect(UI.setQuests)
+Remotes.ChestState.OnClientEvent:Connect(function(model, contents, cap)
+	if model and contents then
+		InventoryScreen.close()
+	end
+	UI.showChest(model, contents, cap)
+end)
 Remotes.OpenPanel.OnClientEvent:Connect(function(name)
 	InventoryScreen.close()
 	UI.openPanel(name)

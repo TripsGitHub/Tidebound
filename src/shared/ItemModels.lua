@@ -421,6 +421,16 @@ function builders.campfire(m)
 	return core
 end
 
+function builders.storage_chest(m)
+	local core = part(m, Vector3.new(2.4, 1.4, 1.6), CFrame.new(), C.wood, Enum.Material.WoodPlanks)
+	part(m, Vector3.new(2.5, 0.5, 1.7), CFrame.new(0, 0.9, 0), C.woodDark, Enum.Material.WoodPlanks)
+	for _, x in { -0.8, 0.8 } do
+		part(m, Vector3.new(0.2, 1.95, 1.75), CFrame.new(x, 0.25, 0), Color3.fromRGB(90, 90, 96), Enum.Material.Metal)
+	end
+	part(m, Vector3.new(0.4, 0.45, 0.15), CFrame.new(0, 0.6, -0.85), Color3.fromRGB(214, 176, 72), Enum.Material.Metal)
+	return core
+end
+
 local function slab(m: Model, color: Color3, material: Enum.Material, border: Color3): BasePart
 	local core = part(m, Vector3.new(2.4, 0.3, 2.4), CFrame.new(), color, material)
 	for i = 0, 3 do

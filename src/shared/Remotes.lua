@@ -13,6 +13,7 @@ local NAMES = {
 	"HitFeedback", -- (target)
 	"Marker", -- (position, amount, kind, itemId?) kind: "hit" | "harvest" damage you dealt
 	"WorldFx", -- (kind, ...) big event effects: "quake", "sky", "bomb", "meteor", "impact"
+	"ChestState", -- (chestModel, contents | nil) open/refresh the chest panel; nil closes it
 	-- client -> server
 	"Hit", -- (target)
 	"Equip", -- (itemId or nil) hold a tool/food/placeable
@@ -26,6 +27,7 @@ local NAMES = {
 	"CancelBuild", -- () put the buildable away; refunds it if it was just crafted
 	"ClaimQuest", -- (questId)
 	"Buy", -- (shopEntryId)
+	"ChestMove", -- (chestModel, itemId, "put" | "take") move a whole stack
 }
 
 local folder: Folder
