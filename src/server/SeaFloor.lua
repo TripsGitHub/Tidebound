@@ -118,11 +118,15 @@ local function scoop(terrain: Terrain, islands, grid, extent: number)
 					-- A round-bottomed bowl: a ball for the bottom and a column of water
 					-- above it up through the top of the sand bed (a ball alone would
 					-- leave a lid of sand over a hidden pocket).
+					-- Water doesn't displace solid terrain (with shorelines they share a
+					-- voxel), so clear to air first and then flood it.
 					local mid = worst + R
-					terrain:FillBall(Vector3.new(px, mid, pz), R, M.Water)
-					if mid < SURFACE_FLOOR + 2 then
-						local top = SURFACE_FLOOR + 2
-						terrain:FillCylinder(CFrame.new(px, (mid + top) / 2, pz), top - mid, R * 0.97, M.Water)
+					for _, mat in { M.Air, M.Water } do
+						terrain:FillBall(Vector3.new(px, mid, pz), R, mat)
+						if mid < SURFACE_FLOOR + 2 then
+							local top = SURFACE_FLOOR + 2
+							terrain:FillCylinder(CFrame.new(px, (mid + top) / 2, pz), top - mid, R * 0.97, mat)
+						end
 					end
 				end
 			end
@@ -141,7 +145,7 @@ floorParams.IgnoreWater = true
 local function floorAt(x: number, z: number): RaycastResult?
 	floorParams.FilterDescendantsInstances = { Workspace.Terrain }
 	local hit = Workspace:Raycast(Vector3.new(x, SURFACE_FLOOR + 30, z), Vector3.new(0, -140, 0), floorParams)
-	if hit and hit.Position.Y < SURFACE_FLOOR + 1 and (hit.Material == M.Sand or hit.Material == M.Ground or hit.Material == M.Mud or hit.Material == M.Sandstone or hit.Material == M.Rock or hit.Material == M.Slate or hit.Material == M.Limestone) then
+	if hit and hit.Position.Y < SURFACE_FLOOR + 4 and (hit.Material == M.Sand or hit.Material == M.Ground or hit.Material == M.Mud or hit.Material == M.Sandstone or hit.Material == M.Rock or hit.Material == M.Slate or hit.Material == M.Limestone) then
 		return hit
 	end
 	return nil
