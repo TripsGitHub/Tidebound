@@ -13,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Nodes = require(Shared.Nodes)
 local Meshes = require(Shared.Meshes)
+local Grottos = require(script.Parent.Grottos)
 local Tiers = require(Shared.Tiers)
 local Remotes = require(Shared.Remotes)
 local Animals = require(script.Parent.Animals)
@@ -1181,7 +1182,7 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 end
 
 -- Cave seals, ladders and waterfalls ---------------------------------------------------
-local SEAL_NODE = { layer2 = "CaveSealLower", layer2b = "CaveSealMid", layer3 = "CaveSealDeep", layer3b = "CaveSealAbyss", crystal = "CaveSealCrystal", maw = "CaveSealMaw" }
+local SEAL_NODE = { layer2 = "CaveSealLower", layer2b = "CaveSealMid", layer3 = "CaveSealDeep", layer3b = "CaveSealAbyss", crystal = "CaveSealCrystal", maw = "CaveSealMaw", tide = "TideSeal", abyss = "AbyssSeal" }
 local SEAL_GLOW = {
 	layer2 = Color3.fromRGB(150, 96, 44),
 	layer2b = Color3.fromRGB(150, 130, 60),
@@ -1189,6 +1190,8 @@ local SEAL_GLOW = {
 	layer3b = Color3.fromRGB(40, 140, 120),
 	crystal = Color3.fromRGB(120, 80, 160),
 	maw = Color3.fromRGB(150, 40, 30),
+	tide = Color3.fromRGB(90, 230, 200),
+	abyss = Color3.fromRGB(170, 90, 255),
 }
 
 local CAVE_SEAL_ROCK = Enum.Material.Rock
@@ -1239,6 +1242,10 @@ local function makeSeal(nodeFolder: Folder, b)
 	local disc = look * CFrame.Angles(math.pi / 2, 0, 0)
 	terrain:FillCylinder(disc, 5, b.r + 11, CAVE_SEAL_ROCK)
 	terrain:FillBall(b.pos, size / 2 - 1.2, Enum.Material.Air)
+	if b.water then
+		-- In a flooded tunnel (the sunken grottos): water round it, not an air bubble.
+		terrain:FillBall(b.pos, size / 2 - 1.2, Enum.Material.Water)
+	end
 end
 
 -- Make sure a shaft really comes out at the surface: find the ground round the hole
@@ -1839,6 +1846,21 @@ function WorldBuilder.build()
 			table.insert(spaces, network.hub)
 		end
 		SeaFloor.build(ISLANDS, bores, spaces)
+		-- Sunken grottos under the open sea, clear of every cave above.
+		local avoid = {}
+		for _, t in bores do
+			for _, p in Caves.samples(t.points) do
+				table.insert(avoid, p)
+			end
+		end
+		for _, c in spaces do
+			table.insert(avoid, c.pos)
+		end
+		local extent = 0
+		for _, isl in ISLANDS do
+			extent = math.max(extent, math.abs(isl.x) + isl.r, math.abs(isl.z) + isl.r)
+		end
+		Grottos.build(ISLANDS, avoid, nodes, { spawnNode = spawnNode, crystal = crystal, makeSeal = makeSeal, npcAvatar = npcAvatar }, extent)
 	end
 	dressCaves(nodes, chambers, tunnels, network.pockets)
 	for _, sh in network.shafts do

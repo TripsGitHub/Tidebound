@@ -8,6 +8,14 @@ local Config = require(Shared.Config)
 local Items = require(Shared.Items)
 local Nodes = require(Shared.Nodes)
 local Remotes = require(Shared.Remotes)
+local Tiers = require(Shared.Tiers)
+local TIER_RANK = {}
+for i, t in Tiers.list do
+	TIER_RANK[t.id] = i
+end
+local function tierRank(id: string): number
+	return TIER_RANK[id] or 0
+end
 local Inventory = require(script.Parent.Inventory)
 local Progression = require(script.Parent.Progression)
 local Drops = require(script.Parent.Drops)
@@ -89,6 +97,15 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 		if item.swing ~= "slash" or not (string.find(held, "sword") or string.find(held, "blade")) then
 			Remotes.Notify:FireClient(player, "Cave seals can only be broken with a sword", "warn")
 			return
+		end
+		if def.swordTier then
+			-- Tide and Abyss Seals: only a strong enough sword even scratches them.
+			local need = Tiers.get(def.swordTier)
+			local have = Tiers.split(held)
+			if need and (not have or tierRank(have.id) < tierRank(need.id)) then
+				Remotes.Notify:FireClient(player, "Only a " .. need.name .. " sword or better can crack the " .. def.name, "warn")
+				return
+			end
 		end
 		local dmg = item.damage or 1
 		local left = math.max((model:GetAttribute("HP") or def.hp) - dmg, 0)

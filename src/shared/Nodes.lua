@@ -93,6 +93,30 @@ local Nodes = {
 		xp = 250,
 		drops = { { item = "stone", min = 10, max = 14 }, { item = "diamond", min = 0, max = 1 } },
 	},
+	-- Tide Seals: coral-crusted rock shutting the sunken grottos (Grottos.lua). Unlike
+	-- the cave seals they need a strong sword: swordTier is the weakest that cracks one.
+	TideSeal = {
+		seal = true,
+		swordTier = "diamond",
+		name = "Tide Seal",
+		material = "stone",
+		hp = 900,
+		minPower = 6,
+		respawn = 900,
+		xp = 220,
+		drops = { { item = "stone", min = 8, max = 12 }, { item = "diamond", min = 0, max = 1 } },
+	},
+	AbyssSeal = {
+		seal = true,
+		swordTier = "obsidian",
+		name = "Abyss Seal",
+		material = "stone",
+		hp = 1600,
+		minPower = 9,
+		respawn = 1200,
+		xp = 400,
+		drops = { { item = "stone", min = 10, max = 14 }, { item = "amethyst", min = 0, max = 1 } },
+	},
 	-- The Sunfruit Giant on Sunfruit Isle: a huge palm you can chop down for a pile of
 	-- fruit and logs. Takes a long time to grow back.
 	SunfruitGiant = {
