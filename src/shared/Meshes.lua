@@ -34,10 +34,21 @@ local LOOKS: { [string]: { material: Enum.Material?, transparency: number? } } =
 	SignPost = { material = Enum.Material.Wood },
 	WardenStone = { material = Enum.Material.Slate },
 	GolemRock = { material = Enum.Material.Basalt },
+	GolemDark = { material = Enum.Material.Basalt },
+	GolemAsh = { material = Enum.Material.Slate },
+	LavaHot = { material = Enum.Material.Neon },
+	TeepeeHide = { material = Enum.Material.Fabric },
+	TeepeeBand = { material = Enum.Material.Fabric },
+	TeepeeDoor = { material = Enum.Material.Fabric },
+	TeepeePole = { material = Enum.Material.Wood },
+	Soil = { material = Enum.Material.Ground },
+	SoilDark = { material = Enum.Material.Mud },
+	Seaweed = { material = Enum.Material.SmoothPlastic, transparency = 0.05 },
+	SeaweedLight = { material = Enum.Material.SmoothPlastic, transparency = 0.05 },
 }
 
 -- Thin or soft parts you can walk through.
-local SOFT = { "Leaf", "Leaves", "Frond", "Needle", "Berr", "Coconut", "Ember", "Moss" }
+local SOFT = { "Leaf", "Leaves", "Frond", "Needle", "Berr", "Coconut", "Ember", "Moss", "Blade", "Root" }
 
 local sets: { [string]: { MeshPart } }? = nil
 

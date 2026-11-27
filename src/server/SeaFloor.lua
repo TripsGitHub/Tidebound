@@ -9,6 +9,8 @@
 -- 3. Then it dresses the floor: rock outcrops and reefs, patches of gravel, mud
 --    and pale sandstone, and props (coral, kelp, sea grass, shells, starfish).
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Meshes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Meshes"))
 
 local SeaFloor = {}
 
@@ -173,7 +175,42 @@ local function prop(parent: Instance, props): Part
 	return p
 end
 
+-- The Blender reef pieces (assets/models/blender/set4.py), when the place has them.
+local REEF = { "coral_tube", "coral_brain", "coral_yellow", "coral_branch", "coral_fan", "sea_plant" }
+
+local function meshProp(folder: Instance, name: string, at: Vector3, scale: number, rng: Random): boolean
+	if not Meshes.has(name) then
+		return false
+	end
+	local m = Meshes.build(name, { scale = scale, collide = false }) :: Model
+	for _, p in m:GetDescendants() do
+		if p:IsA("BasePart") then
+			p.CanQuery = false
+			p.CastShadow = false
+		end
+	end
+	-- Sunk a little so it never hovers over a slope.
+	m:PivotTo(CFrame.new(at - Vector3.new(0, 0.3 * scale, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0))
+	m.Parent = folder
+	return true
+end
+
+-- A reef cluster: several coral pieces and sea plants packed together.
+local function reef(folder: Instance, at: Vector3, rng: Random)
+	for _ = 1, rng:NextInteger(3, 7) do
+		local x, z = at.X + rng:NextNumber(-7, 7), at.Z + rng:NextNumber(-7, 7)
+		local hit = floorAt(x, z)
+		if hit then
+			meshProp(folder, REEF[rng:NextInteger(1, #REEF)], hit.Position, rng:NextNumber(1.3, 2.8), rng)
+		end
+	end
+end
+
 local function coral(folder: Instance, at: Vector3, rng: Random)
+	if Meshes.has("coral_tube") then
+		reef(folder, at, rng)
+		return
+	end
 	local m = Instance.new("Model")
 	m.Name = "Coral"
 	local colour = CORALS[rng:NextInteger(1, #CORALS)]
@@ -200,6 +237,16 @@ local function coral(folder: Instance, at: Vector3, rng: Random)
 end
 
 local function kelp(folder: Instance, at: Vector3, rng: Random)
+	if Meshes.has("seaweed") then
+		for _ = 1, rng:NextInteger(2, 5) do
+			local x, z = at.X + rng:NextNumber(-3, 3), at.Z + rng:NextNumber(-3, 3)
+			local hit = floorAt(x, z)
+			if hit then
+				meshProp(folder, "seaweed", hit.Position, rng:NextNumber(1.6, 3.6), rng)
+			end
+		end
+		return
+	end
 	local m = Instance.new("Model")
 	m.Name = "Kelp"
 	local green = rgb(70, 120, 50):Lerp(rgb(120, 140, 50), rng:NextNumber())
@@ -249,6 +296,40 @@ local function shell(folder: Instance, at: Vector3, rng: Random)
 	end
 end
 
+-- Schools of fish: the server places them; the client swims them round (Effects).
+local FISH = { rgb(250, 170, 60), rgb(90, 180, 240), rgb(250, 230, 90), rgb(240, 110, 120), rgb(150, 230, 200) }
+local function school(folder: Instance, at: Vector3, rng: Random)
+	if not Meshes.has("fish") then
+		return
+	end
+	local m = Instance.new("Model")
+	m.Name = "FishSchool"
+	local colour = FISH[rng:NextInteger(1, #FISH)]
+	local centre = at + Vector3.new(0, rng:NextNumber(5, 14), 0)
+	m:SetAttribute("Centre", centre)
+	m:SetAttribute("Radius", rng:NextNumber(6, 14))
+	m:SetAttribute("Speed", rng:NextNumber(0.25, 0.6))
+	local scale = rng:NextNumber(0.9, 1.8)
+	for i = 1, rng:NextInteger(5, 11) do
+		local f = Meshes.build("fish", { scale = scale, collide = false }) :: Model
+		f.Name = "Fish"
+		for _, p in f:GetDescendants() do
+			if p:IsA("BasePart") then
+				p.CanQuery = false
+				p.CastShadow = false
+				if p.Name == "Body" then
+					p.Color = colour
+				end
+			end
+		end
+		f:SetAttribute("Offset", Vector3.new(rng:NextNumber(-3, 3), rng:NextNumber(-2, 2), rng:NextNumber(-3, 3)))
+		f:SetAttribute("Phase", i * 0.35)
+		f:PivotTo(CFrame.new(centre + f:GetAttribute("Offset")))
+		f.Parent = m
+	end
+	m.Parent = folder
+end
+
 local function dress(terrain: Terrain, extent: number)
 	local folder = Instance.new("Folder")
 	folder.Name = "Seabed"
@@ -278,10 +359,12 @@ local function dress(terrain: Terrain, extent: number)
 				coral(folder, at, rng)
 			elseif roll < 0.64 then
 				kelp(folder, at, rng)
-			elseif roll < 0.84 then
+			elseif roll < 0.8 then
 				seaGrass(folder, at, rng)
-			else
+			elseif roll < 0.9 then
 				shell(folder, at, rng)
+			else
+				school(folder, at, rng)
 			end
 		end
 		if i % 150 == 0 then

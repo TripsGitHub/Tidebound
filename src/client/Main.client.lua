@@ -99,6 +99,7 @@ InventoryScreen.init(UI.root :: ScreenGui, {
 })
 Hover.start()
 require(script.Parent.Prompts).start()
+require(script.Parent.Sea).start()
 Anim.start()
 task.spawn(Gates.start)
 Nameplates.start()
