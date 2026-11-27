@@ -969,7 +969,7 @@ end
 --   * otherwise: a ball of rock in the gap, so the wall between is solid.
 local THICK = 9
 function Caves.fixWindows(result: Result)
-	local CELL = 48
+	local CELL = 64
 	local balls = {}
 	for ti, t in result.tunnels do
 		local s = samples(t.points)
@@ -982,6 +982,15 @@ function Caves.fixWindows(result: Result)
 			end
 			table.insert(balls, { p = p, r = t.r, zone = z, t = ti, i = i })
 		end
+	end
+	-- Chambers and lobes too (as single balls): a cavern dome under another tunnel
+	-- leaves the same round window in its roof.
+	local nt = #result.tunnels
+	for ci, c in result.chambers do
+		table.insert(balls, { p = c.pos + Vector3.new(0, c.r * 0.45, 0), r = c.r, zone = c.zone, t = nt + ci, i = 0, solo = true })
+	end
+	for li, l in result.lobes do
+		table.insert(balls, { p = l.pos, r = l.r, zone = l.zone, t = nt + #result.chambers + li, i = 0, solo = true })
 	end
 	local grid = {}
 	for n, b in balls do
