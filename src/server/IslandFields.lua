@@ -51,9 +51,9 @@ end
 local function grassy(x: number, z: number, base: Enum.Material): Enum.Material
 	local n = noise(x * 0.6 + 90, z * 0.6)
 	if base == Enum.Material.Grass then
-		return if n > 1.3 then Enum.Material.LeafyGrass else Enum.Material.Grass
+		return if n > 1.3 then Enum.Material.Grass else Enum.Material.Grass
 	end
-	return if n < -1.3 then Enum.Material.Grass else Enum.Material.LeafyGrass
+	return if n < -1.3 then Enum.Material.Grass else Enum.Material.Grass
 end
 
 
@@ -128,7 +128,7 @@ function PH.material(x, z, h, slope)
 		return M.Rock
 	end
 	if PH.zoneAt(x, z) == "meadow" then
-		return grassy(x, z, M.LeafyGrass)
+		return grassy(x, z, M.Grass)
 	end
 	return grassy(x, z, M.Grass)
 end
@@ -362,7 +362,7 @@ function SM.material(x, z, h, slope)
 	if l < 0.14 then
 		return M.Ground
 	end
-	return M.LeafyGrass
+	return M.Grass
 end
 function SM.canGrow(x, z)
 	return SM.land(x, z) > 0.12
@@ -566,7 +566,7 @@ local function make(spec): Field
 			return spec.cliff or M.Rock
 		end
 		local m = if h > spec.peak * 0.55 then spec.high or spec.low else spec.low
-		if m == M.Grass or m == M.LeafyGrass then
+		if m == M.Grass or m == M.Grass then
 			return grassy(x, z, m)
 		end
 		return m
@@ -587,24 +587,24 @@ local function make(spec): Field
 end
 IslandFields.make = make
 
-IslandFields.cay = make({ name = "Driftwood Cay", r = 45, peak = 6, hills = 2, seed = 11, low = M.Sand, high = M.LeafyGrass })
-IslandFields.atoll = make({ name = "Coral Atoll", r = 58, peak = 7, hills = 4, seed = 19, atoll = true, low = M.Grass, high = M.LeafyGrass })
+IslandFields.cay = make({ name = "Driftwood Cay", r = 45, peak = 12, hills = 4, spires = 2, seed = 11, low = M.Sand, high = M.Grass, cliff = M.Rock })
+IslandFields.atoll = make({ name = "Coral Atoll", r = 58, peak = 10, hills = 5, seed = 19, atoll = true, low = M.Grass, high = M.Grass })
 IslandFields.crags = make({ name = "Silver Crags", r = 62, peak = 34, hills = 4, spires = 9, ponds = 1, seed = 29, low = M.Slate, high = M.Rock, cliff = M.Slate })
 IslandFields.mesa = make({ name = "Gold Mesa", r = 64, peak = 30, hills = 3, mesa = true, seed = 43, low = M.Sandstone, high = M.Sandstone, cliff = M.Sandstone, shore = M.Sand })
-IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 16, hills = 5, ponds = 2, seed = 61, low = M.Grass, high = M.LeafyGrass })
-IslandFields.fruit = make({ name = "Sunfruit Isle", r = 66, peak = 12, hills = 4, ponds = 3, seed = 97, low = M.Grass, high = M.LeafyGrass })
+IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 20, hills = 6, ponds = 2, seed = 61, low = M.Grass, high = M.Grass })
+IslandFields.fruit = make({ name = "Sunfruit Isle", r = 66, peak = 16, hills = 5, ponds = 3, seed = 97, low = M.Grass, high = M.Grass })
 IslandFields.skull = make({ name = "Skull Key", r = 34, peak = 22, hills = 1, seed = 71, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 IslandFields.maw = make({ name = "Maw Rock", r = 36, peak = 18, hills = 2, spires = 6, seed = 89, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 IslandFields.rockcay = make({ name = "Gull Rock", r = 28, peak = 14, hills = 2, spires = 3, seed = 83, low = M.Rock, high = M.Rock })
 -- The nameless islands: small, each its own shape.
 IslandFields.isle1 = make({ name = "", r = 30, peak = 16, hills = 2, spires = 4, seed = 101, low = M.Grass, high = M.Rock, cliff = M.Slate })
 IslandFields.isle2 = make({ name = "", r = 32, peak = 24, hills = 3, spires = 2, seed = 107, low = M.Slate, high = M.Rock, cliff = M.Slate })
-IslandFields.isle3 = make({ name = "", r = 32, peak = 6, hills = 2, seed = 113, low = M.Grass, high = M.LeafyGrass })
-IslandFields.isle4 = make({ name = "", r = 40, peak = 20, hills = 3, ponds = 1, seed = 127, low = M.Grass, high = M.LeafyGrass, cliff = M.Rock })
-IslandFields.isle5 = make({ name = "", r = 42, peak = 12, hills = 4, ponds = 2, seed = 131, low = M.LeafyGrass, high = M.Grass })
+IslandFields.isle3 = make({ name = "", r = 32, peak = 12, hills = 3, seed = 113, low = M.Grass, high = M.Grass, cliff = M.Rock })
+IslandFields.isle4 = make({ name = "", r = 40, peak = 20, hills = 3, ponds = 1, seed = 127, low = M.Grass, high = M.Grass, cliff = M.Rock })
+IslandFields.isle5 = make({ name = "", r = 42, peak = 15, hills = 4, ponds = 2, seed = 131, low = M.Grass, high = M.Grass })
 IslandFields.isle6 = make({ name = "", r = 38, peak = 18, hills = 2, spires = 3, seed = 139, low = M.Rock, high = M.Slate, cliff = M.Slate })
-IslandFields.isle7 = make({ name = "", r = 36, peak = 5, hills = 3, seed = 149, low = M.Sand, high = M.Grass })
-IslandFields.isle8 = make({ name = "", r = 30, peak = 7, hills = 2, seed = 151, low = M.Grass, high = M.LeafyGrass })
+IslandFields.isle7 = make({ name = "", r = 36, peak = 10, hills = 4, seed = 149, low = M.Sand, high = M.Grass, cliff = M.Sandstone })
+IslandFields.isle8 = make({ name = "", r = 30, peak = 12, hills = 3, seed = 151, low = M.Grass, high = M.Grass, cliff = M.Rock })
 
 IslandFields.hills = PH :: Field
 IslandFields.rock = SS :: Field

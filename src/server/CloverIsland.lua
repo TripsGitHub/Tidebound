@@ -50,9 +50,9 @@ end
 local function grassy(x: number, z: number, base: Enum.Material): Enum.Material
 	local n = noise(x * 0.6 + 90, z * 0.6)
 	if base == Enum.Material.Grass then
-		return if n > 1.3 then Enum.Material.LeafyGrass else Enum.Material.Grass
+		return if n > 1.3 then Enum.Material.Grass else Enum.Material.Grass
 	end
-	return if n < -1.3 then Enum.Material.Grass else Enum.Material.LeafyGrass
+	return if n < -1.3 then Enum.Material.Grass else Enum.Material.Grass
 end
 
 local function stem(x: number, z: number): number
@@ -170,7 +170,7 @@ local function material(x: number, z: number, h: number, slope: number): Enum.Ma
 		return M.Sand
 	end
 	if zone == "meadow" then
-		return grassy(x, z, M.LeafyGrass)
+		return grassy(x, z, M.Grass)
 	end
 	return grassy(x, z, M.Grass)
 end

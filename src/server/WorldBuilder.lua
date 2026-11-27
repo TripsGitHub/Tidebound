@@ -25,6 +25,7 @@ local Minimap = require(script.Parent.Minimap)
 local Props = require(script.Parent.Props)
 local Outposts = require(script.Parent.Outposts)
 local Bosses = require(script.Parent.Bosses)
+local SeaFloor = require(script.Parent.SeaFloor)
 
 local WorldBuilder = {}
 local rng = Random.new(1911)
@@ -275,7 +276,10 @@ local rgbc = Color3.fromRGB
 local TINTS = {
 	autumn = { Leaf = rgbc(232, 120, 44) },
 	gold = { Leaf = rgbc(236, 186, 60) },
-	snowy = { Leaf = rgbc(226, 236, 240), mix = 0.6 },
+	snowy = { Leaf = rgbc(240, 246, 250), mix = 0.93 },
+	frosted = { Leaf = rgbc(200, 222, 228), mix = 0.8 },
+	dry = { Leaf = rgbc(150, 128, 64), BushLeaf = rgbc(150, 128, 64), mix = 0.9 },
+	dead = { Leaf = rgbc(112, 92, 70), BushLeaf = rgbc(118, 98, 72), Berry = rgbc(110, 70, 50), mix = 0.95 },
 	dark = { Leaf = rgbc(46, 92, 70) },
 	blueberry = { Berry = rgbc(70, 90, 200) },
 	blossom = { Berry = rgbc(255, 190, 220), BushLeaf = rgbc(120, 170, 70) },
@@ -291,10 +295,10 @@ local VARIANTS = {
 		default = { { nil, 6 }, { "autumn", 1 }, { "gold", 1 } },
 		hills = { { nil, 5 }, { "autumn", 2 }, { "gold", 2 }, { "dark", 1 } },
 		ruins = { { "autumn", 3 }, { "gold", 3 }, { nil, 2 } },
-		snow = { { "snowy", 5 }, { nil, 1 } },
+		snow = { { "snowy", 4 }, { "frosted", 1 } },
 		crags = { { "dark", 3 }, { nil, 1 } },
 	},
-	Bush = { default = { { nil, 4 }, { "blueberry", 1 }, { "blossom", 1 } } },
+	Bush = { default = { { nil, 4 }, { "blueberry", 1 }, { "blossom", 1 } }, snow = { { "snowy", 1 } } },
 	Boulder = {
 		default = { { nil, 3 }, { "bare", 1 } },
 		mesa = { { "sandstone", 1 } },
@@ -347,6 +351,15 @@ local function applyTint(model: Model, tintName: string?)
 	end
 end
 
+local groundParams = RaycastParams.new()
+groundParams.FilterType = Enum.RaycastFilterType.Include
+groundParams.IgnoreWater = true
+local function groundMaterialAt(pos: Vector3): Enum.Material?
+	groundParams.FilterDescendantsInstances = { workspace.Terrain }
+	local hit = workspace:Raycast(pos + Vector3.new(0, 3, 0), Vector3.new(0, -8, 0), groundParams)
+	return hit and hit.Material
+end
+
 local function makeNode(nodeType: string, cf: CFrame): Model
 	if Nodes[nodeType].ore then
 		return makeOre(Nodes[nodeType], cf)
@@ -359,7 +372,18 @@ local function makeNode(nodeType: string, cf: CFrame): Model
 	local model = spec and Meshes.build(spec.mesh, { scale = scale })
 	if model then
 		model:PivotTo(cf * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
-		applyTint(model, pickVariant(nodeType))
+		local tint = pickVariant(nodeType)
+		-- Trees and bushes match the ground they grow from: white on snow, dry and
+		-- brown on rock, sand, sandstone or bare earth. Only grass grows green ones.
+		if nodeType == "Pine" or nodeType == "Bush" then
+			local ground = groundMaterialAt(cf.Position)
+			if ground == Enum.Material.Snow or ground == Enum.Material.Glacier or ground == Enum.Material.Ice then
+				tint = if rng:NextNumber() < 0.8 then "snowy" else "frosted"
+			elseif ground and ground ~= Enum.Material.Grass and ground ~= Enum.Material.LeafyGrass and ground ~= Enum.Material.Mud then
+				tint = if rng:NextNumber() < 0.7 then "dry" else "dead"
+			end
+		end
+		applyTint(model, tint)
 		return model
 	end
 	return makers[nodeType](cf)
@@ -478,13 +502,16 @@ local BIOME_NODES = {
 		{ "Palm", 10, { 1, 3 }, zone = "inland" },
 		{ "Palm", 4, { 1, 1 }, zone = "shore" },
 		{ "Bush", 7, zone = "inland" },
-		{ "Boulder", 2, zone = "*" },
+		{ "Boulder", 5, zone = "*" },
+		{ "Pine", 3, { 1, 2 }, zone = "peak" },
+		{ "FruitPalm", 2, { 1, 1 }, zone = "inland" },
 	},
 	atoll = {
 		{ "Palm", 13, { 1, 3 }, zone = "inland" },
 		{ "FruitPalm", 4, { 1, 2 }, zone = "inland" },
 		{ "Bush", 6, zone = "inland" },
-		{ "Boulder", 3, zone = "shore" },
+		{ "Boulder", 6, zone = "shore" },
+		{ "SilverVein", 2, zone = "peak" },
 	},
 	crags = { -- silver
 		{ "SilverVein", 10, zone = "inland" },
@@ -529,14 +556,41 @@ local BIOME_NODES = {
 }
 
 -- The nameless islands borrow a planting from the small named ones.
-BIOME_NODES.isle1 = BIOME_NODES.rockcay
+BIOME_NODES.isle1 = { -- grassy foot under a rocky crown
+	{ "Pine", 6, { 1, 3 }, zone = "inland" },
+	{ "Bush", 4, zone = "inland" },
+	{ "Boulder", 6, zone = "peak" },
+	{ "SilverVein", 2, zone = "peak" },
+	{ "Palm", 2, { 1, 1 }, zone = "shore" },
+}
 BIOME_NODES.isle2 = BIOME_NODES.crags
-BIOME_NODES.isle3 = BIOME_NODES.cay
+BIOME_NODES.isle3 = {
+	{ "Palm", 6, { 1, 3 }, zone = "inland" },
+	{ "Pine", 4, { 1, 2 }, zone = "peak" },
+	{ "Bush", 6, zone = "inland" },
+	{ "Boulder", 4, zone = "*" },
+	{ "FruitPalm", 2, { 1, 1 }, zone = "shore" },
+}
 BIOME_NODES.isle4 = BIOME_NODES.ruins
 BIOME_NODES.isle5 = BIOME_NODES.fruit
-BIOME_NODES.isle6 = BIOME_NODES.rockcay
-BIOME_NODES.isle7 = BIOME_NODES.atoll
-BIOME_NODES.isle8 = BIOME_NODES.cay
+BIOME_NODES.isle6 = {
+	{ "Boulder", 8, zone = "*" },
+	{ "SilverVein", 3, zone = "inland" },
+	{ "GoldVein", 2, zone = "peak" },
+	{ "Bush", 3, zone = "shore" },
+}
+BIOME_NODES.isle7 = {
+	{ "Palm", 8, { 1, 3 }, zone = "inland" },
+	{ "Boulder", 5, zone = "*" },
+	{ "Bush", 4, zone = "inland" },
+	{ "SilverVein", 1, zone = "peak" },
+}
+BIOME_NODES.isle8 = {
+	{ "Pine", 6, { 1, 3 }, zone = "inland" },
+	{ "Palm", 3, { 1, 2 }, zone = "shore" },
+	{ "Bush", 5, zone = "inland" },
+	{ "Boulder", 4, zone = "*" },
+}
 
 -- Spacing, in studs. Island Tribes keeps trees 20-40 studs apart with open ground
 -- between, so you can always see the next one.
@@ -571,7 +625,7 @@ local function island(terrain: Terrain, isl: Island)
 		hills = Enum.Material.Grass,
 		rock = Enum.Material.Rock,
 		snow = Enum.Material.Snow,
-		marsh = Enum.Material.LeafyGrass,
+		marsh = Enum.Material.Grass,
 		ember = Enum.Material.Basalt,
 	}
 	local coreR = if top == "Sand" then r * 0.5 else r
@@ -627,7 +681,7 @@ local function buildTerrain()
 	terrain.WaterReflectance = 0.6
 	terrain.WaterWaveSize = 0.12
 	terrain.WaterWaveSpeed = 8
-	-- Animated long grass on Grass/LeafyGrass, like the footage. Not settable
+	-- Animated long grass (Roblox only grows it on Grass, so all green ground is Grass), like the footage. Not settable
 	-- from scripts on every engine version, so default.project.json sets it too.
 	pcall(function()
 		(terrain :: any).Decoration = true
@@ -653,7 +707,16 @@ local function buildTerrain()
 	end
 	local sea = (extent + 600) * 2 -- open water well past the outer islands
 	terrain:FillBlock(CFrame.new(0, -18 * V, 0), Vector3.new(sea, 36 * V, sea), Enum.Material.Water)
-	terrain:FillBlock(CFrame.new(0, -40 * V, 0), Vector3.new(sea, 8 * V, sea), Enum.Material.Sand)
+	-- A thick sand bed under the whole sea: SeaFloor scoops basins out of it later.
+	local bedTop, bedBottom = -36 * V, -150
+	local CH = 2048
+	for bx = -sea / 2, sea / 2 - 1, CH do
+		for bz = -sea / 2, sea / 2 - 1, CH do
+			local w, d = math.min(CH, sea / 2 - bx), math.min(CH, sea / 2 - bz)
+			terrain:FillBlock(CFrame.new(bx + w / 2, (bedTop + bedBottom) / 2, bz + d / 2), Vector3.new(w, bedTop - bedBottom, d), Enum.Material.Sand)
+		end
+		task.wait()
+	end
 
 	for _, isl in ISLANDS do
 		island(terrain, isl)
@@ -1683,6 +1746,24 @@ function WorldBuilder.build()
 		openShaft(sh)
 	end
 	tintCaveRock()
+	-- The deep, dressed sea floor, kept clear of every cave space below it.
+	do
+		local spaces = table.clone(chambers)
+		local bores = table.clone(tunnels)
+		for _, rv in network.ravines or {} do
+			table.insert(bores, { points = { rv.a, rv.b }, r = 26 })
+		end
+		for _, room in network.secretRooms or {} do
+			table.insert(spaces, { pos = room.pos, r = room.size.Magnitude / 2 })
+		end
+		for _, b in network.bossRooms or {} do
+			table.insert(spaces, { pos = b.pos, r = b.r })
+		end
+		if network.hub then
+			table.insert(spaces, network.hub)
+		end
+		SeaFloor.build(ISLANDS, bores, spaces)
+	end
 	dressCaves(nodes, chambers, tunnels, network.pockets)
 	for _, sh in network.shafts do
 		dressShaft(sh)
