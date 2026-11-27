@@ -176,7 +176,20 @@ local function makeSlimePool(cf: CFrame): Model
 	return m
 end
 
-local makers = { Pine = makePine, Palm = makePalm, Boulder = makeBoulder, Bush = makeBush, SlimePool = makeSlimePool }
+-- Fallback when the place has no crop_patch mesh: a soil slab with leafy tufts.
+local function makeCropPatch(cf: CFrame): Model
+	local m = Instance.new("Model")
+	local soil = part(m, { Name = "Soil", Size = Vector3.new(10, 0.6, 7), CFrame = cf * CFrame.new(0, 0.1, 0), Color = Color3.fromRGB(92, 66, 44), Material = Enum.Material.Ground })
+	for row = -1, 1 do
+		for i = -2, 2 do
+			part(m, { Name = "Leaf", Size = Vector3.new(0.9, 1.2, 0.9), CFrame = cf * CFrame.new(i * 1.8, 0.9, row * 2), Color = Color3.fromRGB(110, 170, 60), Material = Enum.Material.Grass, CanCollide = false })
+		end
+	end
+	m.PrimaryPart = soil
+	return m
+end
+
+local makers = { Pine = makePine, Palm = makePalm, Boulder = makeBoulder, Bush = makeBush, SlimePool = makeSlimePool, CropPatch = makeCropPatch }
 
 -- The Blender mesh for each node, and how much its size varies.
 local NODE_MESHES = {
@@ -186,6 +199,7 @@ local NODE_MESHES = {
 	Boulder = { mesh = "boulder", scale = { 0.85, 1.2 } },
 	Bush = { mesh = "bush", scale = { 0.9, 1.15 } },
 	SlimePool = { mesh = "slimepool", scale = { 1, 1 } },
+	CropPatch = { mesh = "crop_patch", scale = { 0.9, 1.3 } },
 }
 
 -- Ore veins and crystal clusters: a squat boulder (the mesh when there is one) with
@@ -465,6 +479,7 @@ local BIOME_NODES = {
 		{ "SilverVein", 3, zone = "rocks" },
 		{ "Pine", 3, { 1, 2 }, zone = "centre" },
 		{ "Bush", 2, zone = "centre" },
+		{ "CropPatch", 3, zone = "meadow" },
 	},
 	-- The other islands are zoned too (see IslandFields.lua). "*" = anywhere.
 	hills = { -- wood: thick clumps in the western forest, open meadow to the south
@@ -474,6 +489,7 @@ local BIOME_NODES = {
 		{ "Pine", 4, { 1, 2 }, zone = "meadow" },
 		{ "Bush", 8, zone = "meadow" },
 		{ "Palm", 5, { 1, 2 }, zone = "shore" },
+		{ "CropPatch", 4, zone = "meadow" },
 	},
 	rock = { -- stone: boulders all over the stepped cliffs
 		{ "Boulder", 16, zone = "cliffs" },
@@ -488,11 +504,13 @@ local BIOME_NODES = {
 		{ "Boulder", 6, zone = "peak" },
 		{ "GoldVein", 2, zone = "slopes" },
 		{ "Boulder", 2, zone = "shore" },
+		{ "CropPatch", 4, zone = "slopes" },
 	},
 	marsh = { -- slime: pools on every islet
 		{ "SlimePool", 8, zone = "*" },
 		{ "Bush", 10, zone = "*" },
 		{ "Pine", 2, { 1, 1 }, zone = "heart" },
+		{ "CropPatch", 2, zone = "*" },
 	},
 	ember = {
 		{ "Boulder", 9, zone = "slopes" },
@@ -506,6 +524,7 @@ local BIOME_NODES = {
 		{ "Boulder", 5, zone = "*" },
 		{ "Pine", 3, { 1, 2 }, zone = "peak" },
 		{ "FruitPalm", 2, { 1, 1 }, zone = "inland" },
+		{ "CropPatch", 2, zone = "inland" },
 	},
 	atoll = {
 		{ "Palm", 13, { 1, 3 }, zone = "inland" },
@@ -553,6 +572,7 @@ local BIOME_NODES = {
 		{ "Palm", 6, { 1, 2 }, zone = "shore" },
 		{ "Bush", 10, zone = "inland" },
 		{ "Boulder", 3, zone = "*" },
+		{ "CropPatch", 4, zone = "inland" },
 	},
 }
 
@@ -563,6 +583,7 @@ BIOME_NODES.isle1 = { -- grassy foot under a rocky crown
 	{ "Boulder", 6, zone = "peak" },
 	{ "SilverVein", 2, zone = "peak" },
 	{ "Palm", 2, { 1, 1 }, zone = "shore" },
+	{ "CropPatch", 2, zone = "inland" },
 }
 BIOME_NODES.isle2 = BIOME_NODES.crags
 BIOME_NODES.isle3 = {
@@ -571,6 +592,7 @@ BIOME_NODES.isle3 = {
 	{ "Bush", 6, zone = "inland" },
 	{ "Boulder", 4, zone = "*" },
 	{ "FruitPalm", 2, { 1, 1 }, zone = "shore" },
+	{ "CropPatch", 2, zone = "inland" },
 }
 BIOME_NODES.isle4 = BIOME_NODES.ruins
 BIOME_NODES.isle5 = BIOME_NODES.fruit
@@ -591,6 +613,7 @@ BIOME_NODES.isle8 = {
 	{ "Palm", 3, { 1, 2 }, zone = "shore" },
 	{ "Bush", 5, zone = "inland" },
 	{ "Boulder", 4, zone = "*" },
+	{ "CropPatch", 2, zone = "inland" },
 }
 
 -- Spacing, in studs. Island Tribes keeps trees 20-40 studs apart with open ground

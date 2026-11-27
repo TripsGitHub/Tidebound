@@ -142,6 +142,19 @@ local Nodes = {
 			{ item = "stick", min = 0, max = 1 },
 		},
 	},
+	-- A patch of wild crops on bare soil: forage for food and leaves.
+	CropPatch = {
+		name = "Wild Crops",
+		material = "plant",
+		hp = 10,
+		respawn = 120,
+		xp = 8,
+		drops = {
+			{ item = "berries", min = 2, max = 4 },
+			{ item = "leaves", min = 1, max = 3 },
+			{ item = "sunfruit", min = 0, max = 1 },
+		},
+	},
 	SlimePool = {
 		name = "Slime Pool",
 		material = "slime",
