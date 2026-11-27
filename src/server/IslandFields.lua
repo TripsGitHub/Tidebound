@@ -470,7 +470,7 @@ local function make(spec): Field
 	F.name = spec.name
 	local R = spec.r
 	F.bounds = { -R * 1.4, R * 1.4, -R * 1.4, R * 1.4 }
-	F.ytop = spec.peak + 14
+	F.ytop = spec.peak + (spec.mountain or 0) + 14
 	local seed = spec.seed
 	local rand = Random.new(seed)
 	local hills = {}
@@ -508,6 +508,14 @@ local function make(spec): Field
 		h += inland * (1.5 + noise(x, z) * 1.5)
 		for _, b in hills do
 			h += inland * bump(x, z, b[1], b[2], b[3], b[4])
+		end
+		if spec.mountain then
+			-- One big peak in the middle, with ridges running down it.
+			local d = hypot(x, z) / (R * 0.82)
+			if d < 1 then
+				local ridges = 1 + 0.14 * sin(atan2(z, x) * 7 + seed) + noise(x * 0.7, z * 0.7) * 0.08
+				h += spec.mountain * smooth(1 - d) ^ 1.15 * ridges
+			end
 		end
 		if spec.mesa and h > 6 then
 			local step = spec.peak / 3
@@ -562,6 +570,9 @@ local function make(spec): Field
 		if l <= 0.06 + g * 0.03 or h < 2.2 + g * 0.5 then
 			return spec.shore or M.Sand
 		end
+		if spec.cap and h > spec.capAt + g * 4 then
+			return spec.cap
+		end
 		if slope > 1.4 + g * 0.2 and h > 5 then
 			return spec.cliff or M.Rock
 		end
@@ -594,7 +605,8 @@ IslandFields.mesa = make({ name = "Gold Mesa", r = 64, peak = 30, hills = 3, mes
 IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 20, hills = 6, ponds = 2, seed = 61, low = M.Grass, high = M.Grass })
 IslandFields.fruit = make({ name = "Sunfruit Isle", r = 66, peak = 16, hills = 5, ponds = 3, seed = 97, low = M.Grass, high = M.Grass })
 IslandFields.skull = make({ name = "Skull Key", r = 34, peak = 22, hills = 1, seed = 71, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
-IslandFields.maw = make({ name = "Maw Rock", r = 36, peak = 18, hills = 2, spires = 6, seed = 89, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
+-- The cave hub: a big snow-capped rock you can see from every island near the middle.
+IslandFields.maw = make({ name = "Maw Rock", r = 52, peak = 14, hills = 3, spires = 4, mountain = 62, cap = M.Snow, capAt = 50, seed = 89, low = M.Rock, high = M.Slate, cliff = M.Rock, shore = M.Sand })
 IslandFields.rockcay = make({ name = "Gull Rock", r = 28, peak = 14, hills = 2, spires = 3, seed = 83, low = M.Rock, high = M.Rock })
 -- The nameless islands: small, each its own shape.
 IslandFields.isle1 = make({ name = "", r = 30, peak = 16, hills = 2, spires = 4, seed = 101, low = M.Grass, high = M.Rock, cliff = M.Slate })

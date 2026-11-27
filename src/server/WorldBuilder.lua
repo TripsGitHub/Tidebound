@@ -438,7 +438,7 @@ local ISLANDS: { Island } = {
 	{ name = "Skull Key", x = 480, z = 330, r = 34, biome = "skull", ring = false },
 	{ name = "Gull Rock", x = -480, z = 330, r = 28, biome = "rockcay", ring = false },
 	{ name = "Sunfruit Isle", x = -340, z = 270, r = 66, biome = "fruit" }, -- fruit palms and ponds, near the start
-	{ name = "Maw Rock", x = 0, z = 160, r = 36, biome = "maw", ring = false, hub = true }, -- the way down to the Maw
+	{ name = "Maw Rock", x = 0, z = 160, r = 52, biome = "maw", ring = false, hub = true }, -- the way down to the Maw
 	-- Nameless islands: no name on the map, no cave, one hand-built outpost each
 	-- (see Outposts.lua). Always after the named ones.
 	{ name = "Isle 1", x = -150, z = -45, r = 30, biome = "isle1", nameless = true, outpost = "stoneCircle" },
@@ -466,6 +466,35 @@ local ISLANDS: { Island } = {
 	{ name = "Islet 14", x = 380, z = -270, r = 14, biome = "islet14", nameless = true }, -- rock
 	{ name = "Islet 15", x = -390, z = 420, r = 12, biome = "islet15", nameless = true }, -- grass
 	{ name = "Islet 16", x = 540, z = 210, r = 16, biome = "islet16", nameless = true }, -- sand
+	-- Clusters: little islands just off each big one, so there is less open sea to swim.
+	{ name = "Cluster 1", x = 109, z = 320, r = 22, biome = "islet3", nameless = true }, -- off Clover Island
+	{ name = "Cluster 2", x = -75, z = 251, r = 12, biome = "islet9", nameless = true }, -- off Clover Island
+	{ name = "Cluster 3", x = -204, z = 90, r = 14, biome = "islet11", nameless = true }, -- off Pine Hills
+	{ name = "Cluster 4", x = -374, z = 22, r = 20, biome = "islet1", nameless = true }, -- off Pine Hills
+	{ name = "Cluster 5", x = 403, z = 90, r = 14, biome = "islet14", nameless = true }, -- off Stone Shelf
+	{ name = "Cluster 6", x = 225, z = 21, r = 12, biome = "islet13", nameless = true }, -- off Stone Shelf
+	{ name = "Cluster 7", x = -99, z = -265, r = 12, biome = "islet15", nameless = true }, -- off Frost Isle
+	{ name = "Cluster 8", x = -259, z = -328, r = 16, biome = "islet16", nameless = true }, -- off Frost Isle
+	{ name = "Cluster 9", x = 289, z = -265, r = 16, biome = "islet4", nameless = true }, -- off Slime Marsh
+	{ name = "Cluster 10", x = 122, z = -332, r = 22, biome = "islet5", nameless = true }, -- off Slime Marsh
+	{ name = "Cluster 11", x = 109, z = 0, r = 18, biome = "islet10", nameless = true }, -- off Ember Isle
+	{ name = "Cluster 12", x = -83, z = -76, r = 22, biome = "islet7", nameless = true }, -- off Ember Isle
+	{ name = "Cluster 13", x = -129, z = 300, r = 22, biome = "islet3", nameless = true }, -- off Driftwood Cay
+	{ name = "Cluster 14", x = -230, z = 263, r = 12, biome = "islet9", nameless = true }, -- off Driftwood Cay
+	{ name = "Cluster 15", x = 255, z = 300, r = 14, biome = "islet11", nameless = true }, -- off Coral Atoll
+	{ name = "Cluster 16", x = 139, z = 253, r = 20, biome = "islet1", nameless = true }, -- off Coral Atoll
+	{ name = "Cluster 17", x = -277, z = -110, r = 14, biome = "islet14", nameless = true }, -- off Silver Crags
+	{ name = "Cluster 18", x = -394, z = -155, r = 12, biome = "islet13", nameless = true }, -- off Silver Crags
+	{ name = "Cluster 19", x = 413, z = -110, r = 12, biome = "islet15", nameless = true }, -- off Gold Mesa
+	{ name = "Cluster 20", x = 293, z = -158, r = 16, biome = "islet16", nameless = true }, -- off Gold Mesa
+	{ name = "Cluster 21", x = 77, z = -370, r = 16, biome = "islet4", nameless = true }, -- off Old Ruins
+	{ name = "Cluster 22", x = -60, z = -425, r = 22, biome = "islet5", nameless = true }, -- off Old Ruins
+	{ name = "Cluster 23", x = 531, z = 330, r = 18, biome = "islet10", nameless = true }, -- off Skull Key
+	{ name = "Cluster 24", x = 441, z = 294, r = 22, biome = "islet7", nameless = true }, -- off Skull Key
+	{ name = "Cluster 25", x = -431, z = 330, r = 22, biome = "islet3", nameless = true }, -- off Gull Rock
+	{ name = "Cluster 26", x = -511, z = 302, r = 12, biome = "islet9", nameless = true }, -- off Gull Rock
+	{ name = "Cluster 27", x = -269, z = 270, r = 14, biome = "islet11", nameless = true }, -- off Sunfruit Isle
+	{ name = "Cluster 28", x = -396, z = 219, r = 20, biome = "islet1", nameless = true }, -- off Sunfruit Isle
 }
 -- Built MapScale.H times bigger than the shapes above, and MapScale.Spread further apart.
 for _, isl in ISLANDS do
