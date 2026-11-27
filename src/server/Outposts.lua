@@ -162,6 +162,10 @@ end
 -- A teepee: hide panels round a ring of poles that cross and stick out at the top.
 local function teepee(c: Ctx, x: number, z: number, r: number, h: number, paint: Color3)
 	local base = c.at(x, z)
+	-- The Blender teepee, built big: about four times a player's height.
+	if Props.teepee(c.m, base, (c.at(0, 0) - base), h * 1.8, paint) then
+		return
+	end
 	local n = 10
 	for i = 0, n - 1 do
 		local a = i / n * math.pi * 2
@@ -398,7 +402,7 @@ function CAMPS.teepees(c: Ctx, name: string, banner: Color3)
 	local paints = { rgb(170, 70, 52), rgb(70, 120, 160), rgb(200, 150, 60), rgb(90, 140, 80), rgb(140, 80, 130), rgb(170, 70, 52) }
 	for i = 0, 5 do
 		local a = (i + 0.5) / 6 * math.pi * 2
-		teepee(c, math.sin(a) * 22, math.cos(a) * 22, 5.5 + (i % 2), 13 + (i % 3), paints[i + 1])
+		teepee(c, math.sin(a) * 30, math.cos(a) * 30, 5.5 + (i % 2), 13 + (i % 3), paints[i + 1])
 	end
 	-- A big fire pit with a ring of log seats.
 	local mid = c.at(0, 0)

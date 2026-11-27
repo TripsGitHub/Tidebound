@@ -162,6 +162,27 @@ function Props.totem(parent: Instance, at: Vector3, height: number?, facing: Vec
 end
 
 -- An A-frame hide tent, its open end facing `facing`.
+-- A big hide teepee (the Blender one), `height` studs to the pole tips, door facing
+-- `facing`. Returns false when the place doesn't have the mesh.
+function Props.teepee(parent: Instance, at: Vector3, facing: Vector3, height: number, band: Color3?): boolean
+	local mesh = Meshes.has("teepee") and Meshes.build("teepee", { scale = height / 25 })
+	if not mesh then
+		return false
+	end
+	local flat = facing * Vector3.new(1, 0, 1)
+	mesh:PivotTo(CFrame.lookAt(at - Vector3.new(0, 0.4, 0), at - Vector3.new(0, 0.4, 0) + (if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis)))
+	if band then
+		for _, p in mesh:GetChildren() do
+			if p:IsA("BasePart") and p.Name == "Band" then
+				p.Color = band
+			end
+		end
+	end
+	mesh.Name = "Teepee"
+	mesh.Parent = parent
+	return true
+end
+
 function Props.tent(parent: Instance, at: Vector3, facing: Vector3, r: number?)
 	local w = (r or 6) * 1.6 -- width across the two slopes
 	local h = (r or 6) * 1.4

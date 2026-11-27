@@ -41,8 +41,8 @@ function Camps.place(parent: Instance, name: string, banner: Color3, centre: Vec
 	end
 
 	-- The palisade: a ring of wall sections, open at the front for the gate.
-	local R = 24
-	local sections = 14
+	local R = 34
+	local sections = 18
 	for i = 1, sections - 1 do
 		local a0 = (i - 0.5) / sections * math.pi * 2
 		local a1 = (i + 0.5) / sections * math.pi * 2
@@ -55,20 +55,22 @@ function Camps.place(parent: Instance, name: string, banner: Color3, centre: Vec
 	Props.torchPost(m, gl, 12)
 	Props.torchPost(m, gr, 12)
 
-	-- Inside: two tents at the back, the totem between them, a fire in the middle.
-	local back = at(0, 14)
-	Props.totem(m, back, 16, look.LookVector) -- faces the gate
+	-- Inside: two big teepees at the back, the totem between them, a fire in the middle.
+	local back = at(0, 20)
+	Props.totem(m, back, 22, look.LookVector) -- faces the gate
 	for side = -1, 1, 2 do
-		local tp = at(side * 11, 9)
-		Props.tent(m, tp, (centre - tp) * Vector3.new(1, 0, 1), 5)
+		local tp = at(side * 15, 13)
+		if not Props.teepee(m, tp, (centre - tp), 26, banner) then
+			Props.tent(m, tp, (centre - tp) * Vector3.new(1, 0, 1), 5)
+		end
 	end
 	Props.campfire(m, at(0, -2))
 
 	-- Stores by the walls.
 	Props.crateStack(m, flatLook(at(-15, -6), centre))
-	Props.crateStack(m, flatLook(at(15, 2), centre))
+	Props.crateStack(m, flatLook(at(25, -4), centre))
 	for k = 0, 2 do
-		Props.barrel(m, CFrame.new(at(-14 + k * 2.8, 4 + (k % 2))))
+		Props.barrel(m, CFrame.new(at(-26 + k * 2.8, -6 + (k % 2))))
 	end
 	Props.logPile(m, flatLook(at(14, -10), at(14, 0)))
 	Props.banner(m, at(-8, -16), banner, 13)
