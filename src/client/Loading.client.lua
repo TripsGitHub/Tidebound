@@ -82,7 +82,7 @@ local start = os.clock()
 local conn = RunService.Heartbeat:Connect(function()
 	local dots = string.rep(".", math.floor(os.clock() * 2) % 4)
 	step.Text = (workspace:GetAttribute("LoadingStep") or "Building the world") .. dots
-	hint.Text = string.format("The islands are built fresh each server: about a minute or two (%ds)", os.clock() - start)
+	hint.Text = string.format("Setting up the islands (%ds)", os.clock() - start)
 end)
 
 player.CharacterAdded:Wait()
