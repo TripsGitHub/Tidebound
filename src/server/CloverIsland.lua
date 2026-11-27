@@ -38,6 +38,23 @@ local function noise(x: number, z: number): number
 		+ cos(x * 0.031 + z * 0.047) * 1.2
 end
 
+-- Fine noise that breaks up straight material edges (-1..1).
+local function grain(x: number, z: number): number
+	return sin(x * 0.41 + z * 0.17) * 0.5 + sin(z * 0.37 - x * 0.23 + 1.7) * 0.5
+end
+-- Small bumps on the ground so slopes are not perfectly smooth (about -0.75..0.75).
+local function detail(x: number, z: number): number
+	return (sin(x * 0.29 + z * 0.11) * cos(z * 0.31 - x * 0.07) + sin(x * 0.53 - z * 0.47) * 0.5) * 0.5
+end
+-- Patches of the darker grass inside light grass, and the other way round.
+local function grassy(x: number, z: number, base: Enum.Material): Enum.Material
+	local n = noise(x * 0.6 + 90, z * 0.6)
+	if base == Enum.Material.Grass then
+		return if n > 1.3 then Enum.Material.LeafyGrass else Enum.Material.Grass
+	end
+	return if n < -1.3 then Enum.Material.Grass else Enum.Material.LeafyGrass
+end
+
 local function stem(x: number, z: number): number
 	if z < 30 or z > 132 then
 		return -9
@@ -117,10 +134,11 @@ local function height(x: number, z: number): number
 	if wr > 0 then
 		local k = smooth((l - 0.1 + noise(x * 2.3, z * 2.3) * 0.06) / 0.35)
 		local hr = h + k * 14 + noise(x * 1.3, z * 1.3) * 3
-		hr = 1.5 + floor((hr - 1.5) / 4.5) * 4.5 + ((hr - 1.5) % 4.5) * 0.25
+		hr = 1.5 + floor((hr - 1.5 + grain(x, z) * 1.2) / 4.5) * 4.5 + ((hr - 1.5) % 4.5) * 0.45
 		h += (hr - h) * wr
 	end
 	h += inland * 5 * lobeWeight(x, z, 1) -- NW: higher wooded ground
+	h += smooth(l / 0.2) * detail(x, z) * 0.7 -- small bumps
 	local ws = stemWeight(x, z) -- the stem stays low
 	h += (math.min(h, 2.6 + l * 4) - h) * ws
 	local pd = hypot(x - POND_X, z - POND_Z)
@@ -135,31 +153,52 @@ local M = Enum.Material
 local function material(x: number, z: number, h: number, slope: number): Enum.Material
 	local l = land(x, z)
 	local zone = zoneAt(x, z)
-	if l <= 0.07 or (h < 2.6 and zone ~= "stem") then
+	local g = grain(x, z)
+	if l <= 0.07 + g * 0.03 or (h < 2.6 + g * 0.5 and zone ~= "stem") then
 		return M.Sand
 	end
-	if lobeWeight(x, z, 2) > 0.5 and slope > 0.35 then
+	if lobeWeight(x, z, 2) > 0.5 and slope > 0.35 + g * 0.1 then
 		return M.Rock
 	end
-	if slope > 0.9 then
+	if slope > 0.9 + g * 0.15 then
 		return M.Rock
 	end
-	if pathDist(x, z) < 3.2 and zone ~= "rocks" then
+	if pathDist(x, z) < 3.2 + g * 0.8 and zone ~= "rocks" then
 		return M.Ground
 	end
-	if zone == "palms" and l < 0.3 then
+	if zone == "palms" and l < 0.3 + g * 0.05 then
 		return M.Sand
 	end
 	if zone == "meadow" then
-		return M.LeafyGrass
+		return grassy(x, z, M.LeafyGrass)
 	end
-	return M.Grass
+	return grassy(x, z, M.Grass)
 end
 
 -- True where a resource node may grow: on land, off the trails, away from the pond.
-function CloverIsland.canGrow(x: number, z: number): boolean
+local function canGrow(x: number, z: number): boolean
 	return land(x, z) > 0.1 and pathDist(x, z) > 5 and hypot(x - POND_X, z - POND_Z) > POND_R + 3
 end
+
+-- Rock outcrops in the grass and rocky stretches of coast (see Rugged.lua). Kept
+-- off the spawn spit, the central hub and the palm beach.
+do
+	local Rugged = require(script.Parent.Rugged)
+	local f = Rugged.apply({ bounds = { X0, X1, Z0, Z1 }, land = land, height = height, material = material, canGrow = canGrow }, {
+		seed = 11,
+		count = 6,
+		rock = M.Rock,
+		coast = true,
+		avoid = { { 0, 0, 36 }, { 0, 100, 30 } },
+		coastMask = function(x, z)
+			local zone = zoneAt(x, z)
+			return if zone == "palms" or zone == "stem" then 0 else 1
+		end,
+	})
+	height, material, canGrow = f.height, f.material, f.canGrow
+end
+CloverIsland.height = height
+CloverIsland.canGrow = canGrow
 
 -- Writes the island into terrain, centred on (cx, cz). Overwrites the ocean there.
 function CloverIsland.fill(terrain: Terrain, cx: number, cz: number)
