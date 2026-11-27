@@ -23,15 +23,15 @@ local Minimap = {}
 
 local player = Players.LocalPlayer
 local SIZE = 210 -- on screen, pixels
-local SURFACE_PX = 3 -- pixels per land cell above ground
+local SURFACE_PX = 1.6 -- pixels per land cell above ground
 local CAVE_ZOOM = 0.55 -- pixels per stud underground
 local REVEAL = 55 -- studs: how far your light reaches on the cave map
 local SHOW_DEPTH = 40 -- studs: tunnels this far above or below you aren't drawn
 
 local LAND_COLOURS = {
-	s = rgb(222, 204, 150),
-	g = rgb(120, 168, 82),
-	f = rgb(96, 136, 66),
+	s = rgb(236, 220, 160),
+	g = rgb(150, 184, 70),
+	f = rgb(116, 150, 60),
 	r = rgb(130, 126, 120),
 	n = rgb(240, 246, 250),
 	i = rgb(170, 216, 236),
@@ -40,7 +40,7 @@ local LAND_COLOURS = {
 	b = rgb(64, 60, 66),
 	l = rgb(240, 110, 40),
 }
-local SEA = rgb(58, 112, 150)
+local SEA = rgb(36, 92, 140)
 
 local root: Frame
 local surfaceLayer: Frame
@@ -62,20 +62,97 @@ local function surfacePixel(x: number, z: number): Vector2
 	return Vector2.new((x - x0) / cell * SURFACE_PX, (z - z0) / cell * SURFACE_PX)
 end
 
--- Land: each row's runs of one letter, merged down into rectangles where the next
--- rows have the same run (a few hundred frames for the whole map).
-local function drawLand(land: StringValue)
-	cell = land:GetAttribute("Cell") or 32
+-- Land, drawn as a picture: one pixel a cell, coloured by material, lighter the
+-- higher it is, with hill shading (lit from the north-west) so hills and cliffs read,
+-- pale shallows round every coast and darker deep sea. Falls back to flat blocks of
+-- colour if this device can't make images.
+local function readLand(data: Folder): ({ string }, number, number)
+	local land = data:WaitForChild("Land") :: StringValue
+	cell = land:GetAttribute("Cell") or 20
 	x0, z0 = land:GetAttribute("X0") or 0, land:GetAttribute("Z0") or 0
-	local cols = land:GetAttribute("Cols") or 0
-	local rows = string.split(land.Value, "\n")
-	surfaceWorld.Size = UDim2.fromOffset(cols * SURFACE_PX, #rows * SURFACE_PX)
-	local open = {} -- key "start,end,letter" -> { frame, row0 }
-	for r, line in rows do
+	local rows = {}
+	for i = 1, land:GetAttribute("Chunks") or 0 do
+		local v = data:WaitForChild("Land" .. i) :: StringValue
+		for _, line in string.split(v.Value, "\n") do
+			table.insert(rows, line)
+		end
+	end
+	return rows, land:GetAttribute("Cols") or 0, #rows
+end
+
+local function cellColour(rows: { string }, cols: number, nrows: number, c: number, r: number): Color3
+	local line = rows[r]
+	local ch = string.sub(line, c * 2 - 1, c * 2 - 1)
+	local v = (string.byte(line, c * 2) or 33) - 33
+	if ch == "." then
+		-- Shallows near land are pale turquoise, open sea a deep blue.
+		local t = math.clamp(v / 30, 0, 1)
+		return rgb(120, 206, 214):Lerp(rgb(36, 92, 140), t ^ 0.7)
+	elseif ch == "w" then
+		return rgb(86, 170, 210)
+	end
+	local base = LAND_COLOURS[ch] or LAND_COLOURS.g
+	local function h(cc: number, rr: number): number
+		if cc < 1 or rr < 1 or cc > cols or rr > nrows then
+			return 0
+		end
+		local l = rows[rr]
+		if string.sub(l, cc * 2 - 1, cc * 2 - 1) == "." then
+			return 0
+		end
+		return (string.byte(l, cc * 2) or 33) - 33
+	end
+	local slope = (h(c - 1, r - 1) - h(c + 1, r + 1)) * 0.06
+	local lift = math.clamp(v / 50, 0, 0.35)
+	local col = base:Lerp(rgb(255, 250, 230), lift * 0.5)
+	if slope > 0 then
+		col = col:Lerp(rgb(255, 255, 240), math.clamp(slope, 0, 0.35))
+	else
+		col = col:Lerp(rgb(20, 24, 30), math.clamp(-slope, 0, 0.4))
+	end
+	return col
+end
+
+local function drawLand(data: Folder)
+	local rows, cols, nrows = readLand(data)
+	surfaceWorld.Size = UDim2.fromOffset(cols * SURFACE_PX, nrows * SURFACE_PX)
+	local ok = pcall(function()
+		local AssetService = game:GetService("AssetService")
+		local image = AssetService:CreateEditableImage({ Size = Vector2.new(cols, nrows) })
+		local buf = buffer.create(cols * nrows * 4)
+		for r = 1, nrows do
+			for c = 1, cols do
+				local col = cellColour(rows, cols, nrows, c, r)
+				local o = ((r - 1) * cols + (c - 1)) * 4
+				buffer.writeu8(buf, o, math.floor(col.R * 255))
+				buffer.writeu8(buf, o + 1, math.floor(col.G * 255))
+				buffer.writeu8(buf, o + 2, math.floor(col.B * 255))
+				buffer.writeu8(buf, o + 3, 255)
+			end
+			if r % 60 == 0 then
+				task.wait()
+			end
+		end
+		image:WritePixelsBuffer(Vector2.zero, Vector2.new(cols, nrows), buf)
+		new("ImageLabel", {
+			Parent = surfaceWorld,
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ImageContent = Content.fromObject(image),
+			ZIndex = 1,
+		})
+	end)
+	if ok then
+		return
+	end
+	-- Fallback: each row's runs of one letter, merged down into rectangles.
+	local open = {}
+	for r = 1, nrows do
+		local line = rows[r]
 		local runs = {}
 		local start, letter = 1, string.sub(line, 1, 1)
-		for c = 2, #line + 1 do
-			local ch = string.sub(line, c, c)
+		for c = 2, cols + 1 do
+			local ch = string.sub(line, c * 2 - 1, c * 2 - 1)
 			if ch ~= letter then
 				if letter ~= "." and letter ~= "" then
 					table.insert(runs, start .. "," .. (c - 1) .. "," .. letter)
@@ -92,11 +169,12 @@ local function drawLand(land: StringValue)
 			else
 				local parts = string.split(key, ",")
 				local c0, c1 = tonumber(parts[1]) :: number, tonumber(parts[2]) :: number
+				local colour = if parts[3] == "w" then rgb(86, 170, 210) else LAND_COLOURS[parts[3]] or LAND_COLOURS.g
 				local frame = new("Frame", {
 					Parent = surfaceWorld,
 					Position = UDim2.fromOffset((c0 - 1) * SURFACE_PX, (r - 1) * SURFACE_PX),
 					Size = UDim2.fromOffset((c1 - c0 + 1) * SURFACE_PX, SURFACE_PX),
-					BackgroundColor3 = LAND_COLOURS[parts[3]] or LAND_COLOURS.g,
+					BackgroundColor3 = colour,
 					BorderSizePixel = 0,
 				})
 				nextOpen[key] = { frame = frame, row0 = r }
@@ -131,7 +209,7 @@ local function drawPlaces(places: StringValue)
 				ZIndex = 3,
 			})
 			if not isIsland then
-				label.Position = UDim2.fromOffset(p.X, p.Y + 8)
+				label.Visible = false -- landmarks are just a dot; their names show when you get there
 				new("Frame", { Parent = surfaceWorld, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(p.X, p.Y), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = rgb(250, 214, 90), BorderSizePixel = 0, ZIndex = 3 }, { new("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 			end
 		end
@@ -282,10 +360,9 @@ local function layer(name: string): (Frame, Frame)
 end
 
 function Minimap.init(parent: ScreenGui)
-	local frame = UIKit.panel({ Parent = parent, Name = "Minimap", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -12), Size = UDim2.fromOffset(SIZE + 10, SIZE + 10) })
-	root = new("Frame", { Parent = frame, Position = UDim2.fromOffset(5, 5), Size = UDim2.fromOffset(SIZE, SIZE), BackgroundColor3 = SEA, BorderSizePixel = 0, ClipsDescendants = true }, {
-		new("UICorner", { CornerRadius = UDim.new(0, 8) }),
-	})
+	-- A plain square: no rim, no rounded corners, just the map.
+	local frame = new("Frame", { Parent = parent, Name = "Minimap", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -12), Size = UDim2.fromOffset(SIZE, SIZE), BackgroundTransparency = 1 })
+	root = new("Frame", { Parent = frame, Size = UDim2.fromOffset(SIZE, SIZE), BackgroundColor3 = SEA, BorderSizePixel = 0, ClipsDescendants = true })
 	surfaceLayer, surfaceWorld = layer("Surface")
 	caveLayer, caveWorld = layer("Caves")
 	caveLayer.BackgroundColor3 = rgb(14, 12, 18)
@@ -320,7 +397,7 @@ function Minimap.init(parent: ScreenGui)
 		if not data then
 			return
 		end
-		drawLand(data:WaitForChild("Land") :: StringValue)
+		drawLand(data)
 		drawPlaces(data:WaitForChild("Places") :: StringValue)
 		loadCaves(data)
 	end)

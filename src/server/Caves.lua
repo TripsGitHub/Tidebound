@@ -18,7 +18,7 @@
 --   * a second exit on every island, coming up inside its landmark (WorldBuilder
 --     builds the landmark round the hole);
 --   * ravines in the sea floor halfway between islands: a hall climbs from the deep
---     cavern into a flooded trench, and you swim up to the open sea.
+--     cavern to a water shaft; swim up it into the trench and on to the open sea.
 --
 -- Carved after the islands are written. A tunnel is a chain of air balls wrapped in a
 -- shell of rock wherever it runs below the islands (so the sea never leaks in and the
@@ -38,7 +38,7 @@ local SEA_FLOOR = -60 -- the sand layer's middle (WorldBuilder: -40 * V)
 Caves.HALL_R = HALL_R
 Caves.SHALLOW_Y = -45 -- above this caves are torch-lit; below it the crystals start
 
-export type Tunnel = { points: { Vector3 }, r: number, kind: string, flooded: number? }
+export type Tunnel = { points: { Vector3 }, r: number, kind: string }
 export type Chamber = { pos: Vector3, r: number, tier: string }
 export type Result = {
 	chambers: { Chamber },
@@ -48,7 +48,7 @@ export type Result = {
 	exits: { { pos: Vector3, island: number, biome: string } },
 	pockets: { { pos: Vector3, tier: string } },
 	secretRooms: { { pos: Vector3, size: Vector3, facing: Vector3 } },
-	ravines: { { a: Vector3, b: Vector3 } },
+	ravines: { { a: Vector3, b: Vector3, shaft: Vector3? } },
 	spoke: { Vector3 }?,
 }
 
@@ -150,8 +150,8 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	local roots = {}
 	local halls = {} -- main halls branches can grow from: { points, depth range }
 
-	local function add(points: { Vector3 }, r: number, kind: string, flooded: number?)
-		table.insert(result.tunnels, { points = points, r = r, kind = kind, flooded = flooded })
+	local function add(points: { Vector3 }, r: number, kind: string)
+		table.insert(result.tunnels, { points = points, r = r, kind = kind })
 		table.insert(result.paths, points)
 	end
 	local function chamber(pos: Vector3, r: number, tier: string)
@@ -293,15 +293,18 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 		end
 
 		-- Ring halls run under open sea: a ravine in the sea floor above the cavern,
-		-- with a flooded hall climbing up into it.
+		-- with a hall climbing up to a water shaft into it.
 		if link.ring and (b - a).Magnitude > 900 then
 			local side = Vector3.new(-along.Z, 0, along.X)
 			local centre = Vector3.new(floor.X, SEA_FLOOR, floor.Z) + side * 70
 			local ra, rb = centre - along * 120, centre + along * 120
 			table.insert(result.ravines, { a = ra, b = rb })
-			local bottom = centre + Vector3.new(0, -16, 0)
+			-- The hall climbs to just under the trench and ends at a round shaft full of
+			-- water: a flat water ceiling you swim up through into the ravine.
+			local bottom = Vector3.new(centre.X, SEA_FLOOR - 28, centre.Z)
 			local climb = wander(floor + Vector3.new(0, 8, 0), bottom, 10)
-			add(climb, BRANCH_R + 2, "ravine", SEA_FLOOR - 22)
+			add(climb, BRANCH_R + 2, "ravine")
+			result.ravines[#result.ravines].shaft = bottom
 		end
 	end
 
@@ -363,12 +366,11 @@ end
 -- Carves everything at once, in an order where nothing undoes anything else:
 -- 1. rock shells round every deep tunnel, chamber, room and ravine, 2. hollow the
 -- chambers, 3. lay their flat floors, 4. bore every tunnel (through those floors
--- where a tunnel leads on), 5. the secret rooms, 6. flood the ravines and the halls
--- climbing into them.
+-- where a tunnel leads on), 5. the secret rooms, 6. flood the ravines and their shafts.
 function Caves.carveAll(terrain: Terrain, result: Result)
 	local all = {}
 	for _, t in result.tunnels do
-		table.insert(all, { pts = samples(t.points), r = t.r, flooded = t.flooded })
+		table.insert(all, { pts = samples(t.points), r = t.r })
 	end
 	for n, t in all do
 		for _, p in t.pts do
@@ -387,14 +389,24 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 		terrain:ReplaceMaterial(region, 4, M.Air, M.Rock)
 		terrain:ReplaceMaterial(region, 4, M.Water, M.Rock)
 	end
-	local ravineBalls = {}
+	-- Ravines: rock under the whole trench and round the shaft, so the water only
+	-- ever touches rock, sand and the open sea.
+	local ravineCuts = {}
 	for _, rv in result.ravines do
-		for _, p in samples({ rv.a, rv.b }) do
-			local wobble = math.sin(p.X * 0.05 + p.Z * 0.03) * 6
-			local q = p + Vector3.new(0, -8 + wobble * 0.3, 0)
-			table.insert(ravineBalls, q)
-			local pad = Vector3.new(20, 26, 20)
-			terrain:ReplaceMaterial(Region3.new(q - pad, q + Vector3.new(20, 0, 20)):ExpandToGrid(4), 4, M.Air, M.Rock)
+		local d = rv.b - rv.a
+		local n = math.max(1, math.floor(d.Magnitude / 16))
+		for k = 0, n do
+			local p = rv.a:Lerp(rv.b, k / n)
+			local width = 18 + math.sin(k * 1.3) * 5 + rng:NextNumber(-2, 2)
+			local depth = 14 + math.sin(k * 0.7 + 1) * 4
+			table.insert(ravineCuts, { cf = CFrame.lookAt(p, p + d) * CFrame.new(0, -depth / 2 + 6, 0), size = Vector3.new(width, depth + 12, 20) })
+			local below = Vector3.new(p.X, SEA_FLOOR - 6 - depth, p.Z)
+			terrain:ReplaceMaterial(Region3.new(below - Vector3.new(16, 14, 16), below + Vector3.new(16, 8, 16)):ExpandToGrid(4), 4, M.Air, M.Rock)
+		end
+		if rv.shaft then
+			local top = SEA_FLOOR - 6
+			local mid = Vector3.new(rv.shaft.X, (rv.shaft.Y + top) / 2, rv.shaft.Z)
+			terrain:ReplaceMaterial(Region3.new(mid - Vector3.new(14, (top - rv.shaft.Y) / 2 + 4, 14), mid + Vector3.new(14, (top - rv.shaft.Y) / 2, 14)):ExpandToGrid(4), 4, M.Air, M.Rock)
 		end
 	end
 	task.wait()
@@ -419,23 +431,22 @@ function Caves.carveAll(terrain: Terrain, result: Result)
 		terrain:FillBlock(cf - Vector3.new(0, room.size.Y / 2 + 1, 0), Vector3.new(room.size.Z, 2, room.size.X), M.Slate)
 	end
 
-	-- The ravines are open to the sea: a jagged trench, water from the trench floor up.
-	for _, q in ravineBalls do
-		terrain:FillBall(q, 16, M.Water)
+	-- The ravines are open to the sea: a flat-floored trench with ragged walls, and a
+	-- water shaft from the end of the climbing hall up into it.
+	for _, cut in ravineCuts do
+		terrain:FillBlock(cut.cf, cut.size, M.Water)
 	end
-	for _, t in all do
-		if t.flooded then
-			for _, p in t.pts do
-				if p.Y + t.r > t.flooded then
-					terrain:FillBall(p, t.r, M.Water)
-				end
-			end
+	for _, rv in result.ravines do
+		if rv.shaft then
+			local top = SEA_FLOOR - 4
+			local bottom = rv.shaft.Y + BRANCH_R
+			terrain:FillCylinder(CFrame.new(rv.shaft.X, (top + bottom) / 2, rv.shaft.Z), top - bottom, BRANCH_R + 1, M.Water)
 		end
 	end
 end
 
 -- Studio self-test: checks every tunnel's centre line is open (air, or water in the
--- flooded ravine climbs). PathfindingService isn't used: it reports false blocks in
+-- ravine shafts). PathfindingService isn't used: it reports false blocks in
 -- deep terrain caves that walk fine.
 function Caves.verify(terrain: Terrain, result: Result)
 	local solid, total = 0, 0

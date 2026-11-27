@@ -53,8 +53,8 @@ local function attach(plr: Player, character: Model)
 	local gui = new("BillboardGui", {
 		Name = "TideboundNameplate",
 		Adornee = head,
-		Size = UDim2.fromOffset(300, 74),
-		StudsOffsetWorldSpace = Vector3.new(0, 3.2, 0),
+		Size = UDim2.fromOffset(230, 66),
+		StudsOffsetWorldSpace = Vector3.new(0, 3, 0),
 		AlwaysOnTop = false,
 		MaxDistance = 160,
 		LightInfluence = 0,
@@ -62,46 +62,76 @@ local function attach(plr: Player, character: Model)
 	})
 
 	-- The line above the plank: title or tribe (empty until there is one).
-	local over = text({ Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 0, 0, 20), Text = "", TextSize = 16, TextColor3 = rgb(250, 214, 90) })
+	local over = text({ Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 0, 0, 16), Text = "", TextSize = 13, TextColor3 = rgb(250, 214, 90) })
 
 	-- The plank: sized to the name, tilted a hair so it looks nailed up by hand.
 	local plank = new("Frame", {
 		Parent = gui,
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -4),
-		Size = UDim2.fromOffset(0, 40),
+		Position = UDim2.new(0.5, 0, 1, -14),
+		Size = UDim2.fromOffset(0, 30),
 		AutomaticSize = Enum.AutomaticSize.X,
 		Rotation = -1.5,
 		BorderSizePixel = 0,
 	}, {
 		new("UICorner", { CornerRadius = UDim.new(0, 6) }),
-		new("UIPadding", { PaddingLeft = UDim.new(0, 40), PaddingRight = UDim.new(0, 18) }),
+		new("UIPadding", { PaddingLeft = UDim.new(0, 30), PaddingRight = UDim.new(0, 13) }),
 	})
-	local rim = new("UIStroke", { Parent = plank, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
+	local rim = new("UIStroke", { Parent = plank, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border })
 	-- Wood grain: two faint lines along the plank.
 	local grain = {}
 	for i, y in { 0.32, 0.7 } do
-		grain[i] = new("Frame", { Parent = plank, Position = UDim2.new(0, -36, y, 0), Size = UDim2.new(1, 50, 0, 2), BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 1 })
+		grain[i] = new("Frame", { Parent = plank, Position = UDim2.new(0, -27, y, 0), Size = UDim2.new(1, 38, 0, 2), BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 1 })
 	end
-	local name = text({ Parent = plank, Size = UDim2.fromOffset(0, 40), AutomaticSize = Enum.AutomaticSize.X, Text = plr.DisplayName, TextSize = 24, ZIndex = 3 })
+	local name = text({ Parent = plank, Size = UDim2.fromOffset(0, 30), AutomaticSize = Enum.AutomaticSize.X, Text = plr.DisplayName, TextSize = 18, ZIndex = 3 })
 
 	-- Rope lashings at both ends.
 	local ropes = {}
 	for i, side in { 0, 1 } do
-		ropes[i] = new("Frame", { Parent = plank, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(side, if side == 0 then -26 else 10, 0.5, 0), Size = UDim2.fromOffset(5, 48), BorderSizePixel = 0, ZIndex = 2 }, { new("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+		ropes[i] = new("Frame", { Parent = plank, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(side, if side == 0 then -20 else 8, 0.5, 0), Size = UDim2.fromOffset(4, 36), BorderSizePixel = 0, ZIndex = 2 }, { new("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 	end
 
 	-- The level token: a carved bone disc hanging over the left end.
-	local token = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.fromOffset(44, 44), BorderSizePixel = 0, ZIndex = 4 }, {
+	local token = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(34, 34), BorderSizePixel = 0, ZIndex = 4 }, {
 		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
 	})
-	local tokenRim = new("UIStroke", { Parent = token, Thickness = 3 })
-	local level = text({ Parent = token, Size = UDim2.fromScale(1, 1), Text = "1", TextSize = 20, ZIndex = 5 })
+	local tokenRim = new("UIStroke", { Parent = token, Thickness = 2 })
+	local level = text({ Parent = token, Size = UDim2.fromScale(1, 1), Text = "1", TextSize = 15, ZIndex = 5 })
+
+	-- Health: a thin bar under the plank that shows for a few seconds whenever your
+	-- health changes (hit, healed), then fades away.
+	local hpBack = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromOffset(120, 7), BackgroundColor3 = rgb(40, 28, 20), BorderSizePixel = 0, Visible = false, ZIndex = 6 }, {
+		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+		new("UIStroke", { Color = rgb(30, 20, 12), Thickness = 1.5 }),
+	})
+	local hpFill = new("Frame", { Parent = hpBack, Size = UDim2.fromScale(1, 1), BackgroundColor3 = rgb(110, 210, 90), BorderSizePixel = 0, ZIndex = 7 }, {
+		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+	})
+	local lastHealth = humanoid.Health
+	local shownAt = 0
+	local function showHealth()
+		local h = humanoid :: Humanoid
+		if math.abs(h.Health - lastHealth) < 0.5 then
+			return
+		end
+		lastHealth = h.Health
+		local frac = math.clamp(h.Health / math.max(h.MaxHealth, 1), 0, 1)
+		hpFill.Size = UDim2.fromScale(frac, 1)
+		hpFill.BackgroundColor3 = if frac > 0.5 then rgb(110, 210, 90) elseif frac > 0.25 then rgb(236, 180, 60) else rgb(232, 80, 70)
+		hpBack.Visible = true
+		shownAt = os.clock()
+		local mine = shownAt
+		task.delay(4, function()
+			if shownAt == mine then
+				hpBack.Visible = false
+			end
+		end)
+	end
 
 	local function place()
 		-- Keep the token on the plank's left end whatever the name's length.
 		local w = plank.AbsoluteSize.X
-		token.Position = UDim2.new(0.5, -w / 2 + 6, 1, 2)
+		token.Position = UDim2.new(0.5, -w / 2 + 5, 1, -11)
 	end
 
 	local function restyle()
@@ -132,6 +162,7 @@ local function attach(plr: Player, character: Model)
 		plr:GetAttributeChangedSignal("Title"):Connect(restyle),
 		plr:GetAttributeChangedSignal("Tribe"):Connect(restyle),
 		plank:GetPropertyChangedSignal("AbsoluteSize"):Connect(place),
+		humanoid.HealthChanged:Connect(showHealth),
 	}
 	place()
 	gui.Destroying:Connect(function()

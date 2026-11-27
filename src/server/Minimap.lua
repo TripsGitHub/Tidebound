@@ -1,6 +1,8 @@
 -- Publishes what the client minimap draws, once the world is built:
---   ReplicatedStorage.MapData.Land     the surface as a grid of material letters, one
---                                      row per line (attributes: Cell, X0, Z0, Cols, Rows)
+--   ReplicatedStorage.MapData.Land#    the surface: per cell a material letter and a
+--                                      height (or water depth), one row per line, split
+--                                      over several values; MapData.Land holds the grid's
+--                                      attributes (Cell, X0, Z0, Cols, Rows, Chunks)
 --   ReplicatedStorage.MapData.Caves#   cave tunnels as segments "x1,z1,x2,z2,y,r;" (split
 --                                      over several values so none gets too long)
 --   ReplicatedStorage.MapData.Rooms    chambers as "x,z,r,y;"
@@ -10,7 +12,8 @@ local Caves = require(script.Parent.Caves)
 
 local Minimap = {}
 
-local CELL = 32
+local CELL = 20 -- studs per map pixel
+local ROWS_PER_VALUE = 40
 local M = Enum.Material
 local LETTER = {
 	[M.Water] = ".",
@@ -44,7 +47,9 @@ function Minimap.publish(islands: { any }, network, groundAt)
 	local data = Instance.new("Folder")
 	data.Name = "MapData"
 
-	-- Land
+	-- Land: two characters a cell, its material letter and its height (or, for water,
+	-- its depth) as string.char(33 + v), v in steps of 1.5 studs. Rows go into values
+	-- of ROWS_PER_VALUE rows each so no value gets too long.
 	local extent = 0
 	for _, isl in islands do
 		extent = math.max(extent, math.abs(isl.x) + isl.r, math.abs(isl.z) + isl.r)
@@ -52,32 +57,57 @@ function Minimap.publish(islands: { any }, network, groundAt)
 	extent += 200
 	local cols = math.ceil(extent * 2 / CELL)
 	local x0, z0 = -extent, -extent
+	local dry = RaycastParams.new()
+	dry.FilterType = Enum.RaycastFilterType.Include
+	dry.FilterDescendantsInstances = { workspace.Terrain }
+	dry.IgnoreWater = true
+	local wet = RaycastParams.new()
+	wet.FilterType = Enum.RaycastFilterType.Include
+	wet.FilterDescendantsInstances = { workspace.Terrain }
+	wet.IgnoreWater = false
+	local function code(v: number): string
+		return string.char(33 + math.clamp(math.floor(v / 1.5 + 0.5), 0, 90))
+	end
 	local rows = {}
 	for r = 1, cols do
-		local line = table.create(cols)
+		local line = table.create(cols * 2)
 		local z = z0 + (r - 0.5) * CELL
 		for c = 1, cols do
 			local x = x0 + (c - 0.5) * CELL
-			local hit = groundAt(x, z)
-			local ch = "."
-			if hit and hit.Material ~= M.Water and hit.Position.Y > -2 then
-				ch = LETTER[hit.Material] or "g"
-			elseif hit and hit.Material ~= M.Water then
-				ch = "." -- sea floor under shallow water
+			local hit = workspace:Raycast(Vector3.new(x, 300, z), Vector3.new(0, -500, 0), dry)
+			local y = if hit then hit.Position.Y else -60
+			local ch, v
+			if y < 0.5 then
+				ch, v = ".", -y -- sea: how deep
+			else
+				local top = workspace:Raycast(Vector3.new(x, 300, z), Vector3.new(0, -500, 0), wet)
+				if top and top.Material == M.Water and top.Position.Y > y + 0.5 then
+					ch, v = "w", top.Position.Y - y -- a pond or lake
+				else
+					ch, v = LETTER[hit.Material] or "g", y
+				end
 			end
-			line[c] = ch
+			line[c * 2 - 1] = ch
+			line[c * 2] = code(v)
 		end
 		rows[r] = table.concat(line)
-		if r % 8 == 0 then
+		if r % 6 == 0 then
 			task.wait()
 		end
 	end
-	local land = value(data, "Land", table.concat(rows, "\n"))
+	local chunk = 0
+	for r0 = 1, cols, ROWS_PER_VALUE do
+		chunk += 1
+		local part = table.move(rows, r0, math.min(r0 + ROWS_PER_VALUE - 1, cols), 1, {})
+		value(data, "Land" .. chunk, table.concat(part, "\n"))
+	end
+	local land = value(data, "Land", "")
 	land:SetAttribute("Cell", CELL)
 	land:SetAttribute("X0", x0)
 	land:SetAttribute("Z0", z0)
 	land:SetAttribute("Cols", cols)
 	land:SetAttribute("Rows", cols)
+	land:SetAttribute("Chunks", chunk)
 
 	-- Caves
 	local chunks, current, size = {}, {}, 0

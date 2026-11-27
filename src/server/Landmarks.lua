@@ -265,11 +265,41 @@ end
 
 Landmarks.Builders = BUILDERS
 
+-- Nothing floats: every part standing near the base is pushed down to the ground under
+-- it (upright posts and walls grow downwards instead, so their tops stay put).
+local function ground(m: Model, base: number, groundAt)
+	for _, p in m:GetDescendants() do
+		if p:IsA("BasePart") and p.Name ~= "SignAnchor" and p.Transparency < 1 then
+			local cf = p.CFrame
+			local shape = if p:IsA("Part") then p.Shape else nil
+			local verticalCylinder = shape == Enum.PartType.Cylinder and math.abs(cf.RightVector.Y) > 0.9
+			local height = if verticalCylinder then p.Size.X else p.Size.Y
+			local bottom = p.Position.Y - height / 2
+			if bottom < base + 4 then
+				local hit = groundAt(p.Position.X, p.Position.Z)
+				if hit and hit.Position.Y < bottom - 0.2 then
+					local gap = bottom - hit.Position.Y + 0.6
+					if verticalCylinder then
+						p.Size += Vector3.new(gap, 0, 0)
+						p.CFrame = cf - Vector3.new(0, gap / 2, 0)
+					elseif cf.UpVector.Y > 0.9 and shape ~= Enum.PartType.Ball then
+						p.Size += Vector3.new(0, gap, 0)
+						p.CFrame = cf - Vector3.new(0, gap / 2, 0)
+					else
+						p.CFrame = cf - Vector3.new(0, gap, 0)
+					end
+				end
+			end
+		end
+	end
+end
+
 -- Builds one landmark of `kind` round the point `centre` (on the ground). Returns the model.
 function Landmarks.place(kind: string, centre: Vector3, groundAt, title: string?): Model
 	local m = Instance.new("Model")
 	local builder = BUILDERS[kind] or BUILDERS.default
 	local name, height = builder(m, centre, groundAt)
+	ground(m, centre.Y, groundAt)
 	m.Name = title or name
 	m.WorldPivot = CFrame.new(centre)
 	nameSign(m, title or name, centre + Vector3.new(0, height + 6, 0))

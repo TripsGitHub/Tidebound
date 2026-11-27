@@ -492,8 +492,9 @@ end
 local function buildTerrain()
 	local terrain = workspace.Terrain
 	terrain:Clear()
-	terrain.WaterColor = Color3.fromRGB(30, 98, 112)
-	terrain.WaterTransparency = 0.6
+	terrain.WaterColor = Color3.fromRGB(64, 150, 160) -- bright turquoise shallows
+	terrain.WaterTransparency = 0.7
+	terrain.WaterReflectance = 0.6
 	terrain.WaterWaveSize = 0.12
 	terrain.WaterWaveSpeed = 8
 	-- Animated long grass on Grass/LeafyGrass, like the footage. Not settable
@@ -501,14 +502,14 @@ local function buildTerrain()
 	pcall(function()
 		(terrain :: any).Decoration = true
 	end)
-	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(118, 126, 58))
-	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(92, 102, 50))
-	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(198, 178, 130))
-	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(84, 80, 74))
+	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(168, 176, 60))
+	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(140, 156, 56))
+	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(232, 212, 158))
+	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(112, 104, 94))
 	terrain:SetMaterialColor(Enum.Material.Basalt, Color3.fromRGB(44, 42, 46))
 	terrain:SetMaterialColor(Enum.Material.Sandstone, Color3.fromRGB(196, 128, 82))
-	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(74, 62, 46))
-	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(112, 88, 60))
+	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(96, 80, 56))
+	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(150, 118, 78))
 	terrain:SetMaterialColor(Enum.Material.Snow, Color3.fromRGB(236, 242, 246))
 	terrain:SetMaterialColor(Enum.Material.Glacier, Color3.fromRGB(176, 214, 232))
 	terrain:SetMaterialColor(Enum.Material.Slate, Color3.fromRGB(74, 74, 78))
@@ -539,8 +540,34 @@ end
 
 local NO_GROW = { [Enum.Material.Water] = true, [Enum.Material.CrackedLava] = true, [Enum.Material.Mud] = true }
 
+local settleParams = RaycastParams.new()
+settleParams.FilterType = Enum.RaycastFilterType.Include
+
+-- Sinks a model until its whole footprint touches the ground: on a slope the downhill
+-- side would otherwise float. Looks under the corners of its base and drops it to the
+-- lowest one (plus a little, so it sits in the ground rather than on it).
+local function settle(model: Model, pos: Vector3, extra: number?)
+	settleParams.FilterDescendantsInstances = { workspace.Terrain }
+	local _, size = model:GetBoundingBox()
+	local rx, rz = math.min(size.X * 0.32, 3), math.min(size.Z * 0.32, 3) -- the base, not a canopy
+	local low = pos.Y
+	for _, off in { Vector3.new(rx, 0, 0), Vector3.new(-rx, 0, 0), Vector3.new(0, 0, rz), Vector3.new(0, 0, -rz), Vector3.new(rx, 0, rz) * 0.7, Vector3.new(-rx, 0, -rz) * 0.7 } do
+		local from = pos + off + Vector3.new(0, 6, 0)
+		local hit = workspace:Raycast(from, Vector3.new(0, -16, 0), settleParams)
+		if hit then
+			low = math.min(low, hit.Position.Y)
+		end
+	end
+	local drop = pos.Y - low + (extra or 0)
+	if drop > 0 then
+		model:PivotTo(model:GetPivot() - Vector3.new(0, drop, 0))
+	end
+end
+WorldBuilder.settle = settle
+
 local function spawnNode(nodeFolder: Folder, nodeType: string, pos: Vector3)
 	local model = makeNode(nodeType, CFrame.new(pos - Vector3.new(0, 0.3, 0)))
+	settle(model, pos, 0.2)
 	model.Name = nodeType
 	model:SetAttribute("NodeType", nodeType)
 	model:SetAttribute("DisplayName", Nodes[nodeType].name)
@@ -670,30 +697,56 @@ local function caveFloorAt(x: number, z: number, from: number): RaycastResult?
 	return workspace:Raycast(Vector3.new(x, from, z), Vector3.new(0, -40, 0), terrainParams())
 end
 
--- Glowing crystals on the floor: the deep caves' light, and a sign of rare ore.
-local function crystal(parent: Instance, pos: Vector3, color: Color3, big: boolean?)
-	local k = if big then 2.2 else 1
-	for i = 1, (if big then 4 else 2) do
-		local p = Instance.new("Part")
-		p.Name = "CaveCrystal"
-		p.Anchored = true
-		p.CanCollide = false
-		p.CanQuery = false
-		p.Size = Vector3.new(0.7, rng:NextNumber(1.4, 2.6), 0.7) * k
-		local off = Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1)) * k
-		p.CFrame = CFrame.new(pos + off + Vector3.new(0, p.Size.Y * 0.4, 0)) * CFrame.Angles(rng:NextNumber(-0.5, 0.5), rng:NextNumber(0, 6), rng:NextNumber(-0.5, 0.5))
-		p.Material = Enum.Material.Neon
-		p.Color = color
-		p.Parent = parent
+-- A cluster of glowing crystals growing out of a cave surface (floor, wall or roof):
+-- shards fan out round the surface's normal, a few long ones and more short ones,
+-- each a slightly different shade. The deep caves' light, and a sign of rare ore.
+local function crystal(parent: Instance, pos: Vector3, color: Color3, big: boolean?, normal: Vector3?)
+	local up = normal or Vector3.yAxis
+	local k = (if big then 2 else 1) * rng:NextNumber(0.7, 1.3)
+	local count = rng:NextInteger(if big then 5 else 3, if big then 9 else 6)
+	local cluster = Instance.new("Model")
+	cluster.Name = "CaveCrystal"
+	for i = 1, count do
+		local lean = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-1, 1), rng:NextNumber(-1, 1)) * (if i == 1 then 0.15 else 0.65)
+		local dir = (up + lean).Unit
+		local long = if i <= 2 then rng:NextNumber(2.2, 3.6) else rng:NextNumber(0.8, 2.2)
+		local w = rng:NextNumber(0.45, 0.8) * k * (if i <= 2 then 1.15 else 0.85)
+		local base = pos + Vector3.new(rng:NextNumber(-0.8, 0.8), rng:NextNumber(-0.8, 0.8), rng:NextNumber(-0.8, 0.8)) * k - up * 0.3
+		local length = long * k
+		local right = dir:Cross(if math.abs(dir.Y) < 0.95 then Vector3.yAxis else Vector3.xAxis).Unit
+		local cf = CFrame.fromMatrix(base + dir * length / 2, right, dir) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
+		local shard = Instance.new("Part")
+		shard.Name = "Shard"
+		shard.Anchored = true
+		shard.CanCollide = false
+		shard.CanQuery = false
+		shard.CastShadow = false
+		shard.Size = Vector3.new(w, length, w)
+		shard.CFrame = cf
+		shard.Material = if i % 3 == 0 then Enum.Material.Glass else Enum.Material.Neon
+		shard.Transparency = if i % 3 == 0 then 0.2 else 0
+		local h, sat, val = color:ToHSV()
+		shard.Color = Color3.fromHSV((h + rng:NextNumber(-0.03, 0.03)) % 1, math.clamp(sat * rng:NextNumber(0.75, 1.1), 0, 1), math.clamp(val * rng:NextNumber(0.8, 1), 0, 1))
+		shard.Parent = cluster
 		if i == 1 then
 			local light = Instance.new("PointLight")
 			light.Color = color
-			light.Range = if big then 26 else 18
-			light.Brightness = 0.9
+			light.Range = (if big then 24 else 16) * rng:NextNumber(0.85, 1.15)
+			light.Brightness = 0.8
 			light.Shadows = false
-			light.Parent = p
+			light.Parent = shard
 		end
 	end
+	cluster.Parent = parent
+end
+
+-- A random direction out from a tunnel's middle, more often sideways or down than up,
+-- so crystals end up on walls, floor and now and then the roof.
+local function surfaceDir(): Vector3
+	local y = rng:NextNumber(-1, 0.6)
+	local a = rng:NextNumber(0, math.pi * 2)
+	local flat = math.sqrt(math.max(0, 1 - y * y))
+	return Vector3.new(math.cos(a) * flat, y, math.sin(a) * flat)
 end
 
 -- A torch stuck in the wall: the shallow caves are lit by people, not crystals.
@@ -757,7 +810,7 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 	for n, t in tunnels do
 		if t.kind ~= "ravine" then
 			local pts = Caves.samples(t.points)
-			local every = if t.kind == "hall" then 11 else 9 -- samples (3 studs each)
+			local every = if t.kind == "hall" then rng:NextInteger(8, 13) else rng:NextInteger(7, 11) -- samples (3 studs each)
 			local sinceOre = 0
 			for i = 1, #pts - 1, every do
 				local p, q = pts[i], pts[i + 1]
@@ -769,10 +822,13 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 					if hit then
 						torch(decor, hit.Position, hit.Normal)
 					end
-				else
-					local hit = caveFloorAt(p.X + rng:NextNumber(-3, 3), p.Z + rng:NextNumber(-3, 3), p.Y + 2)
-					if hit and hit.Position.Y < p.Y then
-						crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)])
+				elseif rng:NextNumber() < 0.7 then
+					-- Not on a beat: some stretches get two clusters, some none.
+					for _ = 1, (if rng:NextNumber() < 0.3 then 2 else 1) do
+						local hit = workspace:Raycast(p, surfaceDir() * (t.r + 6), params)
+						if hit then
+							crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], rng:NextNumber() < 0.15, hit.Normal)
+						end
 					end
 				end
 				sinceOre += every * 3
@@ -825,9 +881,10 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 						torch(decor, hit.Position, hit.Normal)
 					end
 				else
-					local hit = caveFloorAt(x, z, f.Y + r * 0.6)
+					local centre = f + Vector3.new(0, r * 0.45, 0)
+					local hit = workspace:Raycast(centre, surfaceDir() * (r + 8), params)
 					if hit then
-						crystal(decor, hit.Position, CRYSTAL_GLOW[(i % #CRYSTAL_GLOW) + 1], c.tier == "deep")
+						crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], c.tier == "deep" and rng:NextNumber() < 0.5, hit.Normal)
 					end
 				end
 			end
@@ -838,11 +895,11 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 	-- Pockets at the end of the crawlways: big crystals and the rare ore.
 	for _, pk in pockets do
 		local c = { pos = pk.pos, r = 11 }
-		for i = 1, 3 do
-			local a = i / 3 * math.pi * 2 + rng:NextNumber(0, 1)
-			local hit = caveFloorAt(pk.pos.X + math.cos(a) * 6, pk.pos.Z + math.sin(a) * 6, pk.pos.Y + 8)
+		local glow = CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)]
+		for _ = 1, rng:NextInteger(3, 6) do
+			local hit = workspace:Raycast(pk.pos + Vector3.new(0, 5, 0), surfaceDir() * 18, params)
 			if hit then
-				crystal(decor, hit.Position, CRYSTAL_GLOW[rng:NextInteger(1, #CRYSTAL_GLOW)], true)
+				crystal(decor, hit.Position, glow, rng:NextNumber() < 0.4, hit.Normal)
 			end
 		end
 		oresIn(c, CAVE_NODES[if pk.tier == "deep" then "pocket_deep" else "pocket_lower"])
@@ -982,33 +1039,35 @@ local function lightingEffect(className: string, props: { [string]: any })
 end
 
 local function setLighting()
-	Lighting.Brightness = 3
-	Lighting.Ambient = Color3.fromRGB(46, 42, 40)
-	Lighting.OutdoorAmbient = Color3.fromRGB(104, 96, 86)
+	-- Warm, bright and golden by day: saturated grass, creamy sand, a soft haze on the
+	-- horizon that turns far islands pale.
+	Lighting.Brightness = 3.2
+	Lighting.Ambient = Color3.fromRGB(64, 58, 52)
+	Lighting.OutdoorAmbient = Color3.fromRGB(150, 138, 114)
 	Lighting.EnvironmentDiffuseScale = 1
 	Lighting.EnvironmentSpecularScale = 1
-	Lighting.ExposureCompensation = -0.1
+	Lighting.ExposureCompensation = 0.1
 	Lighting.GlobalShadows = true
 	Lighting.ShadowSoftness = 0.25
 	Lighting.ClockTime = 15.5
 	Lighting.GeographicLatitude = 30
 	lightingEffect("Atmosphere", {
-		Density = 0.36,
-		Offset = 0.25,
-		Color = Color3.fromRGB(214, 200, 168),
-		Decay = Color3.fromRGB(120, 112, 98),
-		Glare = 0.4,
-		Haze = 1.8,
+		Density = 0.3,
+		Offset = 0.12,
+		Color = Color3.fromRGB(240, 226, 192),
+		Decay = Color3.fromRGB(196, 176, 136),
+		Glare = 0.7,
+		Haze = 2.2,
 	})
-	lightingEffect("BloomEffect", { Intensity = 0.6, Size = 30, Threshold = 1.6 })
-	lightingEffect("SunRaysEffect", { Intensity = 0.06, Spread = 0.7 })
+	lightingEffect("BloomEffect", { Intensity = 0.5, Size = 28, Threshold = 1.4 })
+	lightingEffect("SunRaysEffect", { Intensity = 0.08, Spread = 0.8 })
 	lightingEffect("ColorCorrectionEffect", {
-		Brightness = -0.02,
-		Contrast = 0.12,
-		Saturation = -0.12,
-		TintColor = Color3.fromRGB(255, 244, 226),
+		Brightness = 0.03,
+		Contrast = 0.08,
+		Saturation = 0.14,
+		TintColor = Color3.fromRGB(255, 246, 224),
 	})
-	lightingEffect("DepthOfFieldEffect", { FarIntensity = 0.12, FocusDistance = 120, InFocusRadius = 140, NearIntensity = 0 })
+	lightingEffect("DepthOfFieldEffect", { FarIntensity = 0.05, FocusDistance = 160, InFocusRadius = 220, NearIntensity = 0 })
 end
 
 -- Day and night: a full cycle every Config.DayLengthSeconds.
