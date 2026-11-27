@@ -101,7 +101,7 @@ local Animals = {
 		respawn = 150,
 		aggro = 30,
 		cave = true,
-		loot = { { "leather", 1, 3 }, { "sticky_slime", 1, 3 }, { "gold_ore", 1, 2, 0.2 }, { "key_fragment", 1, 1, 0.12 }, { "supply_crate", 1, 1, 0.08 } },
+		loot = { { "leather", 1, 3 }, { "sticky_slime", 1, 3 }, { "gold_ore", 1, 2, 0.2 }, { "key_fragment", 1, 1, 0.35 }, { "supply_crate", 1, 1, 0.08 } },
 	},
 
 	-- Bosses: one in each lair below the Maw. `reach` is how close they bite from,

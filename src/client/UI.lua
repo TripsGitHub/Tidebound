@@ -37,7 +37,7 @@ local targetFrame: Frame
 local targetName: TextLabel
 local targetFill: Frame
 local targetHp: TextLabel
-local promptFrame: BillboardGui
+local promptFrame: Frame
 local promptName: TextLabel
 local promptKeys: Frame
 local promptKeyFor = ""
@@ -417,10 +417,16 @@ local function updateHover()
 	if not target and info.target and info.kind == "drop" and info.inRange then
 		target, name, inRange = info.target, info.name, true
 	end
+	if not target then
+		-- Nothing pointed at: offer the closest drop in reach.
+		local near = Hover.nearestDrop()
+		if near then
+			local n, ok = Hover.dropInfo(near)
+			target, name, inRange = near, n, ok
+		end
+	end
 	if target then
-		local anchor = target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart", true)
-		promptFrame.Adornee = anchor
-		promptFrame.Enabled = anchor ~= nil
+		promptFrame.Visible = true
 		promptName.Text = name or ""
 		promptTarget = target
 		local itemId = target:GetAttribute("ItemId")
@@ -447,7 +453,7 @@ local function updateHover()
 			end
 		end
 	else
-		promptFrame.Enabled = false
+		promptFrame.Visible = false
 		promptTarget = nil
 	end
 end
@@ -799,8 +805,9 @@ function UI.init(cb)
 	player:GetAttributeChangedSignal("Air"):Connect(updateAir)
 	player:GetAttributeChangedSignal("MaxAir"):Connect(updateAir)
 
-	-- Pickup prompt, floating over the item in the world: its name, then "[F] Pickup"
-	promptFrame = new("BillboardGui", { Parent = player:WaitForChild("PlayerGui"), Name = "TideboundPickup", Size = UDim2.fromOffset(280, 76), StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0), AlwaysOnTop = true, Active = true, LightInfluence = 0, ResetOnSpawn = false, Enabled = false })
+	-- Pickup prompt on screen, just above the hotbar: the item's name, then "[F] Pickup"
+	-- (and "[E] Eat" for food). Shows for whatever you point at, or the closest drop.
+	promptFrame = new("Frame", { Parent = gui, Name = "PickupPrompt", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -128), Size = UDim2.fromOffset(300, 76), BackgroundTransparency = 1, Visible = false })
 	promptName = UIKit.hudText({ Parent = promptFrame, Size = UDim2.new(1, 0, 0, 30), Text = "", TextScaled = false, TextSize = 26 })
 	promptKeys = new("Frame", { Parent = promptFrame, Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),

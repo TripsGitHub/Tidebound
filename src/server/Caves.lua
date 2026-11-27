@@ -59,9 +59,9 @@ export type Result = {
 	crystalCaves: { Vector3 },
 }
 
-local HUB_Y = -175 -- the Maw's great cavern
-local BOSS_Y = -230 -- the boss lairs below it
-local BEDROCK_Y = -310 -- solid rock from the sea floor down to here, so no cave has a hollow underside
+local HUB_Y = -205 -- the Maw's great cavern (its dome stays well below Maw Rock's root cavern)
+local BOSS_Y = -262 -- the boss lairs below it
+local BEDROCK_Y = -345 -- solid rock from the sea floor down to here, so no cave has a hollow underside
 Caves.BEDROCK_Y = BEDROCK_Y
 
 -- The layers. You break through a barrier to drop from one to the next (see
@@ -82,6 +82,12 @@ local function layerFloor(y: number): number
 	return y - 25
 end
 local BOSSES = { "CrawlerQueen", "CrystalWarden", "MagmaGolem" }
+
+-- Zones: which side of which seals a bit of cave is on. Two bits of cave in different
+-- zones must never touch except through the seal between them, or you could walk round
+-- the seal. Caves.build checks this before carving and fixes what it finds.
+local Z = { SURF = 0, L2A = 1, L2B = 2, L3A = 3, DEEP = 4, CRYSTAL = 5, MAW = 6, LAIR = 7 }
+local WALL = 5 -- rock left between two caves that mustn't join
 
 local function tierAt(y: number): string
 	if y > Caves.SHALLOW_Y then
@@ -183,19 +189,22 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	local roots = {}
 	local halls = {} -- main halls branches can grow from: { points, depth range }
 
-	local function add(points: { Vector3 }, r: number, kind: string)
-		table.insert(result.tunnels, { points = points, r = r, kind = kind })
+	local function add(points: { Vector3 }, r: number, kind: string, zone: number, parent: any?): any
+		local t = { points = points, r = r, kind = kind, zone = zone, seals = {}, parent = parent, optional = parent ~= nil }
+		table.insert(result.tunnels, t)
 		table.insert(result.paths, points)
+		return t
 	end
-	local function chamber(pos: Vector3, r: number, tier: string)
-		table.insert(result.chambers, { pos = pos, r = r, tier = tier })
+	local function chamber(pos: Vector3, r: number, tier: string, zone: number, parent: any?)
+		local c = { pos = pos, r = r, tier = tier, zone = zone, parent = parent, optional = parent ~= nil }
+		table.insert(result.chambers, c)
 		-- Big chambers get a lumpy, one-off shape: a couple of side lobes, and maybe
 		-- rock pillars holding up the roof, so no two look the same.
 		if r >= 22 and tier ~= "pocket" then
 			for _ = 1, rng:NextInteger(1, 3) do
 				local a = rng:NextNumber(0, math.pi * 2)
 				local d = r * rng:NextNumber(0.45, 0.75)
-				table.insert(result.lobes, { pos = pos + Vector3.new(math.cos(a) * d, rng:NextNumber(-2, 4) + r * 0.3, math.sin(a) * d), r = r * rng:NextNumber(0.45, 0.7) })
+				table.insert(result.lobes, { pos = pos + Vector3.new(math.cos(a) * d, rng:NextNumber(-2, 4) + r * 0.3, math.sin(a) * d), r = r * rng:NextNumber(0.45, 0.7), zone = zone, parent = c, optional = true })
 			end
 			if rng:NextNumber() < 0.45 then
 				for _ = 1, rng:NextInteger(1, 3) do
@@ -206,12 +215,13 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			end
 		end
 	end
-	-- A barrier plugging a hall at `pts[i]`, facing along the hall.
-	local function barrier(pts: { Vector3 }, i: number, r: number, kind: string)
-		local s = samples(pts)
-		i = math.clamp(i, 2, #s - 1)
-		local dir = s[i + 1] - s[i - 1]
-		table.insert(result.barriers, { pos = s[i], dir = if dir.Magnitude > 0 then dir.Unit else Vector3.zAxis, r = r, kind = kind })
+	-- A barrier plugging tunnel `t` at its sample `i`; past it the tunnel is in zone `after`.
+	local function barrier(t, i: number, r: number, kind: string, after: number)
+		local n = #samples(t.points)
+		table.insert(t.seals, { i = math.clamp(i, 2, n - 1), r = r, kind = kind, after = after })
+		table.sort(t.seals, function(a, b)
+			return a.i < b.i
+		end)
 	end
 
 	-- A dry, flat, enterable spot on an island between `d0` and `d1` of its radius.
@@ -246,31 +256,32 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			local s1, a1 = spiral(cx, cz, radius, angle, entrance.Y - 2, UPPER_Y)
 			table.move(s1, 1, #s1, #path + 1, path)
 			local upper = path[#path]
-			add(path, HALL_R, "hall")
-			table.insert(halls, path)
-			chamber(upper - Vector3.new(0, HALL_R * 0.6, 0), 24, "upper")
+			table.insert(halls, add(path, HALL_R, "hall", Z.SURF))
+			chamber(upper - Vector3.new(0, HALL_R * 0.6, 0), 24, "upper", Z.SURF)
 
 			local s2, a2 = spiral(cx, cz, radius * 0.75, a1 + 0.6, UPPER_Y, LOWER_Y)
 			table.insert(s2, 1, upper)
-			add(s2, HALL_R, "hall")
-			table.insert(halls, s2)
-			barrier(s2, 14, HALL_R, "layer2")
+			local t2 = add(s2, HALL_R, "hall", Z.SURF)
+			table.insert(halls, t2)
 			-- A second, tougher seal further down the same hall: more layers to dig
 			-- through before the deep caves.
-			if #samples(s2) > 34 then
-				barrier(s2, #samples(s2) - 10, HALL_R, "layer2b")
+			local has2b = #samples(s2) > 34
+			barrier(t2, 14, HALL_R, "layer2", if has2b then Z.L2A else Z.L2B)
+			if has2b then
+				barrier(t2, #samples(s2) - 10, HALL_R, "layer2b", Z.L2B)
 			end
 			local lower = s2[#s2]
-			chamber(lower - Vector3.new(0, HALL_R * 0.6, 0), 30, "lower")
+			chamber(lower - Vector3.new(0, HALL_R * 0.6, 0), 30, "lower", Z.L2B)
 
 			local s3 = spiral(cx, cz, radius * 0.45, a2 + 0.6, LOWER_Y, DEEP_Y + 8)
 			table.insert(s3, 1, lower)
 			table.insert(s3, root + Vector3.new(0, 8, 0))
-			add(s3, HALL_R, "hall")
-			table.insert(halls, s3)
-			barrier(s3, 14, HALL_R, "layer3")
-			if #samples(s3) > 36 then
-				barrier(s3, #samples(s3) - 12, HALL_R, "layer3b")
+			local t3 = add(s3, HALL_R, "hall", Z.L2B)
+			table.insert(halls, t3)
+			local has3b = #samples(s3) > 36
+			barrier(t3, 14, HALL_R, "layer3", if has3b then Z.L3A else Z.DEEP)
+			if has3b then
+				barrier(t3, #samples(s3) - 12, HALL_R, "layer3b", Z.DEEP)
 			end
 
 			-- Quick ways back up from the Upper Caves: a ladder shaft or a waterfall you
@@ -282,14 +293,15 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 				local hit = groundAt(foot.X, foot.Z)
 				if hit and hit.Position.Y > 4 and hit.Material ~= M.Water and canEnter(isl, foot.X, foot.Z) then
 					local kind = if k == 1 and rng:NextNumber() < 0.5 then "waterfall" else "ladder"
-					local r = if kind == "waterfall" then 6 else 4
-					table.insert(result.shafts, { bottom = foot, top = Vector3.new(foot.X, hit.Position.Y, foot.Z), kind = kind, r = r })
+					local r = 6 -- wide enough to climb or swim up without catching the walls
 					local pts = {}
 					for y = foot.Y, hit.Position.Y + 2, 3 do
 						table.insert(pts, Vector3.new(foot.X, y, foot.Z))
 					end
 					if #pts >= 2 then
-						add(pts, r, "shaft")
+						local ts = add(pts, r, "shaft", Z.SURF)
+						ts.optional = true -- dropped if it would cut into a sealed cave
+						table.insert(result.shafts, { bottom = foot, top = Vector3.new(foot.X, hit.Position.Y, foot.Z), kind = kind, r = r, tunnel = ts })
 					end
 				end
 			end
@@ -308,7 +320,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 					local run = (Vector3.new(spot.X, 0, spot.Z) - Vector3.new(upperFloor.X, 0, upperFloor.Z)).Magnitude
 					if run > (spot.Y - upperFloor.Y) * 3 then
 						local ramp = wander(upperFloor + Vector3.new(0, HALL_R * 0.6, 0), spot + Vector3.new(0, 3, 0), 12)
-						add(ramp, BRANCH_R + 1, "exit")
+						add(ramp, BRANCH_R + 1, "exit", Z.SURF)
 						table.insert(result.exits, { pos = spot, island = index, biome = isl.biome })
 						break
 					end
@@ -316,7 +328,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			end
 		end
 		-- The island's root cavern in the Deep Network.
-		chamber(root, 44, "deep")
+		chamber(root, 44, "deep", Z.DEEP)
 		roots[index] = root
 	end
 
@@ -364,8 +376,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	for _, link in links do
 		local a, b = link.a + Vector3.new(0, 8, 0), link.b + Vector3.new(0, 8, 0)
 		local path = wander(a, b)
-		add(path, HALL_R, "hall")
-		table.insert(halls, path)
+		table.insert(halls, add(path, HALL_R, "hall", Z.DEEP))
 		if middle and link.a == roots[1] and link.b == roots[middle] then
 			result.spoke = path -- the first island's way to the middle one, for the self-test
 		end
@@ -376,7 +387,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 		local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
 		local along = if flat.Magnitude > 0 then flat.Unit else Vector3.xAxis
 		for k = -1, 1 do
-			chamber(floor + along * (k * 34), 26, "deep")
+			chamber(floor + along * (k * 34), 26, "deep", Z.DEEP)
 		end
 
 		-- Ring halls run under open sea: a ravine in the sea floor above the cavern,
@@ -390,8 +401,9 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			-- water: a flat water ceiling you swim up through into the ravine.
 			local bottom = Vector3.new(centre.X, SEA_FLOOR - 28, centre.Z)
 			local climb = wander(floor + Vector3.new(0, 8, 0), bottom, 10)
-			add(climb, BRANCH_R + 2, "ravine")
-			barrier(climb, 4, BRANCH_R + 2, "layer3")
+			local tc = add(climb, BRANCH_R + 2, "ravine", Z.DEEP)
+			tc.optional = true -- dropped if its seal can't be made watertight
+			barrier(tc, 4, BRANCH_R + 2, "layer3", Z.SURF)
 			result.ravines[#result.ravines].shaft = bottom
 		end
 	end
@@ -406,14 +418,14 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			local centre = Vector3.new(isl.x, HUB_Y, isl.z)
 			local down = spiral(isl.x, isl.z, 60, 0, root.Y + 8, HUB_Y + 14)
 			table.insert(down, 1, root + Vector3.new(0, 8, 0))
-			add(down, HALL_R + 3, "hall")
-			table.insert(halls, down)
-			barrier(down, 10, HALL_R + 3, "maw")
+			local td = add(down, HALL_R + 3, "hall", Z.DEEP)
+			table.insert(halls, td)
+			barrier(td, 10, HALL_R + 3, "maw", Z.MAW)
 			for k = 0, 3 do
 				local a = k / 4 * math.pi * 2 + 0.4
-				chamber(centre + Vector3.new(math.cos(a) * 40, 0, math.sin(a) * 40), 46, "abyss")
+				chamber(centre + Vector3.new(math.cos(a) * 40, 0, math.sin(a) * 40), 46, "abyss", Z.MAW)
 			end
-			chamber(centre, 52, "abyss")
+			chamber(centre, 52, "abyss", Z.MAW)
 			result.hub = { pos = centre, r = 80 }
 			local targets = { 1 }
 			if middle then
@@ -422,10 +434,10 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			for _, j in targets do
 				if j ~= i then
 					local hall = wander(centre + Vector3.new(0, 8, 0), roots[j] + Vector3.new(0, 8, 0), 40)
-					add(hall, HALL_R + 1, "hall")
-					table.insert(halls, hall)
+					local th = add(hall, HALL_R + 1, "hall", Z.MAW)
+					table.insert(halls, th)
 					-- From the Deep Network side the Maw is sealed too.
-					barrier(hall, #samples(hall) - 12, HALL_R + 1, "maw")
+					barrier(th, #samples(hall) - 12, HALL_R + 1, "maw", Z.DEEP)
 				end
 			end
 			-- Each lair is a long, winding way from the Maw, behind a gate that needs a
@@ -434,14 +446,14 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 				local a = k / #BOSSES * math.pi * 2 + 1
 				local lair = centre + Vector3.new(math.cos(a) * 360, BOSS_Y - HUB_Y, math.sin(a) * 360)
 				local way = wander(centre + Vector3.new(math.cos(a) * 60, 8, math.sin(a) * 60), lair + Vector3.new(0, 10, 0), 60)
-				add(way, HALL_R + 1, "hall")
-				table.insert(halls, way)
-				barrier(way, #samples(way) - 24, HALL_R + 1, "gate_" .. boss)
+				local tw = add(way, HALL_R + 1, "hall", Z.MAW)
+				table.insert(halls, tw)
+				barrier(tw, #samples(way) - 24, HALL_R + 1, "gate_" .. boss, Z.LAIR)
 				for q = 0, 3 do
 					local b = a + q * math.pi / 2
-					chamber(lair + Vector3.new(math.cos(b) * 34, 0, math.sin(b) * 34), 44, "lair")
+					chamber(lair + Vector3.new(math.cos(b) * 34, 0, math.sin(b) * 34), 44, "lair", Z.LAIR)
 				end
-				chamber(lair, 60, "lair")
+				chamber(lair, 60, "lair", Z.LAIR)
 				table.insert(result.bossRooms, { pos = lair, r = 80, boss = boss })
 			end
 		end
@@ -450,6 +462,8 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	-- Crystal caves: off a few islands' root caverns (never the spawn island or the
 	-- Maw), a long dark passage ends at a crystal barrier, and past it the way drops to
 	-- a grotto full of crystal. Nothing on the map points to them.
+	local crystalOwner = {}
+	result.crystalOwner = crystalOwner
 	local candidates = {}
 	for i, isl in islands do
 		if i ~= 1 and not isl.hub and roots[i] and isl.r > 150 then
@@ -462,19 +476,27 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 		local a = rng:NextNumber(0, math.pi * 2)
 		local heading = Vector3.new(math.cos(a), 0, math.sin(a))
 		local passage = crooked(root + Vector3.new(0, 4, 0), heading, rng:NextNumber(160, 240), DEEP_Y - 14, DEEP_Y + 4)
-		add(passage, BRANCH_R, "branch")
+		add(passage, BRANCH_R, "branch", Z.DEEP)
 		local tip = passage[#passage]
 		local grotto = tip + heading * 70 + Vector3.new(0, -40, 0)
 		local drop = wander(tip, grotto + Vector3.new(0, 10, 0), 12)
 		table.insert(drop, 1, tip)
-		add(drop, BRANCH_R + 1, "branch")
-		barrier(drop, 3, BRANCH_R + 1, "crystal")
-		chamber(grotto, 34, "crystal")
+		-- The whole crystal cave goes if it would touch any other cave.
+		local tdrop = add(drop, BRANCH_R + 1, "branch", Z.DEEP)
+		tdrop.optional = true
+		barrier(tdrop, 3, BRANCH_R + 1, "crystal", Z.CRYSTAL)
+		chamber(grotto, 34, "crystal", Z.CRYSTAL, tdrop)
 		for q = 0, 2 do
 			local b = a + q * 2.1
-			chamber(grotto + Vector3.new(math.cos(b) * 30, rng:NextNumber(-4, 4), math.sin(b) * 30), rng:NextNumber(18, 26), "crystal")
+			chamber(grotto + Vector3.new(math.cos(b) * 30, rng:NextNumber(-4, 4), math.sin(b) * 30), rng:NextNumber(18, 26), "crystal", Z.CRYSTAL, tdrop)
+		end
+		for _, c in result.chambers do
+			if c.parent == tdrop then
+				c.group = tdrop
+			end
 		end
 		table.insert(result.crystalCaves, grotto)
+		crystalOwner[grotto] = tdrop
 	end
 
 	-- Side branches off the halls: dead ends, crawlways into rare-ore pockets, and a
@@ -511,7 +533,25 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	end
 
 	local secrets = 0
-	for hi, hall in halls do
+	local function zoneAt(t, i: number): number
+		local z = t.zone
+		for _, seal in t.seals do
+			if i >= seal.i then
+				z = seal.after
+			end
+		end
+		return z
+	end
+	local function nearSeal(t, i: number): boolean
+		for _, seal in t.seals do
+			if math.abs(i - seal.i) < 10 then
+				return true
+			end
+		end
+		return false
+	end
+	for hi, hallT in halls do
+		local hall = hallT.points
 		local ownId = idOf[hall]
 		local pts = samples(hall)
 		local count = math.clamp(math.floor(#pts * STEP / 140), 1, 6)
@@ -520,7 +560,8 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 			local at = pts[i]
 			local nxt = pts[math.min(i + 1, #pts)]
 			local dir = Vector3.new(nxt.X - at.X, 0, nxt.Z - at.Z)
-			if at.Y < -30 and dir.Magnitude > 0 then
+			if at.Y < -30 and dir.Magnitude > 0 and not nearSeal(hallT, i) then
+				local zone = zoneAt(hallT, i)
 				local side = Vector3.new(-dir.Z, 0, dir.X).Unit * (if rng:NextNumber() < 0.5 then 1 else -1)
 				local heading = yaw(side, rng:NextNumber(-0.5, 0.5))
 				local maxY = math.min(-34, at.Y + 12)
@@ -531,7 +572,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 				if #tail < 2 or clashes(tail, BRANCH_R, ownId, i) then
 					continue
 				end
-				add(branch, BRANCH_R, "branch")
+				local tb = add(branch, BRANCH_R, "branch", zone, hallT)
 				local tip = branch[#branch]
 				local roll = rng:NextNumber()
 				local tier = tierAt(tip.Y)
@@ -541,10 +582,10 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 					local face = Vector3.new(tip.X - last.X, 0, tip.Z - last.Z)
 					face = if face.Magnitude > 0 then face.Unit else Vector3.xAxis
 					local door = tip + face * 18
-					add({ tip, door }, CRAWL_R, "crawl")
+					local tdoor = add({ tip, door }, CRAWL_R, "crawl", zone, tb)
 					local size = Vector3.new(rng:NextInteger(28, 40), 16, rng:NextInteger(28, 40))
 					local roomPos = door + face * (size.X / 2 + 2) + Vector3.new(0, size.Y / 2 - CRAWL_R, 0)
-					table.insert(result.secretRooms, { pos = roomPos, size = size, facing = face })
+					table.insert(result.secretRooms, { pos = roomPos, size = size, facing = face, zone = zone, parent = tdoor, optional = true })
 					secrets += 1
 				elseif roll < 0.5 and tier ~= "upper" then
 					-- A crawlway into a small pocket of rare ore.
@@ -552,14 +593,14 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 					if clashes({ table.unpack(crawl, 2) }, CRAWL_R, nil, 0) then
 						continue
 					end
-					add(crawl, CRAWL_R, "crawl")
+					local tcrawl = add(crawl, CRAWL_R, "crawl", zone, tb)
 					local pocket = crawl[#crawl] - Vector3.new(0, CRAWL_R * 0.4, 0)
-					chamber(pocket, 11, "pocket")
-					table.insert(result.pockets, { pos = pocket, tier = tierAt(pocket.Y) })
+					chamber(pocket, 11, "pocket", zone, tcrawl)
+					table.insert(result.pockets, { pos = pocket, tier = tierAt(pocket.Y), parent = tcrawl, optional = true })
 				elseif roll < 0.62 then
 					-- Splits once, both ends dead.
 					local fork = crooked(branch[math.max(2, #branch - 2)], yaw(heading, rng:NextNumber(0.8, 1.4)), rng:NextNumber(40, 90), minY, maxY)
-					add(fork, BRANCH_R - 1, "branch")
+					add(fork, BRANCH_R - 1, "branch", zone, tb)
 				end
 				-- else: just a dead end
 			end
@@ -569,8 +610,225 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 		end
 	end
 
+	Caves.fixLeaks(result)
 	Caves.carveAll(terrain, result)
 	return result
+end
+
+-- Makes sure no seal can be walked round. Every bit of cave (tunnel samples, chambers,
+-- lobes, rooms) has a zone; two bits in different zones closer than their radii plus
+-- WALL would leave a hole between them. For each such pair: an optional bit (side
+-- branch, crawl, pocket, room, lobe) is dropped; otherwise the seal on the tunnel is
+-- slid along it so both bits end up on the same side. Then the barriers are listed.
+function Caves.fixLeaks(result: Result)
+	local function zoneAt(t, i: number): number
+		local z = t.zone
+		for _, seal in t.seals do
+			if i >= seal.i then
+				z = seal.after
+			end
+		end
+		return z
+	end
+	local removed: { [any]: boolean } = {}
+	local function isRemoved(x): boolean
+		while x do
+			if removed[x] then
+				return true
+			end
+			x = x.parent
+		end
+		return false
+	end
+	local CELL = 64
+	local moved, dropped, unresolved = 0, 0, 0
+	local unresolvedAt = {}
+	local lastLeaks = 0
+	for _ = 1, 80 do
+		-- Every carved ball, in a coarse grid.
+		local balls = {}
+		local tsamples = {}
+		for _, t in result.tunnels do
+			if not isRemoved(t) then
+				local s = samples(t.points)
+				tsamples[t] = s
+				for i, p in s do
+					table.insert(balls, { p = p, r = t.r, zone = zoneAt(t, i), owner = t, i = i })
+				end
+			end
+		end
+		for _, c in result.chambers do
+			if not isRemoved(c) then
+				table.insert(balls, { p = c.pos + Vector3.new(0, c.r * 0.45, 0), r = c.r, zone = c.zone, owner = c })
+			end
+		end
+		for _, l in result.lobes do
+			if not isRemoved(l) then
+				table.insert(balls, { p = l.pos, r = l.r, zone = l.zone, owner = l })
+			end
+		end
+		for _, room in result.secretRooms do
+			if not isRemoved(room) then
+				table.insert(balls, { p = room.pos, r = math.max(room.size.X, room.size.Z) * 0.6, zone = room.zone, owner = room })
+			end
+		end
+		local grid = {}
+		for n, b in balls do
+			local key = math.floor(b.p.X / CELL) .. "," .. math.floor(b.p.Y / CELL) .. "," .. math.floor(b.p.Z / CELL)
+			grid[key] = grid[key] or {}
+			table.insert(grid[key], n)
+		end
+		-- Find the leaks (each owner at most once a round: a fix moves things).
+		local leaks = {}
+		local seen = {}
+		for n, a in balls do
+			if not seen[a.owner] then
+				local cx, cy, cz = math.floor(a.p.X / CELL), math.floor(a.p.Y / CELL), math.floor(a.p.Z / CELL)
+				local found = nil
+				for dx = -1, 1 do
+					for dy = -1, 1 do
+						for dz = -1, 1 do
+							for _, m in grid[(cx + dx) .. "," .. (cy + dy) .. "," .. (cz + dz)] or {} do
+								local b = balls[m]
+								if m > n and not found and not seen[b.owner] and a.zone ~= b.zone and (a.p - b.p).Magnitude < a.r + b.r + WALL then
+									local span = math.ceil(2 * math.max(a.r, b.r) / STEP) + 2
+									local neighbours = a.owner == b.owner and a.i and b.i and math.abs(a.i - b.i) <= span
+									if not neighbours and not unresolvedAt[a.owner] and not unresolvedAt[b.owner] then
+										found = b
+									end
+								end
+							end
+						end
+					end
+				end
+				if found then
+					seen[a.owner], seen[found.owner] = true, true
+					table.insert(leaks, { a, found })
+				end
+			end
+		end
+		lastLeaks = #leaks
+		if #leaks == 0 then
+			break
+		end
+		for _, leak in leaks do
+		local leakA, leakB = leak[1], leak[2]
+		local a, b = leakA, leakB
+		local fixed = false
+		-- Slide seal `seal` of tunnel `t` to sample `to`. If a neighbouring seal is in
+		-- the way, the two merge into one (that tunnel loses a layer, but stays sealed).
+		local function slide(t, seal, to: number, n: number, span: number): boolean
+			local idx = table.find(t.seals, seal) :: number
+			local prev, nxt = t.seals[idx - 1], t.seals[idx + 1]
+			local lo = if prev then prev.i + span else 2
+			local hi = if nxt then nxt.i - span else n - 1
+			if to >= lo and to <= hi then
+				seal.i = to
+				return true
+			end
+			if to < seal.i and prev then
+				prev.after = seal.after
+				table.remove(t.seals, idx)
+				return true
+			elseif to > seal.i and nxt then
+				table.remove(t.seals, idx)
+				return true
+			end
+			return false
+		end
+		for _, pair in { { a, b }, { b, a } } do
+			local x, y = pair[1], pair[2]
+			if not fixed and x.i and #x.owner.seals > 0 then
+				local t = x.owner
+				local n = #tsamples[t]
+				local span = math.ceil(2 * t.r / STEP) + 2
+				-- The seal just before x, and the zone in front of it.
+				local before, beforeZone, z = nil, t.zone, t.zone
+				for _, seal in t.seals do
+					if seal.i <= x.i then
+						before, beforeZone = seal, z
+					end
+					z = seal.after
+				end
+				if before and beforeZone == y.zone then
+					-- x is past a seal that y is in front of: slide the seal past x.
+					fixed = slide(t, before, x.i + span, n, span)
+				end
+				if not fixed then
+					for _, seal in t.seals do
+						if seal.i > x.i then
+							-- x is in front of a seal whose far side is y's zone: slide it before x.
+							if seal.after == y.zone then
+								fixed = slide(t, seal, x.i - span, n, span)
+							end
+							break
+						end
+					end
+				end
+				if fixed then
+					moved += 1
+				end
+			end
+		end
+		for _, x in { a, b } do
+			if not fixed and x.owner.optional then
+				removed[x.owner.group or x.owner] = true
+				dropped += 1
+				fixed = true
+			end
+		end
+		if not fixed then
+			unresolved += 1
+			unresolvedAt[a.owner] = true
+			warn(string.format("[Caves] can't close a gap between zone %d and zone %d at (%d, %d, %d)", a.zone, b.zone, a.p.X, a.p.Y, a.p.Z))
+		end
+		end
+		task.wait()
+	end
+	-- Drop what was removed, and list the barriers where the seals ended up.
+	local function keep(list)
+		local out = {}
+		for _, x in list do
+			if not isRemoved(x) then
+				table.insert(out, x)
+			end
+		end
+		return out
+	end
+	result.tunnels = keep(result.tunnels)
+	result.chambers = keep(result.chambers)
+	result.lobes = keep(result.lobes)
+	result.secretRooms = keep(result.secretRooms)
+	result.pockets = keep(result.pockets)
+	local grottos = {}
+	for _, g in result.crystalCaves do
+		local owner = result.crystalOwner and result.crystalOwner[g]
+		if not (owner and isRemoved(owner)) then
+			table.insert(grottos, g)
+		end
+	end
+	result.crystalCaves = grottos
+	local shafts = {}
+	for _, sh in result.shafts do
+		if not (sh.tunnel and isRemoved(sh.tunnel)) then
+			table.insert(shafts, sh)
+		end
+	end
+	result.shafts = shafts
+	result.paths = {}
+	result.barriers = {}
+	for _, t in result.tunnels do
+		table.insert(result.paths, t.points)
+		local s = samples(t.points)
+		for _, seal in t.seals do
+			local i = math.clamp(seal.i, 2, #s - 1)
+			local dir = s[i + 1] - s[i - 1]
+			table.insert(result.barriers, { pos = s[i], dir = if dir.Magnitude > 0 then dir.Unit else Vector3.zAxis, r = seal.r, kind = seal.kind })
+		end
+	end
+	local summary = string.format("seals moved %d, side caves dropped %d, gaps left %d (+%d still open after 80 rounds)", moved, dropped, unresolved, lastLeaks)
+	workspace:SetAttribute("CaveSeals", summary)
+	print("[Caves] " .. summary)
 end
 
 -- Carves everything at once, in an order where nothing undoes anything else:

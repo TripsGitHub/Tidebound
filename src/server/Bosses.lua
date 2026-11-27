@@ -319,7 +319,7 @@ end
 -- Gates ------------------------------------------------------------------------------
 
 -- An iron portcullis in a stone arch, plugging the hall at `b.pos`.
-function Bosses.makeGate(b, bossName: string)
+function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 	local gates = workspace:FindFirstChild("BossGates") or Instance.new("Folder")
 	gates.Name = "BossGates"
 	gates.Parent = workspace
@@ -383,6 +383,9 @@ function Bosses.makeGate(b, bossName: string)
 		end
 		open = true
 		prompt.Enabled = false
+		if onOpen then
+			onOpen()
+		end
 		for p, home in barsHome do
 			p.CanCollide = false
 			TweenService:Create(p, TweenInfo.new(2, Enum.EasingStyle.Quad), { CFrame = home - Vector3.new(0, size - 2, 0) }):Play()

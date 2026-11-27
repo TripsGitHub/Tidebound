@@ -501,6 +501,16 @@ function Animals.spawnHerd(kind: string, center: Vector3, count: number)
 	end
 end
 
+-- Is one of this kind alive anywhere (bosses spawn one at a time)?
+function Animals.alive(kind: string): boolean
+	for model, s in states do
+		if model.Parent and model:GetAttribute("AnimalType") == kind then
+			return true
+		end
+	end
+	return false
+end
+
 -- Called when a player hits an animal.
 function Animals.damage(model: Model, amount: number, attacker: Player)
 	local s = states[model]
@@ -524,7 +534,7 @@ function Animals.damage(model: Model, amount: number, attacker: Player)
 		local minion = model:GetAttribute("Minion")
 		model:Destroy()
 		local kind, home = model.Name, s.home
-		if not minion then
+		if not minion and not s.def.boss then -- bosses come back when their gate is opened again
 			task.delay(s.def.respawn, function()
 				spawnAnimal(kind, home)
 			end)

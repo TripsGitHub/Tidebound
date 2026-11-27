@@ -81,7 +81,7 @@ Items.CRATE_LOOT = {
 	{ "silver_ore", 2, 5, 6 },
 	{ "gold_ore", 2, 4, 4 },
 	{ "sunstone", 1, 3, 2.5 },
-	{ "key_fragment", 1, 1, 1.5 },
+	{ "key_fragment", 1, 2, 4 },
 	{ "diamond", 1, 2, 0.8 },
 	{ "fractite", 1, 1, 0.3 },
 }

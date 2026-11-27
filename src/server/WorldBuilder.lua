@@ -1123,17 +1123,18 @@ end
 local function openShaft(sh)
 	local terrain = workspace.Terrain
 	local x, z = sh.bottom.X, sh.bottom.Z
-	local surface = -math.huge
+	-- The ground level round the hole: the middle of the ring of heights, so a hill on
+	-- one side doesn't make the ladder stick up into the air.
+	local heights = {}
 	for k = 0, 7 do
 		local a = k / 8 * math.pi * 2
-		local hit = groundAt(x + math.cos(a) * (sh.r + 5), z + math.sin(a) * (sh.r + 5))
+		local hit = groundAt(x + math.cos(a) * (sh.r + 4), z + math.sin(a) * (sh.r + 4))
 		if hit and hit.Material ~= Enum.Material.Water then
-			surface = math.max(surface, hit.Position.Y)
+			table.insert(heights, hit.Position.Y)
 		end
 	end
-	if surface == -math.huge then
-		surface = sh.top.Y
-	end
+	table.sort(heights)
+	local surface = if #heights > 0 then heights[math.ceil(#heights / 2)] else sh.top.Y
 	sh.top = Vector3.new(x, surface, z)
 	local h = surface + 10 - sh.bottom.Y
 	terrain:FillCylinder(CFrame.new(x, sh.bottom.Y + h / 2, z), h, sh.r, Enum.Material.Air)
@@ -1152,7 +1153,7 @@ local function dressShaft(sh)
 	folder.Parent = workspace
 	local m = Instance.new("Model")
 	m.Name = if sh.kind == "ladder" then "Ladder" else "Waterfall"
-	local h = sh.top.Y - sh.bottom.Y + 6 -- sticks out of the hole so you can climb off
+	local h = sh.top.Y - sh.bottom.Y + 2.5 -- just over the lip, so you can step off
 	local mid = Vector3.new(sh.bottom.X, sh.bottom.Y - 1 + h / 2, sh.bottom.Z)
 	if sh.kind == "ladder" then
 		local truss = Instance.new("TrussPart")
@@ -1662,7 +1663,18 @@ function WorldBuilder.build()
 	for _, b in network.barriers do
 		local boss = string.match(b.kind, "^gate_(.+)$")
 		if boss then
-			Bosses.makeGate(b, boss)
+			-- The boss only appears once someone opens its gate, and only one at a time.
+			local lair
+			for _, room in network.bossRooms do
+				if room.boss == boss then
+					lair = room
+				end
+			end
+			Bosses.makeGate(b, boss, function()
+				if lair and not Animals.alive(boss) then
+					Animals.spawnHerd(boss, lair.pos + Vector3.new(0, 3, 0), 1)
+				end
+			end)
 		else
 			makeSeal(nodes, b)
 		end
@@ -1906,10 +1918,7 @@ function WorldBuilder.build()
 			Animals.spawnHerd("CaveCrawler", c.pos + Vector3.new(0, 3, 0), rng:NextInteger(1, 2))
 		end
 	end
-	-- A boss in each lair below the Maw.
-	for _, lair in network.bossRooms do
-		Animals.spawnHerd(lair.boss, lair.pos + Vector3.new(0, 3, 0), 1)
-	end
+	-- Bosses wait behind their gates: they spawn when a gate is opened (see above).
 	Animals.start()
 
 	startDayNight()
