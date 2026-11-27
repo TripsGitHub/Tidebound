@@ -31,6 +31,9 @@ type State = {
 	limbs: { { part: BasePart, rest: CFrame, kind: string, side: number } }?,
 	windupUntil: number?,
 	busyUntil: number?,
+	foot: number?,
+	radius: number?,
+	stuck: number?,
 }
 
 local states: { [Model]: State } = {}
@@ -372,18 +375,70 @@ local function floorNear(x: number, y: number, z: number): (Vector3?, Enum.Mater
 	return nil, nil
 end
 
+-- What a creature can stand on and bump into: terrain plus built structures,
+-- resource nodes and world props, but never other creatures or players.
+local solidParams = RaycastParams.new()
+solidParams.FilterType = Enum.RaycastFilterType.Exclude
+solidParams.IgnoreWater = false
+local function refreshSolidFilter()
+	local skip: { Instance } = { folder() }
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(skip, p.Character)
+		end
+	end
+	local drops = workspace:FindFirstChild("Drops")
+	if drops then
+		table.insert(skip, drops)
+	end
+	table.insert(skip, workspace.CurrentCamera)
+	solidParams.FilterDescendantsInstances = skip
+end
+
+-- The floor right under (x, z) near height y: a short ray from a little above the
+-- creature down, so it follows slopes and floors and can't snap onto a cliff top
+-- or a roof far above it, or through the ground to a cave far below.
 local function groundFor(s: State, x: number, z: number, y: number): (Vector3?, Enum.Material?)
+	local hit = workspace:Raycast(Vector3.new(x, y + 2.8, z), Vector3.new(0, -10, 0), solidParams)
+	if hit and hit.Instance and hit.Instance ~= workspace.Terrain and not hit.Instance.CanCollide then
+		hit = nil
+	end
+	if hit then
+		return hit.Position, hit.Material
+	end
 	if s.def.cave then
 		return floorNear(x, y, z)
 	end
-	return groundAt(x, z)
+	return nil, nil
+end
+
+-- A wall in the way: a ray from knee and chest height along the step, as long as
+-- the step plus the creature's half-width. Any collidable hit counts.
+local function blockedAhead(s: State, pos: Vector3, dir: Vector3, dist: number): boolean
+	local reach = dist + (s.radius or 1.5)
+	for _, h in { 1.2, 2.6 } do
+		local hit = workspace:Raycast(pos + Vector3.new(0, h, 0), dir * reach, solidParams)
+		if hit and (hit.Instance == workspace.Terrain or (hit.Instance :: BasePart).CanCollide) then
+			-- A gentle slope reads as a "wall" to the low ray; let the ground check judge it.
+			if not (h < 2 and hit.Normal.Y > 0.6) then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 local function pickWanderTarget(s: State): Vector3?
 	for _ = 1, 8 do
 		local a = rng:NextNumber(0, math.pi * 2)
 		local r = rng:NextNumber(8, if s.def.cave then 20 else 40)
-		local pos, mat = groundFor(s, s.home.X + math.cos(a) * r, s.home.Z + math.sin(a) * r, s.home.Y)
+		local x, z = s.home.X + math.cos(a) * r, s.home.Z + math.sin(a) * r
+		local pos, mat
+		if s.def.cave then
+			pos, mat = floorNear(x, s.home.Y, z)
+		else
+			pos, mat = groundAt(x, z)
+		end
 		if pos and mat ~= Enum.Material.Water and mat ~= Enum.Material.Rock then
 			return pos
 		end
@@ -433,6 +488,12 @@ local function spawnAnimal(kind: string, home: Vector3): Model
 			end
 		end
 	end
+	-- How far the pivot sits above the lowest point of the model, so it's always
+	-- stood on the ground rather than sunk into it, and how wide it is for walls.
+	local bbCf, bbSize = model:GetBoundingBox()
+	local foot = math.max(0, model:GetPivot().Position.Y - (bbCf.Position.Y - bbSize.Y / 2))
+	local radius = math.clamp(math.max(bbSize.X, bbSize.Z) * 0.35, 1, 6)
+	model:PivotTo(CFrame.new(home + Vector3.new(0, foot, 0)))
 	states[model] = {
 		model = model,
 		def = def,
@@ -446,6 +507,8 @@ local function spawnAnimal(kind: string, home: Vector3): Model
 		nearest = nil,
 		nearestDist = math.huge,
 		limbs = limbs,
+		foot = foot,
+		radius = radius,
 	}
 	return model
 end
@@ -532,6 +595,9 @@ function Animals.damage(model: Model, amount: number, attacker: Player)
 		Progression.addXp(attacker, s.def.xp)
 		Quests.record(attacker, "hunt", model:GetAttribute("AnimalType"), 1)
 		local minion = model:GetAttribute("Minion")
+		if s.def.boss then
+			Remotes.WorldEvent:FireAllClients(attacker.DisplayName .. " defeated the " .. s.def.name .. "!")
+		end
 		model:Destroy()
 		local kind, home = model.Name, s.home
 		if not minion and not s.def.boss then -- bosses come back when their gate is opened again
@@ -647,16 +713,38 @@ local function step(s: State, dt: number)
 	if goal then
 		local flat = Vector3.new(goal.X - pos.X, 0, goal.Z - pos.Z)
 		if flat.Magnitude > 0.1 then
-			local move = flat.Unit * math.min(flat.Magnitude, speed * dt)
-			local nextPos = pos + move
-			local ground, mat = groundFor(s, nextPos.X, nextPos.Z, pos.Y)
-			if ground and mat ~= Enum.Material.Water then
-				s.phase += dt * speed
-				local bob = math.abs(math.sin(s.phase * 1.2)) * 0.15
-				local look = CFrame.lookAt(ground, ground + flat.Unit)
-				model:PivotTo(look + Vector3.new(0, bob, 0))
+			local dist = math.min(flat.Magnitude, speed * dt)
+			local feet = pos - Vector3.new(0, s.foot or 0, 0)
+			-- Try straight at the goal, then steer round whatever is in the way.
+			local moved = false
+			for _, turn in { 0, 40, -40, 80, -80, 120, -120 } do
+				local dir = (CFrame.Angles(0, math.rad(turn), 0) * flat.Unit)
+				if not blockedAhead(s, feet, dir, dist) then
+					local nextPos = feet + dir * dist
+					local ground, mat = groundFor(s, nextPos.X, nextPos.Z, feet.Y)
+					-- No climbing sheer steps or walking off ledges, and no swimming.
+					if ground and mat ~= Enum.Material.Water and ground.Y - feet.Y < 2.6 and feet.Y - ground.Y < 6 then
+						s.phase += dt * speed
+						local bob = math.abs(math.sin(s.phase * 1.2)) * 0.15
+						local at = ground + Vector3.new(0, (s.foot or 0) + bob, 0)
+						model:PivotTo(CFrame.lookAt(at, at + dir))
+						moved = true
+						break
+					end
+				end
+			end
+			if not moved then
+				s.stuck = (s.stuck or 0) + dt
+				if s.stuck > 1.5 then
+					s.target = nil
+					s.stuck = 0
+					if s.mode == "wander" then
+						s.mode = "idle"
+						s.modeUntil = now + 1
+					end
+				end
 			else
-				s.target = nil
+				s.stuck = 0
 			end
 		end
 	end
@@ -666,7 +754,12 @@ end
 
 function Animals.start()
 	local accum = 0
+	local nextFilter = 0
 	RunService.Heartbeat:Connect(function(dt)
+		if os.clock() > nextFilter then
+			nextFilter = os.clock() + 2
+			refreshSolidFilter()
+		end
 		accum += dt
 		if accum < 1 / 15 then
 			return

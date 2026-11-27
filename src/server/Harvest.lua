@@ -82,6 +82,28 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 	if not def or model:GetAttribute("Depleted") then
 		return
 	end
+	-- Cave seals are broken with swords, not harvesters, and deeper seals need a
+	-- better sword. Each hit takes the sword's damage off the seal.
+	if def.seal then
+		local sealPower = item.sealPower or 0
+		if item.swing ~= "slash" or sealPower <= 0 then
+			Remotes.Notify:FireClient(player, "Cave seals can only be broken with a sword", "warn")
+			return
+		end
+		if sealPower < (def.minPower or 0) then
+			Remotes.Notify:FireClient(player, "You need a stronger sword to break the " .. def.name, "warn")
+			return
+		end
+		local dmg = item.damage or 1
+		local left = math.max((model:GetAttribute("HP") or def.hp) - dmg, 0)
+		Remotes.Marker:FireClient(player, model:GetBoundingBox().Position, dmg, "hit", Inventory.getEquipped(player))
+		model:SetAttribute("HP", left)
+		Remotes.HitFeedback:FireAllClients(model)
+		if left <= 0 then
+			deplete(player, model, def, rootPos)
+		end
+		return
+	end
 	local power = item.gather and item.gather[def.material] or 0
 	if power <= 0 then
 		Remotes.Notify:FireClient(player, "Your tool can't harvest that", "warn")

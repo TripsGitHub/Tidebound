@@ -4,7 +4,8 @@
 -- frame, just before physics runs. That works for both kinds of R15 joint: classic
 -- Motor6Ds and the AnimationConstraints that Roblox's Avatar Joint Upgrade swaps in
 -- (their C0/C1 are read-only, so writing C0 silently did nothing on new avatars).
--- Movement uses Roblox's own default animations (the standard Animate script). On top
+-- Idle, jump, swim and climb use Roblox's default animations; running on the ground is
+-- our own (runPose). On top
 -- of them this module only drives:
 --   1. Holding a tool keeps the right arm out in front.
 --   2. One-off actions (Anim.play): chop, slash, eat, place, pick up, drawing and
@@ -198,6 +199,7 @@ type State = {
 	armour: { [string]: string }?,
 	armourFolder: Instance?,
 	born: number,
+	run: number?, -- 0..1 how much of our own run is showing
 }
 
 local states: { [Model]: State } = setmetatable({}, { __mode = "k" }) :: any
@@ -288,6 +290,35 @@ local function walkPose(phase: number, run: number): Pose
 	}
 end
 
+-- Tidebound's own run (replaces Roblox's default run on the ground): a springy,
+-- cartoon jog with the chest leaning into it, bent arms pumping hard against the
+-- legs, high knees on the forward leg, a little hop at each footfall and the head
+-- held up and steady.
+local function runPose(phase: number): Pose
+	local s, c = math.sin(phase), math.cos(phase)
+	local fwdR = math.max(0, c) -- right leg coming through
+	local fwdL = math.max(0, -c)
+	local hop = math.abs(math.sin(phase)) -- 0 at each footfall, 1 mid-stride
+	return {
+		Root = V(-12, 7 * s, 0),
+		Waist = V(-4 - 2 * hop, -13 * s, 0),
+		Neck = V(10 + 2 * hop, 6 * s, 0),
+		RightHip = V(52 * s + 6, 0, 0),
+		LeftHip = V(-52 * s + 6, 0, 0),
+		RightKnee = V(-14 - 78 * fwdR - 22 * fwdL, 0, 0),
+		LeftKnee = V(-14 - 78 * fwdL - 22 * fwdR, 0, 0),
+		RightAnkle = V(18 * s - 6 * fwdL, 0, 0),
+		LeftAnkle = V(-18 * s - 6 * fwdR, 0, 0),
+		RightShoulder = V(-58 * s + 8, 0, 8),
+		LeftShoulder = V(58 * s + 8, 0, -8),
+		RightElbow = V(82 + 14 * math.max(0, s), 0, 0),
+		LeftElbow = V(82 + 14 * math.max(0, -s), 0, 0),
+		RightWrist = V(-10, 0, 0),
+		LeftWrist = V(-10, 0, 0),
+		RootPos = V(0, 0.32 * hop - 0.22, 0),
+	}
+end
+
 local function airPose(rising: boolean): Pose
 	if rising then
 		return {
@@ -352,7 +383,7 @@ local function jointFrame(motor: any): CFrame
 	return if a then a.CFrame else CFrame.identity
 end
 
-local function apply(character: Model, pose: Pose)
+local function apply(character: Model, pose: Pose, weight: number?)
 	local rootPos = get(pose, "RootPos")
 	for joint, motor in motorsOf(character) do
 		-- Only the joints this pose moves: the rest keep Roblox's own animation.
@@ -369,6 +400,10 @@ local function apply(character: Model, pose: Pose)
 		if joint == "Root" then
 			-- RootPos is in the parent part's space; Transform works in the joint's frame.
 			cf = CFrame.new(base:VectorToObjectSpace(rootPos)) * cf
+		end
+		if weight and weight < 1 then
+			-- Blend from whatever Roblox's animation wrote this frame.
+			cf = motor.Transform:Lerp(cf, weight)
 		end
 		motor.Transform = cf
 	end
@@ -488,9 +523,19 @@ local function step(player: Player, character: Model, s: State, now: number, dt:
 
 	watchEquipment(character, s, now)
 
-	-- Walking, running, jumping, swimming and climbing are Roblox's own animations (the
-	-- default Animate script). This only adds the tool-holding arm and the one-off
-	-- actions on top, and only touches the joints they use.
+	-- Running on the ground is our own (runPose); idle, jumping, swimming and climbing
+	-- stay Roblox's default animations. The run fades in and out over Roblox's pose.
+	local state = humanoid:GetState()
+	local grounded = not s.airborne and state ~= Enum.HumanoidStateType.Swimming and state ~= Enum.HumanoidStateType.Climbing and state ~= Enum.HumanoidStateType.Seated
+	local runTarget = if grounded and s.speed > 1.5 then math.clamp((s.speed - 1.5) / 5, 0, 1) else 0
+	s.run = (s.run or 0) + (runTarget - (s.run or 0)) * math.min(1, dt * 10)
+	if s.run > 0.01 then
+		-- About one full stride (two steps) per 7.5 studs.
+		s.phase += dt * math.max(s.speed, 6) / 7.5 * math.pi * 2
+		apply(character, runPose(s.phase), s.run)
+	end
+
+	-- The tool-holding arm and one-off actions go on top, on just the joints they use.
 	local pose: Pose = {}
 	if character:FindFirstChild("HeldItem") then
 		for joint, v in HOLD do

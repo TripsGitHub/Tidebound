@@ -6,6 +6,7 @@ local NAMES = {
 	-- server -> client
 	"Inventory", -- (items, equippedTool, armour, bagSize)
 	"Notify", -- (text, style?) style: "warn" | "good" | nil
+	"WorldEvent", -- (text) posted in everyone's chat as a server message
 	"PickedUp", -- (itemId, amount) shows in the pickup feed
 	"QuestState", -- (progress, claimed)
 	"OpenPanel", -- (panelName) "quests" | "shop"

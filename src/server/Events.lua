@@ -32,6 +32,7 @@ end
 
 local function announce(text: string)
 	Remotes.Notify:FireAllClients(text, "good")
+	Remotes.WorldEvent:FireAllClients(text)
 end
 
 local function groundAt(x: number, z: number): RaycastResult?

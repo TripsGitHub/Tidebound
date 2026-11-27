@@ -98,6 +98,7 @@ InventoryScreen.init(UI.root :: ScreenGui, {
 	end,
 })
 Hover.start()
+require(script.Parent.Prompts).start()
 Anim.start()
 task.spawn(Gates.start)
 Nameplates.start()
@@ -263,6 +264,16 @@ Remotes.Inventory.OnClientEvent:Connect(function(items, newEquipped, armour, bag
 	UI.setBuild(BuildMode.current())
 end)
 Remotes.Notify.OnClientEvent:Connect(UI.notify)
+-- World events (eruptions, meteors, boss gates and kills) also go in the chat for everyone.
+Remotes.WorldEvent.OnClientEvent:Connect(function(text: string)
+	local TextChatService = game:GetService("TextChatService")
+	local channels = TextChatService:FindFirstChild("TextChannels")
+	local general = channels and channels:FindFirstChild("RBXGeneral") :: TextChannel?
+	if general then
+		local safe = string.gsub(string.gsub(string.gsub(text, "&", "&amp;"), "<", "&lt;"), ">", "&gt;")
+		general:DisplaySystemMessage('<font color="#F6C848"><b>[World]</b></font> ' .. safe)
+	end
+end)
 Remotes.PickedUp.OnClientEvent:Connect(function(itemId, amount)
 	UI.pickup(itemId, amount)
 	Effects.sound("Pickup")

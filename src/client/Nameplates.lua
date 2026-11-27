@@ -106,11 +106,20 @@ local function attach(plr: Player, character: Model)
 	end
 
 	-- The level token: a carved bone disc hanging over the left end.
-	local token = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(34, 34), BorderSizePixel = 0, ZIndex = 4 }, {
+	local token = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(36, 36), BorderSizePixel = 0, ZIndex = 4 }, {
 		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
 	})
 	local tokenRim = new("UIStroke", { Parent = token, Thickness = 2 })
-	local level = text({ Parent = token, Size = UDim2.fromScale(1, 1), Text = "1", TextSize = 15, ZIndex = 5 })
+	local level = text({ Parent = token, Size = UDim2.fromScale(1, 1), Text = "1", TextSize = 19, ZIndex = 5 })
+	-- Digits read far better in a heavy sans than in the serif, so the level uses one,
+	-- white on the dark token with a thick outline.
+	level.FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.ExtraBold)
+	level.TextColor3 = rgb(255, 255, 255)
+	local levelStroke = level:FindFirstChildOfClass("UIStroke")
+	if levelStroke then
+		levelStroke.Thickness = 2.5
+		levelStroke.Color = rgb(20, 12, 6)
+	end
 
 	-- Health: a thin bar under the plank that shows for a few seconds whenever your
 	-- health changes (hit, healed), then fades away.
@@ -159,9 +168,9 @@ local function attach(plr: Player, character: Model)
 		for _, r in ropes do
 			r.BackgroundColor3 = s.rope
 		end
-		token.BackgroundColor3 = s.token
-		tokenRim.Color = s.tokenRim
-		level.TextColor3 = s.edge
+		token.BackgroundColor3 = s.edge
+		tokenRim.Color = s.token
+		tokenRim.Thickness = 2.5
 		name.TextColor3 = s.name
 		local tribe, title = plr:GetAttribute("Tribe"), plr:GetAttribute("Title")
 		over.Text = if tribe and title then "[" .. tribe .. "] " .. title elseif tribe then "[" .. tribe .. "]" else (title or "")

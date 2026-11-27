@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
+local AnimalDefs = require(Shared.Animals)
 local Inventory = require(script.Parent.Inventory)
 
 local Bosses = {}
@@ -383,6 +384,8 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 		end
 		open = true
 		prompt.Enabled = false
+		local bossDef = AnimalDefs[bossName]
+		Remotes.WorldEvent:FireAllClients(player.DisplayName .. " opened the gate to the " .. (if bossDef then bossDef.name else bossName) .. "'s lair!")
 		if onOpen then
 			onOpen()
 		end

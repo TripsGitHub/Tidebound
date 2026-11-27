@@ -31,9 +31,10 @@ local Nodes = {
 		},
 	},
 	-- Cave seals: cracked rock plugging the way down to the next cave layer. You need
-	-- a good enough harvester to break one, and it grows back after a while.
-	-- Each layer down is tougher: more HP and a better harvester needed.
+	-- a good enough sword to break one, and it grows back after a while.
+	-- Each layer down is tougher: more HP and a better sword needed.
 	CaveSealLower = {
+		seal = true,
 		name = "Cave Seal (Lower Caves)",
 		material = "stone",
 		hp = 120,
@@ -43,6 +44,7 @@ local Nodes = {
 		drops = { { item = "stone", min = 6, max = 9 } },
 	},
 	CaveSealMid = {
+		seal = true,
 		name = "Cave Seal (Middle Caves)",
 		material = "stone",
 		hp = 220,
@@ -52,6 +54,7 @@ local Nodes = {
 		drops = { { item = "stone", min = 7, max = 10 }, { item = "silver_ore", min = 0, max = 2 } },
 	},
 	CaveSealDeep = {
+		seal = true,
 		name = "Cave Seal (Deep Network)",
 		material = "stone",
 		hp = 380,
@@ -61,6 +64,7 @@ local Nodes = {
 		drops = { { item = "stone", min = 8, max = 12 }, { item = "gold_ore", min = 0, max = 1 } },
 	},
 	CaveSealAbyss = {
+		seal = true,
 		name = "Cave Seal (Abyss)",
 		material = "stone",
 		hp = 600,
@@ -70,6 +74,7 @@ local Nodes = {
 		drops = { { item = "stone", min = 8, max = 12 }, { item = "sunstone", min = 0, max = 1 } },
 	},
 	CaveSealCrystal = {
+		seal = true,
 		name = "Crystal Seal",
 		material = "stone",
 		hp = 850,
@@ -79,6 +84,7 @@ local Nodes = {
 		drops = { { item = "stone", min = 8, max = 12 }, { item = "sunstone", min = 0, max = 2 } },
 	},
 	CaveSealMaw = {
+		seal = true,
 		name = "Maw Seal",
 		material = "stone",
 		hp = 1200,

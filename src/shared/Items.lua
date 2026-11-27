@@ -67,7 +67,7 @@ Items.supply_crate = { name = "Supply Crate", kind = "crate", order = 132 }
 Items.queen_fang = { name = "Queen's Fang", kind = "resource", order = 133 }
 Items.warden_core = { name = "Warden Core", kind = "resource", order = 134 }
 Items.golem_heart = { name = "Golem Heart", kind = "resource", order = 135 }
-Items.fang_blade = { name = "Fang Blade", kind = "tool", swing = "slash", order = 4.9, gather = { wood = 2, plant = 2 }, cooldown = 0.55, damage = 110 }
+Items.fang_blade = { name = "Fang Blade", kind = "tool", swing = "slash", order = 4.9, gather = { wood = 2, plant = 2 }, cooldown = 0.55, damage = 110, sealPower = 7 }
 Items.golem_harvester = { name = "Golem Harvester", kind = "tool", order = 4.95, gather = { wood = 12, stone = 12, plant = 10, slime = 10 }, cooldown = 0.5, damage = 40 }
 Items.warden_pack = { name = "Warden Pack", kind = "armour", slot = "bag", order = 45.9, bagSize = 1000 }
 
@@ -134,6 +134,8 @@ for _, tier in Tiers.list do
 		damage = if r == 1 then 16 else 22 + 7 * (r - 2),
 	}
 	Items[sword].order = 3 + r * 0.1 + 0.01
+	-- Cave seals break with swords: a seal needs sealPower >= its minPower.
+	Items[sword].sealPower = r + 1
 
 	local harvester = tier.id .. "_harvester"
 	Items[harvester] = Items[harvester] or {
