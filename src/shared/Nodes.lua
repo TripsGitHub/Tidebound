@@ -3,6 +3,7 @@
 -- then everything in `drops` spills out at once and the player gets `xp`.
 -- hp: total gathering power it takes to break (better tools hit harder)
 -- drops: { item, min, max } rolled once when it breaks
+-- minPower: the tool's gathering power for this material must be at least this much
 
 local Nodes = {
 	Pine = {
@@ -64,5 +65,26 @@ local Nodes = {
 		},
 	},
 }
+
+-- One ore vein or crystal cluster per tier from Silver up (see Ores.lua). They take
+-- about 14 hits with the weakest harvester that can mine them, fewer with better ones.
+for _, ore in require(script.Parent.Ores) do
+	local p = ore.minPower
+	Nodes[ore.node] = {
+		name = ore.nodeName,
+		material = "stone",
+		minPower = p,
+		ore = ore.item,
+		tier = ore.tier,
+		look = ore.look,
+		hp = 14 * p,
+		respawn = 120 + 15 * p,
+		xp = 15 + 6 * p,
+		drops = {
+			{ item = ore.item, min = 2, max = 4 },
+			{ item = "stone", min = 1, max = 2 },
+		},
+	}
+end
 
 return Nodes

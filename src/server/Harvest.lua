@@ -127,6 +127,10 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 		Remotes.Notify:FireClient(player, "Your tool can't harvest that", "warn")
 		return
 	end
+	if def.minPower and power < def.minPower then
+		Remotes.Notify:FireClient(player, "You need a stronger harvester to mine " .. def.name, "warn")
+		return
+	end
 	-- Hits only wear it down; the loot and XP come out when it breaks.
 	local hp = math.max((model:GetAttribute("HP") or def.hp) - power, 0)
 	model:SetAttribute("HP", hp)

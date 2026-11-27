@@ -64,4 +64,25 @@ function Progression.spendShells(player: Player, amount: number): boolean
 	return true
 end
 
+-- For saving.
+function Progression.export(player: Player): { level: number, xp: number, shells: number }
+	return {
+		level = Progression.getLevel(player),
+		xp = player:GetAttribute("XP") or 0,
+		shells = Progression.getShells(player),
+	}
+end
+
+function Progression.load(player: Player, saved: { [string]: any })
+	if type(saved) ~= "table" then
+		return
+	end
+	local function num(v: any, lo: number, hi: number): number?
+		return if type(v) == "number" and v == v then math.clamp(math.floor(v), lo, hi) else nil
+	end
+	player:SetAttribute("Level", num(saved.level, 1, Config.MaxLevel) or 1)
+	player:SetAttribute("XP", num(saved.xp, 0, math.huge) or 0)
+	player:SetAttribute("Shells", num(saved.shells, 0, math.huge) or Config.StartingShells)
+end
+
 return Progression

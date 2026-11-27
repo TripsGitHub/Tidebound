@@ -209,6 +209,45 @@ function Inventory.defense(player: Player): number
 	return math.min(total, 0.9)
 end
 
+-- A copy of what the player has, for saving. Plain tables only (DataStore-safe).
+function Inventory.export(player: Player): { items: { [string]: number }, armour: { [string]: string }, equipped: string? }?
+	local d = data[player]
+	if not d then
+		return nil
+	end
+	return { items = table.clone(d.items), armour = table.clone(d.armour), equipped = d.equipped }
+end
+
+-- Restores saved items. Anything that no longer exists in Items.lua is dropped, and
+-- armour only goes back on if the player still has it and it fits that slot.
+function Inventory.load(player: Player, saved: { [string]: any })
+	local d = data[player]
+	if not d or type(saved) ~= "table" then
+		return
+	end
+	local items = {}
+	if type(saved.items) == "table" then
+		for itemId, count in saved.items do
+			if type(itemId) == "string" and Items[itemId] and type(count) == "number" and count >= 1 then
+				items[itemId] = math.floor(count)
+			end
+		end
+	end
+	local armour = {}
+	if type(saved.armour) == "table" then
+		for slot, itemId in saved.armour do
+			local item = type(itemId) == "string" and Items[itemId]
+			if item and item.kind == "armour" and item.slot == slot and items[itemId] then
+				armour[slot] = itemId
+			end
+		end
+	end
+	d.items = items
+	d.armour = armour
+	d.equipped = if type(saved.equipped) == "string" and items[saved.equipped] then saved.equipped else nil
+	Inventory.sync(player)
+end
+
 function Inventory.reapplyAppearance(player: Player)
 	local d = data[player]
 	if d then

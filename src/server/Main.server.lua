@@ -18,9 +18,11 @@ local Building = require(Systems.Building)
 local Death = require(Systems.Death)
 local Shop = require(Systems.Shop)
 local Drops = require(Systems.Drops)
+local Save = require(Systems.Save)
 
 WorldBuilder.build()
 Survival.start()
+Save.start()
 
 Drops.setPickupCallback(function(player, itemId, amount)
 	Quests.record(player, "gather", itemId, amount)
@@ -47,6 +49,11 @@ local function onPlayerAdded(player: Player)
 	Inventory.init(player)
 	Progression.init(player)
 	Quests.init(player)
+	-- Load their save before the character is set up, so they spawn with their gear.
+	Save.load(player)
+	if not player.Parent then
+		return
+	end
 	player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)
 	end)
@@ -65,6 +72,7 @@ for _, player in Players:GetPlayers() do
 end
 
 Players.PlayerRemoving:Connect(function(player)
+	Save.leave(player) -- snapshots first, so this must come before removePlayer
 	Inventory.removePlayer(player)
 	Quests.removePlayer(player)
 	Harvest.removePlayer(player)

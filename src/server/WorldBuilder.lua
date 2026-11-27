@@ -12,6 +12,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Nodes = require(Shared.Nodes)
 local Meshes = require(Shared.Meshes)
+local Tiers = require(Shared.Tiers)
 local Remotes = require(Shared.Remotes)
 local Animals = require(script.Parent.Animals)
 local CloverIsland = require(script.Parent.CloverIsland)
@@ -177,8 +178,91 @@ local NODE_MESHES = {
 	SlimePool = { mesh = "slimepool", scale = { 1, 1 } },
 }
 
+-- Ore veins and crystal clusters: a squat boulder (the mesh when there is one) with
+-- the tier's colour breaking out of it, as metal nuggets or a crown of shards.
+local function makeOre(def, cf: CFrame): Model
+	local tier = Tiers.get(def.tier)
+	local s = rng:NextNumber(0.85, 1.1)
+	local turn = cf * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	local rockColor = if def.look == "crystal" then COLORS.rockDark else COLORS.rock
+	local m = Meshes.build("boulder", { fit = Vector3.new(5, 3.2, 4.6) * s })
+	if m then
+		m:PivotTo(turn)
+		for _, p in m:GetDescendants() do
+			if p:IsA("BasePart") then
+				p.Color = p.Color:Lerp(rockColor, 0.35)
+				p:SetAttribute("BaseTransparency", p.Transparency)
+				p:SetAttribute("BaseCollide", p.CanCollide)
+			end
+		end
+	else
+		m = Instance.new("Model")
+		local main = lump(m, Vector3.new(5, 3.2, 4.6) * s, turn * CFrame.new(0, 1.3 * s, 0), rockColor, "Rock")
+		m.PrimaryPart = main
+		main.PivotOffset = main.CFrame:Inverse() * cf
+	end
+
+	local glow = tier.glow
+	if def.look == "metal" then
+		-- Nuggets half-buried round the sides and top.
+		for i = 1, 7 do
+			local a = i / 7 * math.pi * 2 + rng:NextNumber(-0.3, 0.3)
+			local up = rng:NextNumber(0.2, 1)
+			local r = 2.1 * s * (1 - up * 0.45)
+			local d = rng:NextNumber(0.7, 1.2) * s
+			part(m, {
+				Name = "Ore",
+				Size = Vector3.new(d, d * 0.8, d),
+				CFrame = turn * CFrame.new(math.cos(a) * r, 0.5 * s + up * 2.3 * s, math.sin(a) * r) * CFrame.Angles(rng:NextNumber(0, 3), rng:NextNumber(0, 3), rng:NextNumber(0, 3)),
+				Color = if i % 3 == 0 then tier.trim else tier.plate,
+				Material = if glow and i % 3 == 1 then Enum.Material.Neon else Enum.Material.Metal,
+				Reflectance = 0.1,
+				CanCollide = false,
+			})
+		end
+	else
+		-- A crown of shards leaning outwards from the top.
+		for i = 1, 6 do
+			local a = i / 6 * math.pi * 2 + rng:NextNumber(-0.25, 0.25)
+			local h = rng:NextNumber(2.4, 4.2) * s
+			local w = rng:NextNumber(0.7, 1.1) * s
+			local lean = rng:NextNumber(0.25, 0.55)
+			local base = turn * CFrame.new(math.cos(a) * 1.1 * s, 2.3 * s, math.sin(a) * 1.1 * s)
+			part(m, {
+				Name = "Crystal",
+				Size = Vector3.new(w, h, w),
+				CFrame = base * CFrame.Angles(0, -a, 0) * CFrame.Angles(0, 0, -lean) * CFrame.new(0, h * 0.3, 0) * CFrame.Angles(0, math.rad(45), 0),
+				Color = if i % 2 == 0 then tier.accent else tier.plate,
+				Material = if glow and i % 2 == 0 then Enum.Material.Neon else Enum.Material.Glass,
+				Transparency = if glow and i % 2 == 0 then 0 else 0.15,
+				CanCollide = false,
+			})
+		end
+		part(m, {
+			Name = "Crystal",
+			Size = Vector3.new(1.3, 4.8, 1.3) * s,
+			CFrame = turn * CFrame.new(0, 3.6 * s, 0) * CFrame.Angles(0, math.rad(45), rng:NextNumber(-0.1, 0.1)),
+			Color = tier.plate,
+			Material = if glow then Enum.Material.Neon else Enum.Material.Glass,
+			Transparency = if glow then 0 else 0.1,
+			CanCollide = false,
+		})
+	end
+	if glow then
+		local light = Instance.new("PointLight")
+		light.Color = tier.accent
+		light.Range = 12
+		light.Brightness = 1.2
+		light.Parent = m.PrimaryPart
+	end
+	return m
+end
+
 -- Uses the imported mesh when the place has it, otherwise the block model.
 local function makeNode(nodeType: string, cf: CFrame): Model
+	if Nodes[nodeType].ore then
+		return makeOre(Nodes[nodeType], cf)
+	end
 	local spec = NODE_MESHES[nodeType]
 	local model = spec and Meshes.build(spec.mesh, { scale = rng:NextNumber(spec.scale[1], spec.scale[2]) })
 	if model then
@@ -225,6 +309,7 @@ local BIOME_NODES = {
 		{ "Bush", 8, zone = "meadow" },
 		{ "Pine", 3, { 1, 2 }, zone = "meadow" },
 		{ "Boulder", 2, zone = "meadow" },
+		{ "SilverVein", 3, zone = "rocks" },
 		{ "Pine", 3, { 1, 2 }, zone = "centre" },
 		{ "Bush", 2, zone = "centre" },
 	},
@@ -239,6 +324,8 @@ local BIOME_NODES = {
 	},
 	rock = { -- stone: boulders all over the stepped cliffs
 		{ "Boulder", 16, zone = "cliffs" },
+		{ "SilverVein", 6, zone = "cliffs" },
+		{ "GoldVein", 5, zone = "cliffs" },
 		{ "Boulder", 3, zone = "slope" },
 		{ "Pine", 5, { 1, 2 }, zone = "slope" },
 		{ "Bush", 4, zone = "slope" },
@@ -246,16 +333,25 @@ local BIOME_NODES = {
 	snow = {
 		{ "Pine", 14, { 1, 3 }, zone = "slopes" },
 		{ "Boulder", 6, zone = "peak" },
+		{ "DiamondCluster", 4, zone = "peak" },
+		{ "FractiteCluster", 3, zone = "peak" },
+		{ "GoldVein", 2, zone = "slopes" },
 		{ "Boulder", 2, zone = "shore" },
 	},
 	marsh = { -- slime: pools on every islet
 		{ "SlimePool", 8, zone = "*" },
+		{ "AmethystGeode", 4, zone = "*" },
+		{ "SunstoneVein", 2, zone = "*" },
 		{ "Bush", 10, zone = "*" },
 		{ "Pine", 2, { 1, 1 }, zone = "heart" },
 	},
 	ember = {
 		{ "Boulder", 9, zone = "slopes" },
 		{ "Boulder", 3, zone = "camp" },
+		{ "SunstoneVein", 4, zone = "slopes" },
+		{ "ObsidianSpire", 4, zone = "slopes" },
+		{ "MoonstoneCluster", 2, zone = "camp" },
+		{ "FractiteCluster", 1, zone = "camp" },
 	},
 }
 

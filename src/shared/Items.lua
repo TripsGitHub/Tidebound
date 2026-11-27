@@ -51,10 +51,15 @@ local Items = {
 	leather = { name = "Leather", kind = "resource", order = 105 },
 }
 
+-- Ores and crystals (see Ores.lua), one per tier from Silver up.
+for i, ore in require(script.Parent.Ores) do
+	Items[ore.item] = { name = ore.name, kind = "resource", order = 110 + i }
+end
+
 -- Tiered gear ------------------------------------------------------------
 -- Every tier in Tiers.lua gets a helmet, chestplate, leggings, boots, sword and harvester.
 -- Entries written out above keep their stats; the rest scale with the tier's rank.
--- Most of these have no recipe yet, so they only exist once something gives them out.
+-- Their recipes are generated in Recipes.lua.
 local Tiers = require(script.Parent.Tiers)
 
 local ARMOUR = {

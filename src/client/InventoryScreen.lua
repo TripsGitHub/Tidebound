@@ -149,7 +149,8 @@ local function rebuildCrafting()
 	styleTabs(craftTabs, craftTab)
 	local level = player:GetAttribute("Level") or 1
 	for i, recipe in Recipes do
-		if craftTab == "All" or recipe.tab == craftTab then
+		-- Locked recipes only show a few levels ahead, so the list isn't all late-game gear.
+		if (craftTab == "All" or recipe.tab == craftTab) and recipe.level <= level + 3 then
 			local locked = level < recipe.level
 			local card = block({ Parent = craftGrid, LayoutOrder = (if locked then 1000 else 0) + i, BackgroundColor3 = if locked then C.cardLocked else C.card })
 			hoverable(card, recipe.id)

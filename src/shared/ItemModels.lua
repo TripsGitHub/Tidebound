@@ -232,6 +232,25 @@ function builders.sticky_slime(m)
 	return core
 end
 
+-- Ores and crystals: tier-coloured nuggets on a chip of rock, or a small cluster of shards.
+for _, ore in require(script.Parent.Ores) do
+	builders[ore.item] = function(m)
+		local tier = Tiers.get(ore.tier) :: any
+		local glowMat = if tier.glow then Enum.Material.Neon else nil
+		if ore.look == "metal" then
+			local core = lump(m, 0.8, CFrame.new(0, -0.1, 0), C.stone, Enum.Material.Slate, 21)
+			part(m, Vector3.new(0.45, 0.4, 0.45), CFrame.new(0.2, 0.25, 0.1) * CFrame.Angles(0.4, 0.7, 0.2), tier.plate, Enum.Material.Metal)
+			part(m, Vector3.new(0.35, 0.3, 0.35), CFrame.new(-0.25, 0.2, -0.1) * CFrame.Angles(0.9, 0.2, 0.5), tier.plate, glowMat or Enum.Material.Metal)
+			part(m, Vector3.new(0.3, 0.28, 0.3), CFrame.new(0, 0.05, 0.35) * CFrame.Angles(0.2, 1.1, 0.8), tier.trim, Enum.Material.Metal)
+			return core
+		end
+		local core = part(m, Vector3.new(0.42, 1.2, 0.42), CFrame.Angles(0, math.rad(45), 0.08), tier.plate, glowMat or Enum.Material.Glass)
+		part(m, Vector3.new(0.32, 0.85, 0.32), CFrame.new(0.3, -0.15, 0.05) * CFrame.Angles(0, math.rad(45), -0.45), tier.accent, Enum.Material.Glass)
+		part(m, Vector3.new(0.3, 0.75, 0.3), CFrame.new(-0.28, -0.2, -0.05) * CFrame.Angles(0.1, math.rad(45), 0.5), tier.plate, Enum.Material.Glass)
+		return core
+	end
+end
+
 function builders.leather(m)
 	local core = part(m, Vector3.new(1.4, 0.12, 1), CFrame.Angles(0, 0.2, 0.05), C.leather, Enum.Material.Fabric)
 	part(m, Vector3.new(1, 0.12, 0.7), CFrame.new(0.1, 0.1, 0) * CFrame.Angles(0, -0.4, 0), C.leather:Lerp(Color3.new(0, 0, 0), 0.15), Enum.Material.Fabric)
