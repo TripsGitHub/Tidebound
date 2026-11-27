@@ -1,6 +1,6 @@
 import bpy, glob, os, math
 bpy.ops.wm.read_factory_settings(use_empty=True)
-files = sorted(glob.glob('/tmp/models/out/*.obj') + glob.glob('/tmp/models/out2/*.obj'))
+files = sorted(glob.glob('/tmp/models/out/*.obj') + glob.glob('/tmp/models/out2/*.obj') + glob.glob('/tmp/models/out3/*.obj'))
 seen = set(); i = 0
 for f in files:
     name = os.path.splitext(os.path.basename(f))[0]
@@ -37,3 +37,12 @@ for o in bpy.data.objects:
     if o.type=='MESH': o.data.name = o.name
 bpy.ops.wm.obj_export(filepath='/tmp/models/tidebound_models.obj', export_materials=True, up_axis='Y', forward_axis='NEGATIVE_Z', export_object_groups=True)
 print("MODELS", i, sorted(o.name for o in bpy.data.objects))
+# Newer Blender writes groups as "<object>_<mesh>"; the game wants just the object name.
+path = '/tmp/models/tidebound_models.obj'
+lines = open(path).read().split('\n')
+for i, l in enumerate(lines):
+    if l.startswith('g '):
+        g = l[2:]; h = (len(g) - 1) // 2
+        if len(g) % 2 == 1 and g[:h] == g[h + 1:] and g[h] == '_':
+            lines[i] = 'g ' + g[:h]
+open(path, 'w').write('\n'.join(lines))

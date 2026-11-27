@@ -7,6 +7,9 @@
 local ItemModels = {}
 
 local Meshes = require(script.Parent.Meshes)
+local Tiers = require(script.Parent.Tiers)
+local ArmourModels = require(script.Parent.ArmourModels)
+local Items = require(script.Parent.Items)
 
 -- Items that have a Blender mesh. Tools keep their grip at the origin (the bottom
 -- of the mesh); everything else is centred.
@@ -23,7 +26,24 @@ local ITEM_MESHES: { [string]: { mesh: string, tool: boolean?, scale: number? } 
 	raw_meat = { mesh = "raw_meat" },
 	cooked_meat = { mesh = "cooked_meat" },
 	leather = { mesh = "leather" },
+	leather_bag = { mesh = "bag_satchel" },
+	hide_pack = { mesh = "bag_hide" },
+	explorer_pack = { mesh = "bag_explorer" },
 }
+
+-- Tiered swords and harvesters use their tier's style mesh, recoloured (see Tiers.lua).
+-- These meshes have a Bounds box centred on the grip.
+local function tierTool(itemId: string): Model?
+	local tier, kind = Tiers.split(itemId)
+	if not tier or (kind ~= "sword" and kind ~= "harvester") then
+		return nil
+	end
+	local mesh = Meshes.build(kind .. "_" .. tier.style, { centre = true, collide = false })
+	if mesh then
+		Tiers.paint(mesh, tier)
+	end
+	return mesh
+end
 
 local C = {
 	wood = Color3.fromRGB(141, 101, 64),
@@ -167,6 +187,12 @@ local function harvester(m: Model, headColor: Color3, headMaterial: Enum.Materia
 	return handle
 end
 
+for _, tier in Tiers.list do
+	builders[tier.id .. "_harvester"] = function(m)
+		return harvester(m, tier.plate, Enum.Material.SmoothPlastic)
+	end
+end
+
 function builders.wood_harvester(m)
 	return harvester(m, C.woodLight, Enum.Material.Wood)
 end
@@ -246,28 +272,35 @@ end
 
 -- Armour -----------------------------------------------------------------------
 
-function builders.wood_helmet(m)
-	local core = part(m, Vector3.new(1.5, 0.9, 1.5), CFrame.new(), C.wood, Enum.Material.WoodPlanks)
-	part(m, Vector3.new(1.7, 0.2, 1.7), CFrame.new(0, -0.4, 0), C.woodDark, Enum.Material.Wood)
+-- Block fallbacks for when the armour meshes aren't in the place.
+local function armourBlocks(m: Model, slot: string, main: Color3, edge: Color3, material: Enum.Material): BasePart
+	if slot == "helmet" then
+		local core = part(m, Vector3.new(1.5, 0.9, 1.5), CFrame.new(), main, material)
+		part(m, Vector3.new(1.7, 0.2, 1.7), CFrame.new(0, -0.4, 0), edge, material)
+		return core
+	elseif slot == "body" then
+		local core = part(m, Vector3.new(2.1, 2.1, 1.1), CFrame.new(), main, material)
+		part(m, Vector3.new(2.2, 0.25, 1.2), CFrame.new(0, -0.7, 0), edge, material)
+		return core
+	elseif slot == "legs" then
+		local core = part(m, Vector3.new(0.9, 1.8, 0.9), CFrame.new(-0.5, 0, 0), main, material)
+		part(m, Vector3.new(0.9, 1.8, 0.9), CFrame.new(0.5, 0, 0), main, material)
+		return core
+	end
+	local core = part(m, Vector3.new(0.9, 0.6, 1.2), CFrame.new(-0.5, 0, 0), edge, material)
+	part(m, Vector3.new(0.9, 0.6, 1.2), CFrame.new(0.5, 0, 0), edge, material)
 	return core
 end
 
-function builders.wood_body(m)
-	local core = part(m, Vector3.new(2.1, 2.1, 1.1), CFrame.new(), C.wood, Enum.Material.WoodPlanks)
-	part(m, Vector3.new(2.2, 0.25, 1.2), CFrame.new(0, -0.7, 0), C.woodDark, Enum.Material.Wood)
-	return core
-end
-
-function builders.wood_legs(m)
-	local core = part(m, Vector3.new(0.9, 1.8, 0.9), CFrame.new(-0.5, 0, 0), C.wood, Enum.Material.WoodPlanks)
-	part(m, Vector3.new(0.9, 1.8, 0.9), CFrame.new(0.5, 0, 0), C.wood, Enum.Material.WoodPlanks)
-	return core
-end
-
-function builders.wood_boots(m)
-	local core = part(m, Vector3.new(0.9, 0.6, 1.2), CFrame.new(-0.5, 0, 0), C.woodDark, Enum.Material.Wood)
-	part(m, Vector3.new(0.9, 0.6, 1.2), CFrame.new(0.5, 0, 0), C.woodDark, Enum.Material.Wood)
-	return core
+for _, tier in Tiers.list do
+	for _, slot in { "helmet", "body", "legs", "boots" } do
+		builders[tier.id .. "_" .. slot] = function(m)
+			if tier.id == "wood" then
+				return armourBlocks(m, slot, C.wood, C.woodDark, Enum.Material.WoodPlanks)
+			end
+			return armourBlocks(m, slot, tier.plate, tier.trim, Enum.Material.SmoothPlastic)
+		end
+	end
 end
 
 function builders.leather_bag(m)
@@ -276,6 +309,9 @@ function builders.leather_bag(m)
 	part(m, Vector3.new(0.3, 0.3, 0.1), CFrame.new(0, 0.4, -0.45), Color3.fromRGB(200, 170, 90), Enum.Material.Metal)
 	return core
 end
+
+builders.hide_pack = builders.leather_bag
+builders.explorer_pack = builders.leather_bag
 
 -- Buildable icons ----------------------------------------------------------------
 
@@ -328,7 +364,9 @@ end
 -- non-colliding and massless; callers change that if they need physics.
 function ItemModels.build(itemId: string): Model
 	local spec = ITEM_MESHES[itemId]
-	local mesh = spec and Meshes.build(spec.mesh, { centre = not spec.tool, collide = false, scale = spec.scale })
+	local mesh = ArmourModels.build(itemId)
+		or tierTool(itemId)
+		or (spec and Meshes.build(spec.mesh, { centre = not spec.tool, collide = false, scale = spec.scale }))
 	if mesh then
 		mesh.Name = itemId
 		for _, p in mesh:GetChildren() do
@@ -355,7 +393,8 @@ function ItemModels.build(itemId: string): Model
 end
 
 function ItemModels.isTool(itemId: string): boolean
-	return builders[itemId] ~= nil and (itemId == "rock" or itemId:find("_sword") ~= nil or itemId:find("_club") ~= nil or itemId:find("_harvester") ~= nil)
+	local item = Items[itemId]
+	return item ~= nil and item.kind == "tool"
 end
 
 return ItemModels

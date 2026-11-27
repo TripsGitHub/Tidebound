@@ -5,6 +5,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Items = require(Shared.Items)
 local ItemModels = require(Shared.ItemModels)
 local Config = require(Shared.Config)
+local ArmourModels = require(Shared.ArmourModels)
 
 local Appearance = {}
 
@@ -99,7 +100,9 @@ local function simplePiece(itemId: string, attach: BasePart, spec): Model
 		shell.Parent = model
 		model.PrimaryPart = shell
 	else
-		model:PivotTo(attach.CFrame * spec.offset)
+		-- Sit the bag against the wearer's back, however deep it is.
+		local depth = model:GetExtentsSize().Z
+		model:PivotTo(attach.CFrame * CFrame.new(0, spec.offset.Y, attach.Size.Z / 2 + depth / 2 - 0.08))
 	end
 	return model
 end
@@ -116,6 +119,16 @@ function Appearance.setArmour(player: Player, armour: { [string]: string })
 	folder = Instance.new("Folder")
 	folder.Name = "Armour"
 	for slot, itemId in armour do
+		-- Real armour meshes, fitted to each body part (R15 only).
+		local pieces = ArmourModels.wear(itemId, character)
+		if #pieces > 0 then
+			for _, piece in pieces do
+				weldModel(piece.model, piece.part)
+				piece.model.Parent = folder
+			end
+			continue
+		end
+		-- Otherwise: block shells (R6, or the meshes aren't imported), and bags.
 		for _, spec in SLOT_PARTS[slot] or {} do
 			local attach = findPart(character, spec.names)
 			if attach then
