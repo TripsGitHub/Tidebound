@@ -2155,7 +2155,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	workspace:SetAttribute("LoadingStep", "Almost there")
 	startDayNight()
 	if not WorldBake.baked then
-		warn("[World] this place has no baked map, so it was built from scratch (slow). In edit mode run: require(game.ServerScriptService.Server.WorldBake).bakeInStudio() and save the place.")
+		warn("[World] this place has no baked map, so it was built from scratch (slow). See WorldBake.lua for the one-line bake, then save the place.")
 	end
 end
 

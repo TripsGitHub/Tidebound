@@ -4,13 +4,8 @@
 -- the parts (trees, ores, props, NPCs) on top, which is quick.
 --
 -- How a bake is made (Studio only):
---   1. Run Play with no bake in the place (or BakeVersion out of date). The world is
---      built the slow way, then copied into ServerStorage.WorldBake (a TerrainRegion of
---      the whole map, and the cave network as text).
---   2. In the Server view, copy ServerStorage.WorldBake, stop, paste it into
---      ServerStorage, and run in the command bar:
---        require(game.ServerScriptService.Server.WorldBake).install()
---      That pastes the terrain into the place and marks it baked. Save the place.
+--   In edit mode, run the command shown above WorldBake.bakeInStudio below, then save
+--   the place. (install() is for a TerrainRegion bake pasted in from elsewhere.)
 -- Bump VERSION whenever terrain code changes, so the old bake is ignored until re-baked.
 local WorldBake = {}
 
@@ -180,8 +175,9 @@ function WorldBake.install()
 	print("[WorldBake] installed version " .. tostring(f:GetAttribute("Version")) .. ": save the place")
 end
 
--- The easy way to bake: run from the command bar in EDIT mode (not while playing):
---   require(game.ServerScriptService.Server.WorldBake).bakeInStudio()
+-- The easy way to bake: run from the command bar in EDIT mode (not while playing). The
+-- command bar keeps modules it has required before, so bake from a fresh copy:
+--   local s = game.ServerScriptService.Server:Clone() s.Parent = game.ServerStorage require(s.WorldBake).bakeInStudio() s:Destroy()
 -- Builds the islands, sea floor and caves straight into the place's terrain, saves the
 -- cave network beside it, and removes everything else the build made. Then save the place.
 function WorldBake.bakeInStudio()
