@@ -19,6 +19,21 @@ local LOOKS: { [string]: { material: Enum.Material?, transparency: number? } } =
 	Ember = { material = Enum.Material.Neon },
 	SlimeGoo = { material = Enum.Material.Glass, transparency = 0.15 },
 	SlimeLight = { material = Enum.Material.Glass, transparency = 0.1 },
+	Lava = { material = Enum.Material.Neon },
+	CrawlerGlow = { material = Enum.Material.Neon },
+	QueenGlow = { material = Enum.Material.Neon },
+	CrystalGlow = { material = Enum.Material.Neon },
+	Crystal = { material = Enum.Material.Glass, transparency = 0.15 },
+	SlimeCore = { material = Enum.Material.Glass, transparency = 0.2 },
+	SkullBone = { material = Enum.Material.Limestone },
+	SkullShade = { material = Enum.Material.Limestone },
+	TentHide = { material = Enum.Material.Fabric },
+	TentHideDark = { material = Enum.Material.Fabric },
+	TentStripe = { material = Enum.Material.Fabric },
+	SignBoard = { material = Enum.Material.Wood },
+	SignPost = { material = Enum.Material.Wood },
+	WardenStone = { material = Enum.Material.Slate },
+	GolemRock = { material = Enum.Material.Basalt },
 }
 
 -- Thin or soft parts you can walk through.

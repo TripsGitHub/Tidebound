@@ -3,6 +3,8 @@
 -- plain parts (no meshes), anchored, and named so it reads in the Explorer.
 local Props = {}
 
+local Meshes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Meshes"))
+
 local rng = Random.new(5150)
 local rgb = Color3.fromRGB
 
@@ -165,6 +167,14 @@ function Props.tent(parent: Instance, at: Vector3, facing: Vector3, r: number?)
 	local h = (r or 6) * 1.4
 	local long = (r or 6) * 2
 	local look = CFrame.lookAt(at, at + facing) -- -Z is the door side
+	-- The Blender tent (sagging hides, crossed poles, tied-back flaps, guy ropes).
+	local mesh = Meshes.has("tent") and Meshes.build("tent", { scale = (r or 6) / 6 })
+	if mesh then
+		mesh:PivotTo(look)
+		mesh.Name = "Tent"
+		mesh.Parent = parent
+		return
+	end
 	local hide = rgb(226, 204, 158)
 	for side = -1, 1, 2 do
 		part(parent, {
@@ -209,6 +219,29 @@ end
 -- A big carved sign on two posts, with `text` burnt into it.
 function Props.bigSign(parent: Instance, at: Vector3, facing: Vector3, text: string)
 	local look = CFrame.lookAt(at, at + facing)
+	-- The Blender sign (lashed posts, three nailed planks); the text goes on a thin
+	-- invisible board in front of the planks.
+	local mesh = Meshes.has("signboard") and Meshes.build("signboard")
+	if mesh then
+		mesh:PivotTo(look)
+		mesh.Name = "Sign"
+		mesh.Parent = parent
+		local face = part(parent, { Name = "SignText", Size = Vector3.new(10.5, 3.4, 0.1), CFrame = look * CFrame.new(0, 7, -0.85), Transparency = 1, CanCollide = false, CanQuery = false })
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Front
+		gui.PixelsPerStud = 40
+		gui.LightInfluence = 0.6
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.FontFace = Font.new("rbxasset://fonts/families/Merriweather.json", Enum.FontWeight.Heavy)
+		label.TextScaled = true
+		label.TextColor3 = rgb(60, 34, 18)
+		label.Text = text
+		label.Parent = gui
+		gui.Parent = face
+		return
+	end
 	for side = -1, 1, 2 do
 		part(parent, { Name = "SignPost", Size = Vector3.new(0.9, 9, 0.9), CFrame = look * CFrame.new(side * 5, 4.5, 0), Color = Props.WOOD_DARK, Material = Enum.Material.Wood })
 	end

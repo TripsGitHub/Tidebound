@@ -28,7 +28,7 @@ type State = {
 	phase: number,
 	nearest: Player?,
 	nearestDist: number,
-	limbs: { { part: BasePart, rest: CFrame, kind: string, side: number } }?,
+	limbs: { { part: BasePart, rest: CFrame, kind: string, side: number, hinge: Vector3? } }?,
 	windupUntil: number?,
 	busyUntil: number?,
 	foot: number?,
@@ -359,7 +359,57 @@ local function magmaGolem(): Model
 	return m
 end
 
+-- The Blender models (assets/models/blender/set4.py) replace the block ones when the
+-- place has them imported; the block builders above stay as the fallback.
+local MESH_NAMES = {
+	Wolf = "wolf",
+	Goat = "goat",
+	Crab = "crab",
+	Turtle = "turtle",
+	CaveCrawler = "cave_crawler",
+	CinderBeetle = "cinder_beetle",
+	BogSlime = "bog_slime",
+	CrawlerQueen = "crawler_queen",
+	CrystalWarden = "crystal_warden",
+	MagmaGolem = "magma_golem",
+}
+local function withMesh(kind: string, fallback: () -> Model): () -> Model
+	return function()
+		local model = Meshes.has(MESH_NAMES[kind]) and Meshes.build(MESH_NAMES[kind], { collide = false })
+		if not model then
+			return fallback()
+		end
+		for _, p in model:GetChildren() do
+			if p:IsA("BasePart") then
+				p.CanQuery = true
+			end
+		end
+		-- Glowing parts light up their surroundings a little, like the block bosses did.
+		local glow = model:FindFirstChild("Eye") or model:FindFirstChild("Core")
+		if glow and (kind == "CrawlerQueen" or kind == "CrystalWarden" or kind == "MagmaGolem") then
+			local light = Instance.new("PointLight")
+			light.Range, light.Brightness = 30, 2
+			light.Color = (glow :: BasePart).Color
+			light.Parent = glow
+		end
+		if kind == "MagmaGolem" then
+			local head = model:FindFirstChild("Head")
+			if head then
+				local fire = Instance.new("Fire")
+				fire.Size, fire.Heat = 7, 5
+				fire.Color, fire.SecondaryColor = Color3.fromRGB(255, 110, 30), Color3.fromRGB(255, 200, 80)
+				fire.Parent = head
+			end
+		end
+		return model
+	end
+end
 local builders = { CrawlerQueen = crawlerQueen, CrystalWarden = crystalWarden, MagmaGolem = magmaGolem, Goat = goat, Turtle = turtle, Boar = boar, Crab = crab, Wolf = wolf, BogSlime = bogSlime, CinderBeetle = cinderBeetle, CaveCrawler = caveCrawler }
+for kind, fallback in builders do
+	if MESH_NAMES[kind] then
+		builders[kind] = withMesh(kind, fallback)
+	end
+end
 
 -- Cave animals can't look for the ground from the sky (that finds the island above
 -- them), so they feel for the floor just under where they are.
@@ -481,11 +531,29 @@ local function spawnAnimal(kind: string, home: Vector3): Model
 	local pivot = model:GetPivot()
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") then
-			local kind = if p.Name == "Leg" then "leg" elseif p.Name == "Arm" or p.Name == "Fist" or p.Name == "Claw" or p.Name == "Mandible" or p.Name == "Fang" then "arm" elseif p.Name == "Head" or p.Name == "Snout" or p.Name == "Eye" or p.Name == "Ear" or p.Name == "Horn" or p.Name == "Beard" then "head" elseif p.Name == "Tail" then "tail" else nil
+			-- Mesh parts can carry a colour after the role ("EyeEyeDark"): the first word counts.
+			local n = if string.find(p.Name, "_") then p.Name else (string.match(p.Name, "^%u%l*") or p.Name)
+			local kind = if n == "Leg" then "leg" elseif n == "Arm" or n == "Fist" or n == "Claw" or n == "Mandible" or n == "Fang" then "arm" elseif n == "Head" or n == "Snout" or n == "Eye" or n == "Ear" or n == "Horn" or n == "Beard" then "head" elseif n == "Tail" then "tail" else nil
 			if kind then
 				local rest = pivot:ToObjectSpace(p.CFrame)
 				table.insert(limbs, { part = p, rest = rest, kind = kind, side = if rest.Position.X >= 0 then 1 else -1, front = rest.Position.Z < 0 })
 			end
+		end
+	end
+	-- Arms made of several parts share a shoulder: the top of the highest arm part on that side.
+	local shoulders = {}
+	for _, l in limbs do
+		if l.kind == "arm" and not string.find(l.part.Name, "^Mandible") then
+			local top = l.rest.Position + Vector3.new(0, l.part.Size.Y / 2, 0)
+			local cur = shoulders[l.side]
+			if not cur or top.Y > cur.Y then
+				shoulders[l.side] = top
+			end
+		end
+	end
+	for _, l in limbs do
+		if l.kind == "arm" and not string.find(l.part.Name, "^Mandible") then
+			l.hinge = shoulders[l.side]
 		end
 	end
 	-- How far the pivot sits above the lowest point of the model, so it's always
@@ -532,7 +600,12 @@ local function pose(s, moving: boolean, windup: number)
 			end
 		elseif l.kind == "arm" then
 			local a = -windup * 1.1 + (if moving then math.sin(t * 1.6 + (if l.side > 0 then math.pi else 0)) * 0.3 else 0)
-			cf = cf * CFrame.new(0, size.Y / 2, 0) * CFrame.Angles(a, 0, 0) * CFrame.new(0, -size.Y / 2, 0)
+			if l.hinge then
+				-- Every arm part on this side (arm, fist, pincer) turns about one shoulder.
+				cf = CFrame.new(l.hinge) * CFrame.Angles(a, 0, 0) * CFrame.new(-l.hinge) * cf
+			else
+				cf = cf * CFrame.new(0, size.Y / 2, 0) * CFrame.Angles(a, 0, 0) * CFrame.new(0, -size.Y / 2, 0)
+			end
 		elseif l.kind == "head" then
 			cf = CFrame.new(0, (if moving then math.sin(t * 3.2) * 0.12 else math.sin(os.clock() * 1.5) * 0.06) + windup * 0.4, windup * 0.5) * cf
 		elseif l.kind == "tail" then

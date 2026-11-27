@@ -33,3 +33,10 @@ from it and leaves it out:
 - Armour pieces are centred on the body part they're worn on, and modelled for the R15 sizes in
   `src/shared/ArmourModels.lua`, so they stretch to fit any R15 avatar.
 - Swords and harvesters have the grip at the origin. Bags are centred.
+
+## Creatures, bosses and props (set 4)
+`python3 blender/set4.py` (`PREVIEW=1` also renders `docs/previews/set4.png`): wolf, goat, crab,
+turtle, cave crawler, cinder beetle, bog slime, the three bosses, Skull Rock, the big sign and the
+tent. Creature parts are named by what the game animates (`Leg`, `Arm`, `Fist`, `Claw`,
+`Mandible`, `Head`, `Snout`, `Eye`, `Ear`, `Horn`, `Tail`); a part that shares a role with a
+different colour gets the colour added (`EyeEyeDark`) and still animates by its first word.

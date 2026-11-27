@@ -5,6 +5,7 @@
 local Landmarks = {}
 
 local Props = require(script.Parent.Props)
+local Meshes = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Meshes"))
 
 local rng = Random.new(777)
 
@@ -234,6 +235,22 @@ end
 
 -- Skull Key: Skull Rock, a giant stone skull with glowing eyes.
 function BUILDERS.skull(m: Model, c: Vector3, groundAt)
+	-- The Blender skull (cracked dome, deep sockets with a glow, broken teeth, moss),
+	-- half sunk into the sand behind the hole, staring out over it.
+	local skull = Meshes.has("skull_rock") and Meshes.build("skull_rock", { scale = 1.1 })
+	if skull then
+		skull:PivotTo(CFrame.new(c + Vector3.new(0, -1.5, 30)))
+		for _, p in skull:GetChildren() do
+			if p:IsA("BasePart") and p.Name == "Eye" then
+				local light = Instance.new("PointLight")
+				light.Color, light.Range, light.Brightness = p.Color, 18, 2
+				light.Parent = p
+			end
+		end
+		skull.Name = "SkullRock"
+		skull.Parent = m
+		return "Skull Rock", 40
+	end
 	local bone = Color3.fromRGB(222, 214, 196)
 	part(m, { Name = "Cranium", Shape = Enum.PartType.Ball, Size = Vector3.one * 30, CFrame = CFrame.new(c + Vector3.new(0, 18, 18)), Color = bone, Material = Enum.Material.Limestone })
 	part(m, { Name = "Jaw", Size = Vector3.new(20, 8, 14), CFrame = CFrame.new(c + Vector3.new(0, 4, 10)), Color = bone, Material = Enum.Material.Limestone })
