@@ -85,7 +85,7 @@ for i, ore in Ores do
 	oreRank[ore.item] = i
 end
 local tierRank = {}
-for i, tier in Tiers do
+for i, tier in Tiers.list do
 	tierRank[tier.id] = i
 end
 local RARE = { key_fragment = 4, maw_key = 5, queen_fang = 5, warden_core = 5, golem_heart = 5, supply_crate = 2 }
@@ -98,7 +98,7 @@ function Drops.prioritySeconds(itemId: string): number
 	end
 	if item and (item.kind == "tool" or item.kind == "armour") then
 		local tier = string.match(itemId, "^(%a+)_")
-		bonus = math.max(bonus, 1 + math.ceil((tierRank[tier or ""] or 1) * 4 / #Tiers))
+		bonus = math.max(bonus, 1 + math.ceil((tierRank[tier or ""] or 1) * 4 / #Tiers.list))
 	end
 	return 5 + math.clamp(bonus, 0, 5)
 end
