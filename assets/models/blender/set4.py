@@ -313,7 +313,56 @@ def crystal_warden():
     return golem("crystal_warden", mat("WardenStone", (84, 80, 108)), mat("WardenDark", (48, 44, 64)), mat("CrystalGlow", (210, 170, 255)), crystals=mat("Crystal", (170, 120, 250)))
 
 def magma_golem():
-    return golem("magma_golem", mat("GolemRock", (46, 38, 36)), mat("GolemDark", (28, 24, 24)), mat("Lava", (255, 120, 40)), lava=mat("Lava", (255, 120, 40)))
+    """A hunched brute of cooling lava rock: huge boulder shoulders and forearms, a small
+    horned head sunk low between them, molten rock glowing through the cracks between
+    its plates, short thick legs. Faceted (low subdivision, high noise) so it reads as rock."""
+    ROCK = mat("GolemRock", (58, 46, 42)); DARK = mat("GolemDark", (34, 28, 28))
+    ASH = mat("GolemAsh", (92, 80, 74)); LAVA = mat("Lava", (255, 120, 40)); HOT = mat("LavaHot", (255, 214, 120))
+    out = []
+    # Hips and legs: short, wide-set pillars with boulder feet.
+    out.append(blob("Hips", DARK, (0, 0.6, 8.2), (5.2, 3.6, 2.6), sub=1, noise=0.16, seed=11))
+    for s in (-1, 1):
+        out.append(tube("Leg", ROCK, [(s * 3.6, 0.6, 8.0), (s * 4.0, 0.2, 4.2), (s * 4.3, -0.2, 1.2)], [2.7, 2.5, 2.9], sides=6, jitter=0.12, seed=12 + s))
+        out.append(blob("Foot", DARK, (s * 4.4, -0.8, 1.0), (3.0, 3.4, 1.5), sub=1, noise=0.18, seed=14 + s, flat=0.0))
+        out.append(blob("Glow", LAVA, (s * 4.2, -2.6, 3.4), (0.9, 0.5, 1.4), sub=1, seed=16 + s))
+    # The torso: one big boulder leaning forward, with plates over a molten core.
+    out.append(blob("Body", ROCK, (0, -0.6, 14.2), (7.0, 5.4, 5.8), sub=1, noise=0.15, seed=21))
+    out.append(blob("Core", LAVA, (0, -4.6, 14.0), (3.6, 1.6, 3.4), sub=1, noise=0.1, seed=22))
+    out.append(blob("Core", HOT, (0, -5.4, 14.0), (1.8, 0.8, 1.7), sub=1, seed=23))
+    rng = random.Random(24)
+    for i, (x, z, w, h) in enumerate([(-3.6, 17.0, 3.2, 2.6), (3.6, 17.2, 3.0, 2.7), (-4.2, 11.6, 2.8, 2.4), (4.0, 11.4, 3.0, 2.3), (0, 18.6, 3.6, 1.8), (0, 10.0, 3.4, 1.6)]):
+        out.append(blob("Plate", ASH if i % 2 else ROCK, (x, -5.0 - rng.uniform(0, 0.5), z), (w, 1.3, h), sub=1, noise=0.2, seed=30 + i))
+    # Lava running in the cracks between the plates, front and back.
+    for i in range(10):
+        x = rng.uniform(-5, 5); z = rng.uniform(10, 19)
+        out.append(tube("Seam", LAVA, [(x, -5.2, z), (x + rng.uniform(-1.5, 1.5), -5.4, z + rng.uniform(-2.5, 2.5))], [0.28, 0.18], sides=4))
+        out.append(tube("Seam", LAVA, [(x, 4.6, z), (x + rng.uniform(-1.5, 1.5), 4.9, z + rng.uniform(-2.5, 2.5))], [0.28, 0.18], sides=4))
+    # A ridge of rock spikes down the back, glowing at the tips.
+    for i in range(6):
+        z = 20.5 - i * 2.0; y = 4.2 + math.sin(i * 0.5) * 0.6
+        out.append(spike("Ridge", DARK, (0, y, z), (0, y + 3.4 - i * 0.2, z + 1.8), 1.3 - i * 0.08, sides=5, seed=40 + i))
+        out.append(blob("Ridge", LAVA, (0, y + 3.1 - i * 0.2, z + 1.6), (0.4, 0.4, 0.4), sub=1))
+    # Huge boulder shoulders.
+    for s in (-1, 1):
+        out.append(blob("Shoulder", ROCK, (s * 8.2, -0.4, 18.0), (3.9, 3.7, 3.4), sub=1, noise=0.18, seed=50 + s))
+        out.append(spike("Shoulder", DARK, (s * 9.0, 0.6, 20.6), (s * 11.2, 1.6, 24.0), 1.4, sides=5, seed=52 + s))
+        out.append(blob("Shoulder", LAVA, (s * 7.4, -3.6, 17.2), (1.2, 0.5, 1.6), sub=1, seed=54 + s))
+    # Small horned head, low and forward between the shoulders.
+    out.append(blob("Head", DARK, (0, -5.2, 18.6), (2.8, 2.6, 2.3), sub=1, noise=0.14, seed=60))
+    out.append(blob("Head", ROCK, (0, -6.6, 19.8), (2.9, 1.4, 0.9), sub=1, noise=0.1, seed=61))  # brow
+    for s in (-1, 1):
+        out.append(boxm("Eye", HOT, (s * 1.1, -7.75, 18.9), (1.3, 0.3, 0.45), rot=(0, s * 0.25, 0)))
+        out.append(tube("Horn", ASH, [(s * 2.2, -5.4, 20.0), (s * 3.8, -5.2, 21.6), (s * 4.4, -6.4, 23.4)], [0.75, 0.5, 0.12], sides=5))
+    out.append(blob("Head", LAVA, (0, -7.4, 17.2), (1.4, 0.4, 0.5), sub=1, seed=62))  # glowing mouth
+    # Arms: upper arm, a massive forearm, and a boulder fist with glowing knuckles.
+    for s in (-1, 1):
+        out.append(tube("Arm", ROCK, [(s * 8.8, -0.6, 16.6), (s * 9.8, -1.6, 12.4)], [2.3, 2.1], sides=6, jitter=0.12, seed=70 + s))
+        out.append(tube("Arm", DARK, [(s * 9.8, -1.8, 12.6), (s * 10.6, -3.0, 8.6), (s * 10.8, -3.8, 5.6)], [2.4, 3.2, 3.0], sides=6, jitter=0.15, seed=72 + s))
+        out.append(tube("Arm", LAVA, [(s * 11.6, -4.6, 10.4), (s * 11.9, -5.4, 7.0)], [0.3, 0.2], sides=4))
+        out.append(blob("Fist", ROCK, (s * 11.0, -4.6, 3.6), (3.4, 3.4, 3.0), sub=1, noise=0.2, seed=74 + s))
+        for k in (-1, 0, 1):
+            out.append(blob("Fist", LAVA, (s * (11.0 + k * 0.4), -7.6, 3.4 + k * 1.2), (0.7, 0.4, 0.6), sub=1))
+    return model("magma_golem", out)
 
 # ---------------------------------------------------------------- props
 
@@ -428,6 +477,148 @@ wolf(); goat(); crab(); turtle()
 cave_crawler(); cinder_beetle(); bog_slime()
 crawler_queen(); crystal_warden(); magma_golem()
 skull_rock(); signboard(); tent()
+
+# ---------------------------------------------------------------- sea life, crops, teepee (round 6)
+
+def coral_tube():
+    """A cluster of orange tube coral with green rims, like organ pipes."""
+    TUBE = mat("CoralOrange", (246, 132, 52)); RIM = mat("CoralRim", (60, 200, 150)); IN = mat("CoralHole", (120, 50, 30))
+    rng = random.Random(81); out = []
+    for i in range(7):
+        a = i * 2.4; r = 0.6 + (i % 3) * 0.55
+        x, y = math.cos(a) * r, math.sin(a) * r
+        h = rng.uniform(1.6, 3.6); tilt = (x * 0.25, y * 0.25)
+        rad = rng.uniform(0.32, 0.5)
+        out.append(tube("Tube", TUBE, [(x, y, 0), (x + tilt[0], y + tilt[1], h)], [rad * 1.15, rad], sides=8))
+        out.append(tube("Rim", RIM, [(x + tilt[0], y + tilt[1], h - 0.05), (x + tilt[0], y + tilt[1], h + 0.12)], [rad * 1.12, rad * 1.12], sides=8))
+        out.append(blob("Hole", IN, (x + tilt[0], y + tilt[1], h + 0.13), (rad * 0.8, rad * 0.8, 0.03), sub=1))
+    return model("coral_tube", out)
+
+def coral_brain():
+    PINK = mat("CoralPink", (240, 140, 180)); LINE = mat("CoralPinkDark", (196, 96, 140))
+    out = [blob("Head", PINK, (0, 0, 0.9), (1.8, 1.6, 1.2), sub=2, noise=0.08, seed=82, flat=0.0)]
+    for i in range(5):
+        x0 = (i - 2) * 0.62
+        pts = []
+        for k in range(7):
+            y = -1.25 + k * (2.5 / 6)
+            x = x0 + math.sin(k * 1.3 + i) * 0.12
+            q = 1 - (x / 1.8) ** 2 - (y / 1.6) ** 2
+            pts.append((x, y, 0.9 + 1.2 * math.sqrt(max(q, 0.02)) - 0.02))
+        out.append(tube("Ridge", LINE, pts, [0.1] * 7, sides=4))
+    return model("coral_brain", out)
+
+def coral_yellow():
+    YEL = mat("CoralYellow", (250, 220, 70))
+    out = []
+    rng = random.Random(83)
+    for i in range(4):
+        x, y = rng.uniform(-1, 1), rng.uniform(-1, 1)
+        out.append(blob("Head", YEL, (x, y, 0.7 + i * 0.15), (1.1, 1.0, 0.8), sub=2, noise=0.12, seed=84 + i, flat=0.0))
+    return model("coral_yellow", out)
+
+def coral_branch():
+    """Purple branching (staghorn) coral."""
+    P = mat("CoralPurple", (150, 110, 230)); TIP = mat("CoralLilac", (220, 190, 255))
+    rng = random.Random(85); out = []
+    def grow(p, d, r, depth):
+        if depth == 0 or r < 0.12:
+            out.append(blob("Tip", TIP, p, (r * 1.3, r * 1.3, r * 1.3), sub=1)); return
+        L = rng.uniform(0.9, 1.5)
+        q = (p[0] + d[0] * L, p[1] + d[1] * L, p[2] + d[2] * L)
+        out.append(tube("Branch", P, [p, q], [r, r * 0.8], sides=5))
+        for k in range(2):
+            a = rng.uniform(0, 6.28); spread = rng.uniform(0.35, 0.7)
+            nd = (d[0] + math.cos(a) * spread, d[1] + math.sin(a) * spread, d[2])
+            n = math.sqrt(sum(c * c for c in nd)); nd = tuple(c / n for c in nd)
+            grow(q, nd, r * 0.75, depth - 1)
+    for i in range(3):
+        a = i * 2.1
+        grow((math.cos(a) * 0.4, math.sin(a) * 0.4, 0), (math.cos(a) * 0.3, math.sin(a) * 0.3, 1), 0.36, 4)
+    return model("coral_branch", out)
+
+def coral_fan():
+    RED = mat("CoralRed", (220, 60, 60)); STEM = mat("CoralRedDark", (150, 40, 40))
+    out = [tube("Stem", STEM, [(0, 0, 0), (0, 0, 0.9)], [0.22, 0.16], sides=5)]
+    bm = bmesh.new(); verts = []
+    rng = random.Random(86)
+    rows = []
+    for j in range(5):
+        row = []
+        for i in range(9):
+            a = -1.2 + i * 0.3; rr = 0.8 + j * 0.55
+            row.append(bm.verts.new((math.sin(a) * rr, rng.uniform(-0.08, 0.08), 0.8 + math.cos(a) * rr)))
+        rows.append(row)
+    for j in range(4):
+        for i in range(8):
+            bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
+    out.append(obj_from_bm(bm, "Fan", RED))
+    return model("coral_fan", out)
+
+def sea_plant():
+    """A clump of red feathery sea plants (as on the reference title screen)."""
+    RED = mat("SeaPlantRed", (200, 50, 50)); out = []
+    for i in range(6):
+        a = i * 1.05; lean = 0.35
+        pts = [(math.cos(a) * 0.2, math.sin(a) * 0.2, 0)]
+        for k in range(1, 5):
+            pts.append((math.cos(a) * (0.2 + lean * k * 0.5), math.sin(a) * (0.2 + lean * k * 0.5), k * 0.65 + math.sin(k + i) * 0.1))
+        out.append(tube("Frond", RED, pts, [0.14, 0.12, 0.1, 0.07, 0.02], sides=4))
+    return model("sea_plant", out)
+
+def seaweed():
+    G = mat("Seaweed", (70, 150, 70)); G2 = mat("SeaweedLight", (120, 190, 90)); out = []
+    for i in range(4):
+        x = (i - 1.5) * 0.45
+        pts = [(x, 0, 0)] + [(x + math.sin(k * 0.9 + i) * 0.35, math.cos(k * 0.7 + i) * 0.2, k * 1.1) for k in range(1, 7)]
+        out.append(tube("Blade", G if i % 2 else G2, pts, [0.22, 0.24, 0.22, 0.2, 0.16, 0.1, 0.02], sides=4, flat=0.25))
+    return model("seaweed", out)
+
+def fish():
+    """A small low-poly reef fish, facing -Y. The game tints the Body per school."""
+    BODY = mat("FishBody", (250, 170, 60)); FIN = mat("FishFin", (255, 230, 170)); EYE = mat("FishEye", (20, 20, 24))
+    out = [blob("Body", BODY, (0, 0, 0), (0.28, 0.8, 0.5), sub=1, noise=0.02, seed=87)]
+    out.append(spike("Tail", FIN, (0, 0.7, 0), (0, 1.2, 0.3), 0.14, sides=3))
+    out.append(spike("Tail", FIN, (0, 0.7, 0), (0, 1.2, -0.3), 0.14, sides=3))
+    out.append(spike("Fin", FIN, (0, -0.1, 0.42), (0, 0.35, 0.72), 0.12, sides=3))
+    for s in (-1, 1):
+        out.append(blob("Eye", EYE, (s * 0.22, -0.5, 0.12), (0.08, 0.08, 0.08), sub=1))
+    return model("fish", out)
+
+def crop_patch():
+    """A tilled plot of dark soil with three rows of leafy plants (a forage patch)."""
+    SOIL = mat("Soil", (92, 66, 44)); SOIL2 = mat("SoilDark", (70, 50, 34)); LEAF = mat("CropLeaf", (110, 170, 60)); ROOT = mat("CropRoot", (236, 140, 50))
+    out = [blob("Soil", SOIL, (0, 0, 0.0), (5.5, 3.6, 0.45), sub=2, noise=0.06, seed=88, flat=0.0)]
+    rng = random.Random(89)
+    for r in (-1, 0, 1):
+        out.append(tube("Furrow", SOIL2, [(-4.6, r * 1.6, 0.35), (4.6, r * 1.6, 0.35)], [0.35, 0.35], sides=5, flat=0.4))
+        for i in range(6):
+            x = -3.8 + i * 1.5 + rng.uniform(-0.2, 0.2)
+            for k in range(4):
+                a = k * 1.57 + rng.uniform(-0.3, 0.3)
+                out.append(spike("Leaf", LEAF, (x, r * 1.6, 0.45), (x + math.cos(a) * 0.5, r * 1.6 + math.sin(a) * 0.5, 1.3 + rng.uniform(0, 0.4)), 0.16, sides=3, seed=i * 4 + k))
+            out.append(blob("Root", ROOT, (x, r * 1.6, 0.5), (0.22, 0.22, 0.18), sub=1))
+    return model("crop_patch", out)
+
+def teepee():
+    """A big hide teepee (about 4 player heights) with dark green bands, a door flap and
+    poles crossing out of the top. Faces -Y."""
+    HIDE = mat("TeepeeHide", (214, 196, 150)); BAND = mat("TeepeeBand", (40, 86, 60)); POLE = mat("TeepeePole", (96, 66, 42)); DOOR = mat("TeepeeDoor", (40, 30, 22))
+    out = []
+    H, R = 22.0, 9.0
+    out.append(tube("Hide", HIDE, [(0, 0, 0), (0, 0, H * 0.92)], [R, R * 0.08], sides=12))
+    for z0, z1 in ((H * 0.12, H * 0.18), (H * 0.6, H * 0.66)):
+        r0, r1 = R * (1 - z0 / (H * 0.92)) + 0.35, R * (1 - z1 / (H * 0.92)) + 0.35
+        out.append(tube("Band", BAND, [(0, 0, z0), (0, 0, z1)], [r0, r1], sides=12))
+    # An arched door opening: a dark flat panel just proud of the hide.
+    dz = 3.4; dr = R * (1 - dz / (H * 0.92))
+    out.append(tube("Door", DOOR, [(0, -dr - 0.25, 0.05), (0, -dr * 0.86 - 0.3, 5.4), (0, -dr * 0.8 - 0.3, 6.6)], [2.2, 1.7, 0.4], sides=8, flat=0.12))
+    for i in range(6):
+        a = i * 1.047 + 0.3
+        out.append(tube("Pole", POLE, [(math.cos(a) * R * 0.9, math.sin(a) * R * 0.9, 0), (-math.cos(a) * 1.4, -math.sin(a) * 1.4, H + 3)], [0.3, 0.22], sides=5))
+    return model("teepee", out)
+
+coral_tube(); coral_brain(); coral_yellow(); coral_branch(); coral_fan(); sea_plant(); seaweed(); fish(); crop_patch(); teepee()
 
 if os.environ.get('PREVIEW'):
     # One small render per model, then a contact sheet: docs/previews/set4.png
