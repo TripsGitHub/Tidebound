@@ -1,5 +1,5 @@
--- Saving: each player's bag, worn armour, held item, level, XP and Shells are kept in a
--- DataStore between visits.
+-- Saving: each player's bag, worn armour, held item, level, XP, Shells and quests are
+-- kept in a DataStore between visits.
 --
 --   * Loads when the player joins, before they can do anything.
 --   * Saves every few minutes, when they leave, and when the server shuts down.
@@ -11,7 +11,7 @@
 --
 -- In Studio, saving only works when "Enable Studio Access to API Services" is turned on
 -- (Game Settings > Security). Without it you play normally and nothing is saved.
--- Quests are not saved yet.
+-- Quest progress and claimed rewards are saved too, so rewards can't be claimed twice.
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +21,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
 local Progression = require(script.Parent.Progression)
+local Quests = require(script.Parent.Quests)
 
 local Save = {}
 
@@ -90,6 +91,7 @@ local function snapshot(player: Player): { [string]: any }?
 		level = prog.level,
 		xp = prog.xp,
 		shells = prog.shells,
+		quests = Quests.export(player),
 	}
 end
 
@@ -144,6 +146,7 @@ function Save.load(player: Player): boolean
 	if type(data) == "table" and data.v then
 		Inventory.load(player, data)
 		Progression.load(player, data)
+		Quests.load(player, data.quests)
 	end
 	loaded[player] = true
 	return true

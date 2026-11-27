@@ -69,4 +69,35 @@ function Quests.claim(player: Player, questId: unknown)
 	end
 end
 
+-- For saving: progress and which quests were claimed (so rewards can't be claimed twice).
+function Quests.export(player: Player): QuestData?
+	local d = data[player]
+	return if d then { progress = table.clone(d.progress), claimed = table.clone(d.claimed) } else nil
+end
+
+function Quests.load(player: Player, saved: any)
+	local d = data[player]
+	if not d or type(saved) ~= "table" then
+		return
+	end
+	local known = {}
+	for _, quest in QuestList do
+		known[quest.id] = quest
+	end
+	if type(saved.progress) == "table" then
+		for id, n in saved.progress do
+			if known[id] and type(n) == "number" then
+				d.progress[id] = math.clamp(n, 0, known[id].amount)
+			end
+		end
+	end
+	if type(saved.claimed) == "table" then
+		for id, v in saved.claimed do
+			if known[id] and v == true then
+				d.claimed[id] = true
+			end
+		end
+	end
+end
+
 return Quests
