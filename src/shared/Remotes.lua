@@ -11,6 +11,7 @@ local NAMES = {
 	"OpenPanel", -- (panelName) "quests" | "shop"
 	"Swing", -- (character)
 	"HitFeedback", -- (target)
+	"Marker", -- (position, amount, kind, itemId?) kind: "hit" | "harvest" damage you dealt
 	-- client -> server
 	"Hit", -- (target)
 	"Equip", -- (itemId or nil) hold a tool/food/placeable

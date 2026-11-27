@@ -92,6 +92,7 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 	end
 	-- Hits only wear it down; the loot and XP come out when it breaks.
 	local hp = math.max((model:GetAttribute("HP") or def.hp) - power, 0)
+	Remotes.Marker:FireClient(player, model:GetBoundingBox().Position, power, "harvest", Inventory.getEquipped(player))
 	model:SetAttribute("HP", hp)
 	Remotes.HitFeedback:FireAllClients(model)
 	if hp <= 0 then
@@ -118,7 +119,9 @@ local function hitPlayer(attacker: Player, victimCharacter: Model, item)
 		return
 	end
 	local defense = Inventory.defense(victim)
-	humanoid:TakeDamage((item.damage or Config.UnarmedDamage) * (1 - defense))
+	local dealt = (item.damage or Config.UnarmedDamage) * (1 - defense)
+	humanoid:TakeDamage(dealt)
+	Remotes.Marker:FireClient(attacker, victimCharacter:GetPivot().Position, dealt, "hit", Inventory.getEquipped(attacker))
 	Remotes.HitFeedback:FireAllClients(victimCharacter)
 end
 
@@ -172,9 +175,13 @@ function Harvest.onHit(player: Player, target: unknown)
 	if kind == "node" then
 		hitNode(player, model, item, root.Position)
 	elseif kind == "structure" then
+		local at = model:GetBoundingBox().Position
 		hitStructure(model, item)
+		Remotes.Marker:FireClient(player, at, item.damage or Config.UnarmedDamage, "harvest", Inventory.getEquipped(player))
 	elseif kind == "animal" then
+		local at = model:GetBoundingBox().Position
 		Animals.damage(model, item.damage or Config.UnarmedDamage, player)
+		Remotes.Marker:FireClient(player, at, item.damage or Config.UnarmedDamage, "hit", Inventory.getEquipped(player))
 		Remotes.HitFeedback:FireAllClients(model)
 	else
 		hitPlayer(player, model, item)

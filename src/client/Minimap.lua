@@ -57,6 +57,12 @@ local segments = {} -- { a: Vector2, b: Vector2, y: number, r: number, frame: Fr
 local rooms = {} -- { p: Vector2, r: number, y: number, frame: Frame? }
 local underground = false
 local diving = false
+-- Zoom: scroll over the map (or tap + / -). The view eases toward the target so
+-- it glides instead of jumping.
+local ZOOMS = { 0.5, 0.75, 1, 1.5, 2.25, 3.25 }
+local zoomIndex = 3
+local zoom = 1
+local pinned: { UIScale } = {} -- labels and dots that keep their size when you zoom
 
 local function surfacePixel(x: number, z: number): Vector2
 	return Vector2.new((x - x0) / cell * SURFACE_PX, (z - z0) / cell * SURFACE_PX)
@@ -208,9 +214,11 @@ local function drawPlaces(places: StringValue)
 				TextStrokeTransparency = 0.3,
 				ZIndex = 3,
 			})
+			table.insert(pinned, new("UIScale", { Parent = label, Scale = 1 }))
 			if not isIsland then
 				label.Visible = false -- landmarks are just a dot; their names show when you get there
-				new("Frame", { Parent = surfaceWorld, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(p.X, p.Y), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = rgb(250, 214, 90), BorderSizePixel = 0, ZIndex = 3 }, { new("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+				local dot = new("Frame", { Parent = surfaceWorld, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(p.X, p.Y), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = rgb(250, 214, 90), BorderSizePixel = 0, ZIndex = 3 }, { new("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+				table.insert(pinned, new("UIScale", { Parent = dot, Scale = 1 }))
 			end
 		end
 	end
@@ -249,29 +257,36 @@ local function caveColour(y: number): Color3
 	return rgb(170, 120, 74):Lerp(rgb(90, 120, 210), t)
 end
 
-local function segmentFrame(s)
-	local mid = (s.a + s.b) / 2
-	local d = s.b - s.a
-	s.frame = new("Frame", {
+-- Each tunnel and room is drawn twice: a dark rim underneath (ZIndex 1) and the
+-- lit floor on top (ZIndex 2), so overlapping passages merge into one clean cave
+-- shape with an outline, instead of a pile of separate blobs.
+local RIM = 3 -- studs of outline
+local function capsule(pos: Vector2, length: number, width: number, rot: number, colour: Color3, z: number): Frame
+	return new("Frame", {
 		Parent = caveWorld,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(mid.X * CAVE_ZOOM, mid.Y * CAVE_ZOOM),
-		Size = UDim2.fromOffset(d.Magnitude * CAVE_ZOOM + s.r * CAVE_ZOOM * 2, s.r * 2 * CAVE_ZOOM),
-		Rotation = math.deg(math.atan2(d.Y, d.X)),
-		BackgroundColor3 = caveColour(s.y),
+		Position = UDim2.fromOffset(pos.X * CAVE_ZOOM, pos.Y * CAVE_ZOOM),
+		Size = UDim2.fromOffset((length + width) * CAVE_ZOOM, width * CAVE_ZOOM),
+		Rotation = rot,
+		BackgroundColor3 = colour,
 		BorderSizePixel = 0,
+		ZIndex = z,
 	}, { new("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 end
 
+local function segmentFrame(s)
+	local mid = (s.a + s.b) / 2
+	local d = s.b - s.a
+	local rot = math.deg(math.atan2(d.Y, d.X))
+	local col = caveColour(s.y)
+	s.rim = capsule(mid, d.Magnitude, s.r * 2 + RIM * 2, rot, col:Lerp(rgb(8, 6, 10), 0.7), 1)
+	s.frame = capsule(mid, d.Magnitude, s.r * 2, rot, col, 2)
+end
+
 local function roomFrame(rm)
-	rm.frame = new("Frame", {
-		Parent = caveWorld,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromOffset(rm.p.X * CAVE_ZOOM, rm.p.Y * CAVE_ZOOM),
-		Size = UDim2.fromOffset(rm.r * 2 * CAVE_ZOOM, rm.r * 2 * CAVE_ZOOM),
-		BackgroundColor3 = caveColour(rm.y),
-		BorderSizePixel = 0,
-	}, { new("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+	local col = caveColour(rm.y)
+	rm.rim = capsule(rm.p, 0, rm.r * 2 + RIM * 2, 0, col:Lerp(rgb(8, 6, 10), 0.7), 1)
+	rm.frame = capsule(rm.p, 0, rm.r * 2, 0, col, 2)
 end
 
 -- Light up whatever is close to you, and fade out what's far above or below.
@@ -287,7 +302,9 @@ local function reveal(pos: Vector3)
 			end
 		end
 		if s.frame then
-			s.frame.BackgroundTransparency = if math.abs(s.y - pos.Y) > SHOW_DEPTH then 0.75 else 0
+			local t = if math.abs(s.y - pos.Y) > SHOW_DEPTH then 0.75 else 0
+			s.frame.BackgroundTransparency = t
+			s.rim.BackgroundTransparency = t
 		end
 	end
 	for _, rm in rooms do
@@ -295,7 +312,9 @@ local function reveal(pos: Vector3)
 			roomFrame(rm)
 		end
 		if rm.frame then
-			rm.frame.BackgroundTransparency = if math.abs(rm.y - pos.Y) > SHOW_DEPTH then 0.75 else 0
+			local t = if math.abs(rm.y - pos.Y) > SHOW_DEPTH then 0.75 else 0
+			rm.frame.BackgroundTransparency = t
+			rm.rim.BackgroundTransparency = t
 		end
 	end
 end
@@ -359,14 +378,39 @@ local function layer(name: string): (Frame, Frame)
 	local l = new("Frame", { Parent = root, Name = name, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true }, {
 		new("UIScale", { Name = "Zoom", Scale = 1 }),
 	})
-	local world = new("Frame", { Parent = l, Name = "World", BackgroundTransparency = 1, Size = UDim2.fromOffset(1, 1) })
+	local world = new("Frame", { Parent = l, Name = "World", BackgroundTransparency = 1, Size = UDim2.fromOffset(1, 1) }, {
+		new("UIScale", { Name = "MapZoom", Scale = 1 }),
+	})
 	return l, world
 end
 
 function Minimap.init(parent: ScreenGui)
 	-- A plain square: no rim, no rounded corners, just the map.
 	local frame = new("Frame", { Parent = parent, Name = "Minimap", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -12), Size = UDim2.fromOffset(SIZE, SIZE), BackgroundTransparency = 1 })
-	root = new("Frame", { Parent = frame, Size = UDim2.fromOffset(SIZE, SIZE), BackgroundColor3 = SEA, BorderSizePixel = 0, ClipsDescendants = true })
+	root = new("Frame", { Parent = frame, Size = UDim2.fromOffset(SIZE, SIZE), BackgroundColor3 = SEA, BorderSizePixel = 0, ClipsDescendants = true, Active = true })
+	-- A thin dark frame round the map so it sits on the screen like a chart.
+	new("UIStroke", { Parent = frame, Color = rgb(40, 30, 20), Thickness = 3, Transparency = 0.15 })
+	new("Frame", { Parent = frame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, {
+		new("UIStroke", { Color = rgb(236, 224, 190), Thickness = 1, Transparency = 0.5 }),
+	})
+	local function setZoom(step: number)
+		zoomIndex = math.clamp(zoomIndex + step, 1, #ZOOMS)
+	end
+	root.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			setZoom(if input.Position.Z > 0 then 1 else -1)
+		end
+	end)
+	for i, sign in { "+", "-" } do
+		local b = new("TextButton", { Parent = frame, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4 + (i - 1) * 24), Size = UDim2.fromOffset(20, 20), BackgroundColor3 = rgb(40, 30, 20), BackgroundTransparency = 0.35, Text = sign, TextColor3 = rgb(255, 250, 235), TextSize = 18, FontFace = UIKit.FontFace, ZIndex = 12 }, {
+			new("UICorner", { CornerRadius = UDim.new(0, 5) }),
+		})
+		b.MouseButton1Click:Connect(function()
+			setZoom(if sign == "+" then 1 else -1)
+		end)
+	end
+	-- North marker on the top edge.
+	new("TextLabel", { Parent = frame, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Text = "N", TextColor3 = rgb(255, 250, 235), TextSize = 14, FontFace = UIKit.FontFace, TextStrokeTransparency = 0.2, ZIndex = 12 })
 	surfaceLayer, surfaceWorld = layer("Surface")
 	caveLayer, caveWorld = layer("Caves")
 	caveLayer.BackgroundColor3 = rgb(14, 12, 18)
@@ -417,9 +461,18 @@ function Minimap.init(parent: ScreenGui)
 			return
 		end
 		local pos = hrp.Position
+		local target = ZOOMS[zoomIndex]
+		if math.abs(target - zoom) > 0.001 then
+			zoom += (target - zoom) * math.min(1, dt * 10)
+			for _, sc in pinned do
+				sc.Scale = 1 / zoom
+			end
+		end
+		;(surfaceWorld:FindFirstChild("MapZoom") :: UIScale).Scale = zoom
+		;(caveWorld:FindFirstChild("MapZoom") :: UIScale).Scale = zoom
 		local p = surfacePixel(pos.X, pos.Z)
-		surfaceWorld.Position = UDim2.fromOffset(SIZE / 2 - p.X, SIZE / 2 - p.Y)
-		caveWorld.Position = UDim2.fromOffset(SIZE / 2 - pos.X * CAVE_ZOOM, SIZE / 2 - pos.Z * CAVE_ZOOM)
+		surfaceWorld.Position = UDim2.fromOffset(SIZE / 2 - p.X * zoom, SIZE / 2 - p.Y * zoom)
+		caveWorld.Position = UDim2.fromOffset(SIZE / 2 - pos.X * CAVE_ZOOM * zoom, SIZE / 2 - pos.Z * CAVE_ZOOM * zoom)
 		local look = workspace.CurrentCamera.CFrame.LookVector
 		arrow.Rotation = math.deg(math.atan2(look.X, -look.Z))
 

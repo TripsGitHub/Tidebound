@@ -4,14 +4,11 @@
 -- frame, just before physics runs. That works for both kinds of R15 joint: classic
 -- Motor6Ds and the AnimationConstraints that Roblox's Avatar Joint Upgrade swaps in
 -- (their C0/C1 are read-only, so writing C0 silently did nothing on new avatars).
--- The default Roblox Animate script is replaced by an empty one
--- (src/character/Animate.client.lua), so this module owns the whole body:
---   1. Locomotion: idle breathing, a walk/run cycle driven by how fast the character
---      really moves, a jump/fall pose in the air, and a squash when landing.
---   2. Holding a tool keeps the right arm out in front.
---   3. One-off actions (Anim.play): chop, slash, eat, place, pick up, drawing and
+-- Movement uses Roblox's own default animations (the standard Animate script). On top
+-- of them this module only drives:
+--   1. Holding a tool keeps the right arm out in front.
+--   2. One-off actions (Anim.play): chop, slash, eat, place, pick up, drawing and
 --      stowing a tool, and putting on each piece of armour.
---   4. Reactions on top of everything: landing and flinching when hurt.
 --
 -- Angles are in degrees, as (x, y, z) rotations of each joint:
 --   Shoulder/Hip x+ swings the limb forward, Elbow x+ bends the forearm forward,
@@ -358,6 +355,10 @@ end
 local function apply(character: Model, pose: Pose)
 	local rootPos = get(pose, "RootPos")
 	for joint, motor in motorsOf(character) do
+		-- Only the joints this pose moves: the rest keep Roblox's own animation.
+		if pose[joint] == nil and not (joint == "Root" and pose.RootPos) then
+			continue
+		end
 		local base = baseC0[motor]
 		if not base then
 			base = jointFrame(motor)
@@ -487,20 +488,13 @@ local function step(player: Player, character: Model, s: State, now: number, dt:
 
 	watchEquipment(character, s, now)
 
-	-- 1. Locomotion: idle -> walk -> run, blended by real speed.
-	local walk = math.clamp(s.speed / 10, 0, 1)
-	local run = math.clamp((s.speed - 17) / 8, 0, 1)
-	local stride = 7 + 3 * run -- studs per full cycle (two steps)
-	s.phase = (s.phase + dt * math.max(s.speed, 2) / stride * math.pi * 2) % (math.pi * 2)
-	local pose = mix(idlePose(now), walkPose(s.phase, run), smooth(walk))
-	if s.air > 0.01 then
-		pose = mix(pose, airPose(vel.Y > 2), smooth(s.air))
-	end
-
-	-- 2. Holding a tool: the right arm stays out, with a little of the walk swing.
+	-- Walking, running, jumping, swimming and climbing are Roblox's own animations (the
+	-- default Animate script). This only adds the tool-holding arm and the one-off
+	-- actions on top, and only touches the joints they use.
+	local pose: Pose = {}
 	if character:FindFirstChild("HeldItem") then
 		for joint, v in HOLD do
-			pose[joint] = v + get(pose, joint) * 0.25
+			pose[joint] = v
 		end
 	end
 
@@ -511,17 +505,6 @@ local function step(player: Player, character: Model, s: State, now: number, dt:
 		local out, done = sample(keys, pose, now - a.start)
 		if done then
 			s.action = nil
-		else
-			pose = out
-		end
-	end
-
-	-- 4. Reaction on top.
-	local r = s.react
-	if r then
-		local out, done = sample(REACTS[r.name], pose, now - r.start, r.scale, true)
-		if done then
-			s.react = nil
 		else
 			pose = out
 		end

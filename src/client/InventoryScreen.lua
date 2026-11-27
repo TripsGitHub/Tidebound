@@ -32,7 +32,7 @@ local craftTabs: { [string]: Frame } = {}
 local bagTabs: { [string]: Frame } = {}
 local craftTab = "All"
 local bagTab = "All"
-local favourites: { [string]: boolean } = {}
+local Favourites = require(script.Parent.Favourites)
 local state = { items = {}, equipped = nil, armour = {} }
 local callbacks: any = {}
 
@@ -227,7 +227,7 @@ local function bagCard(id: string)
 	ring.Parent = card
 	hoverable(card, id)
 	local star = textButton({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(20, 20), Text = "☆", TextColor3 = C.star, TextScaled = false, TextSize = 20, ZIndex = 3 }, function()
-		favourites[id] = not favourites[id] or nil
+		Favourites.toggle(id)
 		rebuildBag()
 	end)
 	Icons.make(id, card, UDim2.fromOffset(52, 52), UDim2.new(0.5, -26, 0, 4))
@@ -280,8 +280,9 @@ function rebuildBag()
 		end
 	end
 	table.sort(ids, function(a, b)
-		if (favourites[a] or false) ~= (favourites[b] or false) then
-			return favourites[a] == true
+		local fa, fb = Favourites.has(a), Favourites.has(b)
+		if fa ~= fb then
+			return fa
 		end
 		return Items[a].order < Items[b].order
 	end)
@@ -295,7 +296,7 @@ function rebuildBag()
 		entry.card.Visible = true
 		entry.card.LayoutOrder = i
 		entry.stroke.Enabled = worn or held
-		entry.star.Text = if favourites[id] then "★" else "☆"
+		entry.star.Text = if Favourites.has(id) then "★" else "☆"
 		local count = state.items[id]
 		entry.name.Text = if count > 1 then item.name .. " (x" .. count .. ")" else item.name
 		if entry.primary then

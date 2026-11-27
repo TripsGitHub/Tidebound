@@ -19,11 +19,11 @@ UIKit.Colors = {
 	good = Color3.fromRGB(88, 186, 74), -- "Trade", have-enough counts
 	bad = Color3.fromRGB(232, 86, 80), -- close X, missing counts
 	warn = Color3.fromRGB(236, 140, 60),
-	health = Color3.fromRGB(200, 98, 112), -- muted red-pink
-	hunger = Color3.fromRGB(212, 146, 154), -- dusty pink
-	bag = Color3.fromRGB(122, 170, 204), -- muted light blue
-	barBack = Color3.fromRGB(80, 70, 56), -- dark brown behind stat bars
-	xp = Color3.fromRGB(122, 214, 92), -- green, like the XP orbs
+	health = Color3.fromRGB(158, 62, 66), -- deep red, not neon
+	hunger = Color3.fromRGB(176, 112, 64), -- muted amber
+	bag = Color3.fromRGB(78, 116, 146), -- slate blue
+	barBack = Color3.fromRGB(52, 44, 34), -- dark brown behind stat bars
+	xp = Color3.fromRGB(96, 168, 72), -- green, like the XP orbs
 	gold = Color3.fromRGB(246, 200, 72),
 	star = Color3.fromRGB(250, 214, 90),
 }
@@ -228,6 +228,37 @@ end
 -- A window title in big outlined text.
 function UIKit.title(parent: Instance, text: string, y: number?)
 	return UIKit.label({ Parent = parent, Position = UDim2.fromOffset(0, y or 6), Size = UDim2.new(1, 0, 0, 30), Text = text, TextScaled = false, TextSize = 30 })
+end
+
+-- Screen scaling: every HUD size is in pixels tuned for a ~1600x900 window, so
+-- one UIScale on the ScreenGui shrinks it on small windows and phones and grows
+-- it a little on big monitors.
+local screenScale = 1
+function UIKit.screenScale(): number
+	return screenScale
+end
+function UIKit.fitScreen(gui: ScreenGui)
+	local scale = Instance.new("UIScale")
+	scale.Name = "ScreenFit"
+	scale.Parent = gui
+	local function fit()
+		local cam = workspace.CurrentCamera
+		if not cam then
+			return
+		end
+		local v = cam.ViewportSize
+		screenScale = math.clamp(math.min(v.X / 1600, v.Y / 900), 0.55, 1.3)
+		scale.Scale = screenScale
+	end
+	fit()
+	local function hook()
+		if workspace.CurrentCamera then
+			workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+		end
+		fit()
+	end
+	hook()
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(hook)
 end
 
 return UIKit

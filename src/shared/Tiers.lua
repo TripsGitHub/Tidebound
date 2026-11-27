@@ -68,12 +68,14 @@ function Tiers.paint(model: Model, tier: Tier)
 		if role == "Plate" then
 			d.Color = tier.plate
 			d.Material = PLATE_MATERIAL[tier.style]
-			d.Reflectance = if tier.style == "crystal" then 0.15 else 0
+			-- Metal and crystal catch the light (Island Tribes-style shine).
+			d.Reflectance = if tier.style == "crystal" then 0.35 elseif tier.style == "metal" then 0.28 else 0
 		elseif role == "Trim" then
 			d.Color = tier.trim
 			d.Material = if tier.style == "wood" then Enum.Material.Fabric
 				elseif tier.style == "stone" then Enum.Material.Leather
 				else Enum.Material.Metal
+			d.Reflectance = if tier.style == "metal" or tier.style == "crystal" then 0.2 else 0
 		elseif role == "Accent" then
 			d.Color = tier.accent
 			d.Material = if tier.glow then Enum.Material.Neon else Enum.Material.SmoothPlastic

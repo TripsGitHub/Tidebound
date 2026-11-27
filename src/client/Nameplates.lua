@@ -6,12 +6,22 @@
 -- Built for cosmetics later: a plate style is chosen by the player's "Nameplate"
 -- attribute (one of STYLES), and the line above by "Title" / "Tribe".
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local UIKit = require(script.Parent.UIKit)
 
 local new = UIKit.new
 local rgb = Color3.fromRGB
 
 local Nameplates = {}
+
+-- Plates keep a fixed pixel size on screen by default, so when you zoom out they
+-- dwarf the character. Shrink them with camera distance instead: full size up
+-- close, down to about 40% far away.
+local W, H = 230, 66
+local plates: { [BillboardGui]: { head: BasePart, scale: UIScale } } = {}
+local function plateScale(dist: number): number
+	return math.clamp(24 / math.max(dist, 1), 0.4, 1)
+end
 
 -- plank, darker edge, rope lashings, token, token rim, name colour
 local STYLES = {
@@ -53,13 +63,17 @@ local function attach(plr: Player, character: Model)
 	local gui = new("BillboardGui", {
 		Name = "TideboundNameplate",
 		Adornee = head,
-		Size = UDim2.fromOffset(230, 66),
+		Size = UDim2.fromOffset(W, H),
 		StudsOffsetWorldSpace = Vector3.new(0, 3, 0),
 		AlwaysOnTop = false,
 		MaxDistance = 160,
 		LightInfluence = 0,
 		Parent = head,
 	})
+	plates[gui] = { head = head, scale = new("UIScale", { Parent = gui, Scale = 1 }) }
+	gui.Destroying:Connect(function()
+		plates[gui] = nil
+	end)
 
 	-- The line above the plank: title or tribe (empty until there is one).
 	local over = text({ Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 0, 0, 16), Text = "", TextSize = 13, TextColor3 = rgb(250, 214, 90) })
@@ -130,7 +144,8 @@ local function attach(plr: Player, character: Model)
 
 	local function place()
 		-- Keep the token on the plank's left end whatever the name's length.
-		local w = plank.AbsoluteSize.X
+		local fit = gui:FindFirstChildOfClass("UIScale")
+		local w = plank.AbsoluteSize.X / (if fit and fit.Scale > 0 then fit.Scale else 1)
 		token.Position = UDim2.new(0.5, -w / 2 + 5, 1, -11)
 	end
 
@@ -182,6 +197,24 @@ local function watch(plr: Player)
 end
 
 function Nameplates.start()
+	RunService.RenderStepped:Connect(function()
+		local cam = workspace.CurrentCamera
+		if not cam then
+			return
+		end
+		local eye = cam.CFrame.Position
+		for gui, p in plates do
+			if not gui.Parent then
+				plates[gui] = nil
+				continue
+			end
+			local s = plateScale((p.head.Position - eye).Magnitude)
+			if math.abs(p.scale.Scale - s) > 0.01 then
+				p.scale.Scale = s
+				gui.Size = UDim2.fromOffset(W * s, H * s)
+			end
+		end
+	end)
 	for _, plr in Players:GetPlayers() do
 		watch(plr)
 	end

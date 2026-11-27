@@ -15,6 +15,7 @@ local Recipes = require(Shared.Recipes)
 local ShopList = require(Shared.Shop)
 local UIKit = require(script.Parent.UIKit)
 local Icons = require(script.Parent.Icons)
+local Favourites = require(script.Parent.Favourites)
 local Hover = require(script.Parent.Hover)
 
 local C = UIKit.Colors
@@ -67,23 +68,37 @@ function UI.hotbarSize(): number
 	return Config.hotbarSlotsFor(Players.LocalPlayer:GetAttribute("Level") or 1)
 end
 
+-- Starred items first (any kind, armour included, in the order you starred
+-- them), then tools, food, placeables and crates fill the remaining slots.
 function UI.hotbarIds(): { string }
+	local size = UI.hotbarSize()
+	local out, used = {}, {}
+	for _, id in Favourites.list() do
+		if #out < size and (state.items[id] or 0) > 0 and Items[id] then
+			table.insert(out, id)
+			used[id] = true
+		end
+	end
 	local ids = {}
 	for id, count in state.items do
 		local kind = Items[id] and Items[id].kind
-		if count > 0 and (kind == "tool" or kind == "food" or kind == "placeable" or kind == "crate") then
+		if count > 0 and not used[id] and (kind == "tool" or kind == "food" or kind == "placeable" or kind == "crate") then
 			table.insert(ids, id)
 		end
 	end
 	table.sort(ids, function(a, b)
 		return Items[a].order < Items[b].order
 	end)
-	local out = {}
-	for i = 1, math.min(UI.hotbarSize(), #ids) do
-		out[i] = ids[i]
+	for _, id in ids do
+		if #out >= size then
+			break
+		end
+		table.insert(out, id)
 	end
 	return out
 end
+
+local lastSelected: { [string]: boolean } = {}
 
 local function rebuildHotbar()
 	for _, c in hotbar:GetChildren() do
@@ -94,7 +109,9 @@ local function rebuildHotbar()
 	local ids = UI.hotbarIds()
 	for i = 1, math.max(UI.hotbarSize(), #ids) do
 		local id = ids[i]
-		local selected = id ~= nil and id == state.equipped
+		local item = id and Items[id]
+		local worn = item ~= nil and item.kind == "armour" and state.armour[item.slot] == id
+		local selected = id ~= nil and (id == state.equipped or worn)
 		-- Round flat tan slot; the item's name sits above it, the stack count inside
 		-- at the bottom. All your slots always show, like Island Tribes; the held
 		-- item's slot gets a gold rim.
@@ -118,9 +135,26 @@ local function rebuildHotbar()
 			if (state.items[id] or 0) > 1 then
 				label({ Parent = slot, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.fromOffset(40, 14), Text = tostring(state.items[id]), TextScaled = false, TextSize = 13, ZIndex = 3 })
 			end
+			if Favourites.has(id) then
+				label({ Parent = slot, Position = UDim2.fromOffset(2, 0), Size = UDim2.fromOffset(14, 14), Text = "★", TextColor3 = C.star, TextScaled = false, TextSize = 13, ZIndex = 3 })
+			end
 			slot.MouseButton1Click:Connect(function()
 				callbacks.onSlot(i)
 			end)
+			-- Pop: the slot you just picked jumps up and settles.
+			if selected and not lastSelected[id] then
+				local scale = new("UIScale", { Parent = slot, Scale = 1.28 })
+				TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				slot.Position = UDim2.new(0.5, 0, 1, -8)
+				TweenService:Create(slot, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 1, 0) }):Play()
+			end
+		end
+	end
+	lastSelected = {}
+	for _, id in ids do
+		local item = Items[id]
+		if id == state.equipped or (item.kind == "armour" and state.armour[item.slot] == id) then
+			lastSelected[id] = true
 		end
 	end
 end
@@ -426,7 +460,7 @@ local function updateCompass()
 	end
 	local look = cam.CFrame.LookVector
 	local heading = math.deg(math.atan2(look.X, -look.Z)) % 360 -- 0 = north (-Z)
-	local half = compass.AbsoluteSize.X / 2
+	local half = compass.Size.X.Offset / 2
 	for _, m in compassMarks do
 		local diff = (m.deg - heading + 540) % 360 - 180
 		local x = half + diff * COMPASS_PX_PER_DEG
@@ -591,8 +625,14 @@ end
 
 function UI.init(cb)
 	callbacks = cb
+	Favourites.Changed:Connect(function()
+		if hotbar then
+			rebuildHotbar()
+		end
+	end)
 	gui = new("ScreenGui", { Name = "TideboundHUD", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = player:WaitForChild("PlayerGui") })
 	UI.root = gui
+	UIKit.fitScreen(gui)
 
 	-- XP bar (top centre): "Lv. 2 [ 21 / 44 XP ] Lv. 3"
 	local xpRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 8), Size = UDim2.fromOffset(420, 26), BackgroundTransparency = 1 })

@@ -34,7 +34,18 @@ end
 
 local function equipSlot(index: number)
 	local id = UI.hotbarIds()[index]
-	if id then
+	local item = id and Items[id]
+	if not item then
+		return
+	end
+	if item.kind == "armour" then
+		-- Armour on the hotbar: click to put it on or take it off.
+		Remotes.Wear:FireServer(id)
+	elseif item.kind == "food" or item.kind == "crate" then
+		-- Food heals straight from the hotbar; crates open.
+		Remotes.Eat:FireServer(id)
+		Anim.play(player.Character, "eat")
+	else
 		hold(if id == equipped then nil else id)
 	end
 end
@@ -85,6 +96,7 @@ task.spawn(Gates.start)
 Nameplates.start()
 Minimap.init(UI.root :: ScreenGui)
 require(script.Parent.BossBar).init(UI.root :: ScreenGui)
+require(script.Parent.Markers).start()
 Effects.startAmbient()
 
 -- Swinging -----------------------------------------------------------------------
