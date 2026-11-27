@@ -19,4 +19,17 @@ from the repo root, and re-import.
 
 ## Rebuilding
 `pip install bpy`, then `python3 blender/set1.py` (trees, rocks, club) or
-`python3 blender/set2.py world|items` (boar, building pieces, campfire, slime pool, dropped items).
+`python3 blender/set2.py world|items` (boar, building pieces, campfire, slime pool, dropped items),
+`python3 blender/set3.py` (armour, swords, harvesters and bags; `PREVIEW=1` also renders the sheets
+in `docs/previews/armour/`).
+
+## Armour and tiered tools (set 3)
+Armour, swords and harvesters come in four styles: wood, stone, metal and crystal. All ten tiers
+(`src/shared/Tiers.lua`) reuse their style's meshes, and the game recolours each part by its name:
+`Plate`, `Trim`, `Accent`, `Strap` (and `Handle`, which stays wood).
+
+These models have an invisible `Bounds` part centred on their origin. `Meshes.build` measures
+from it and leaves it out:
+- Armour pieces are centred on the body part they're worn on, and modelled for the R15 sizes in
+  `src/shared/ArmourModels.lua`, so they stretch to fit any R15 avatar.
+- Swords and harvesters have the grip at the origin. Bags are centred.

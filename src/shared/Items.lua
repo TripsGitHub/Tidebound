@@ -21,10 +21,12 @@ local Items = {
 
 	-- Armour -----------------------------------------------------------
 	wood_helmet = { name = "Wood Helmet", kind = "armour", slot = "head", order = 40, defense = 0.03 },
-	wood_body = { name = "Wood Body", kind = "armour", slot = "body", order = 41, defense = 0.05 },
-	wood_legs = { name = "Wood Legs", kind = "armour", slot = "legs", order = 42, defense = 0.04 },
+	wood_body = { name = "Wood Chestplate", kind = "armour", slot = "body", order = 41, defense = 0.05 },
+	wood_legs = { name = "Wood Leggings", kind = "armour", slot = "legs", order = 42, defense = 0.04 },
 	wood_boots = { name = "Wood Boots", kind = "armour", slot = "feet", order = 43, defense = 0.02 },
-	leather_bag = { name = "Leather Bag", kind = "armour", slot = "bag", order = 44, bagSize = 80 },
+	leather_bag = { name = "Leather Bag", kind = "armour", slot = "bag", order = 45, bagSize = 80 },
+	hide_pack = { name = "Hide Pack", kind = "armour", slot = "bag", order = 45.1, bagSize = 120 },
+	explorer_pack = { name = "Explorer Pack", kind = "armour", slot = "bag", order = 45.2, bagSize = 160 },
 
 	-- Food -------------------------------------------------------------
 	berries = { name = "Berries", kind = "food", order = 20, hunger = 8 },
@@ -48,5 +50,60 @@ local Items = {
 	sticky_slime = { name = "Sticky Slime", kind = "resource", order = 104 },
 	leather = { name = "Leather", kind = "resource", order = 105 },
 }
+
+-- Tiered gear ------------------------------------------------------------
+-- Every tier in Tiers.lua gets a helmet, chestplate, leggings, boots, sword and harvester.
+-- Entries written out above keep their stats; the rest scale with the tier's rank.
+-- Most of these have no recipe yet, so they only exist once something gives them out.
+local Tiers = require(script.Parent.Tiers)
+
+local ARMOUR = {
+	{ key = "helmet", slot = "head", label = "Helmet", share = 3 },
+	{ key = "body", slot = "body", label = "Chestplate", share = 5 },
+	{ key = "legs", slot = "legs", label = "Leggings", share = 4 },
+	{ key = "boots", slot = "feet", label = "Boots", share = 2 },
+}
+
+local function round(x: number): number
+	return math.floor(x * 1000 + 0.5) / 1000
+end
+
+for _, tier in Tiers.list do
+	local r = tier.rank
+	-- Defence for the full set: 14% for wood, +5% per tier (59% for lunar).
+	local total = 0.14 + 0.05 * (r - 1)
+	for i, piece in ARMOUR do
+		local id = tier.id .. "_" .. piece.key
+		local item = Items[id] or {
+			name = tier.name .. " " .. piece.label,
+			kind = "armour",
+			slot = piece.slot,
+			defense = round(total * piece.share / 14),
+		}
+		item.order = 40 + r * 0.1 + i * 0.01
+		Items[id] = item
+	end
+
+	local sword = tier.id .. "_sword"
+	Items[sword] = Items[sword] or {
+		name = tier.name .. " Sword",
+		kind = "tool",
+		swing = "slash",
+		gather = { wood = 1, plant = 1 },
+		cooldown = 0.65,
+		damage = if r == 1 then 16 else 22 + 7 * (r - 2),
+	}
+	Items[sword].order = 3 + r * 0.1 + 0.01
+
+	local harvester = tier.id .. "_harvester"
+	Items[harvester] = Items[harvester] or {
+		name = tier.name .. " Harvester",
+		kind = "tool",
+		gather = { wood = r + 1, stone = r + 1, plant = math.max(2, r), slime = r },
+		cooldown = 0.55,
+		damage = 8 + 3 * (r - 1),
+	}
+	Items[harvester].order = 3 + r * 0.1 + 0.02
+end
 
 return Items

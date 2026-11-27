@@ -5,7 +5,8 @@
 -- is named "<model>__<Part>", e.g. "pine__Trunk". A model is all parts with its prefix.
 --
 -- Built models have their pivot at the bottom-centre of their bounding box, so
--- PivotTo(groundCFrame) stands them on the ground. If the meshes are missing,
+-- PivotTo(groundCFrame) stands them on the ground. Models with a "<model>__Bounds" part
+-- (armour, newer tools and bags) measure from that box and leave it out of the model. If the meshes are missing,
 -- Meshes.has() returns false and callers fall back to their block models.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -72,6 +73,24 @@ export type Options = {
 	collide: boolean?,
 }
 
+-- Size of a model's Bounds box (or of all its parts), or nil if the mesh isn't in the place.
+function Meshes.size(name: string): Vector3?
+	local source = load()[name]
+	if not source then
+		return nil
+	end
+	local lo = Vector3.one * math.huge
+	local hi = -lo
+	for _, p in source do
+		if p.Name == name .. "__Bounds" then
+			return p.Size
+		end
+		lo = lo:Min(p.Position - p.Size / 2)
+		hi = hi:Max(p.Position + p.Size / 2)
+	end
+	return hi - lo
+end
+
 -- Returns a new Model (PrimaryPart = biggest part), or nil if the mesh isn't in the place.
 function Meshes.build(name: string, options: Options?): Model?
 	local source = load()[name]
@@ -80,10 +99,17 @@ function Meshes.build(name: string, options: Options?): Model?
 	end
 	local opts: Options = options or {}
 
-	-- Bounding box of the source parts, in their imported positions.
+	-- Bounding box of the source parts, in their imported positions. A model with an
+	-- invisible "Bounds" part uses that box instead (it marks the origin and the fit size).
 	local lo = Vector3.one * math.huge
 	local hi = -lo
+	local bounds: MeshPart? = nil
 	for _, p in source do
+		if p.Name == name .. "__Bounds" then
+			bounds = p
+		end
+	end
+	for _, p in if bounds then { bounds } else source do
 		local half = p.Size / 2
 		lo = lo:Min(p.Position - half)
 		hi = hi:Max(p.Position + half)
@@ -99,6 +125,9 @@ function Meshes.build(name: string, options: Options?): Model?
 	model.Name = name
 	local primary: MeshPart? = nil
 	for _, src in source do
+		if src == bounds then
+			continue
+		end
 		local p = src:Clone()
 		local short = src.Name:sub(#name + 3)
 		p.Name = short
