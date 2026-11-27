@@ -258,6 +258,10 @@ local function blocked(cf: CFrame, size: Vector3): boolean
 	return #workspace:GetPartBoundsInBox(cf, size - Vector3.new(0.3, 0.3, 0.3), overlap) > 0
 end
 
+-- Defined with the base saving code below.
+local baseOf: (userId: number) -> Model?
+local rebuildOn: (player: Player, base: Model) -> ()
+
 function Building.onPlace(player: Player, itemId: unknown, position: unknown, rotation: unknown, tiles: unknown)
 	if type(itemId) ~= "string" or typeof(position) ~= "Vector3" or type(rotation) ~= "number" then
 		return
@@ -359,7 +363,7 @@ end
 
 local pending: { [Player]: { itemId: string?, builds: { any } } } = {}
 
-local function baseOf(userId: number): Model?
+function baseOf(userId: number): Model?
 	for _, m in workspace.Structures:GetChildren() do
 		local st = m:GetAttribute("StructureType")
 		if m:GetAttribute("OwnerId") == userId and st and Structures.isBase(st) and m:IsA("Model") and m.PrimaryPart then
@@ -403,7 +407,7 @@ local function round1(n: number): number
 end
 
 -- Called when a base goes down: if it's the one you saved, everything on it comes back.
-local function rebuildOn(player: Player, base: Model)
+function rebuildOn(player: Player, base: Model)
 	local saved = pending[player]
 	if not saved then
 		return

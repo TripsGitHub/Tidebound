@@ -166,7 +166,7 @@ RunService.RenderStepped:Connect(function()
 		end
 	end
 	ghost.CFrame = cf
-	valid = (ghost.Position - root.Position).Magnitude <= Config.BuildRange and hit.Material ~= Enum.Material.Water
+	valid = (ghost.Position - root.Position).Magnitude <= Config.BuildRange + size.X / 2 and hit.Material ~= Enum.Material.Water
 	local color = if valid then Color3.fromRGB(90, 220, 90) else Color3.fromRGB(230, 70, 60)
 	ghost.Transparency = 0.65
 	ghost.Color = color
