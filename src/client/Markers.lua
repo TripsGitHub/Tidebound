@@ -1,6 +1,6 @@
--- Damage markers: a number that pops up and floats away every time something takes a
--- hit: red with the tool's icon when you hit something, plain red when you're hurt,
--- green with a + when you heal.
+-- Damage markers, like Island Tribes: every time something takes a hit a marker pops up
+-- and floats away. A red badge with your tool's icon when you hit something, a red heart
+-- when you're hurt, a green heart when you heal, each with the number on a white pill.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -20,6 +20,39 @@ local FONT = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWei
 -- and the icon, number and outline fade together (one CanvasGroup).
 local RISE = 2.6 -- studs it drifts up
 local LIFE = 1.05 -- seconds on screen
+-- Island Tribes style: a flat heart (red when hurt, green when healing) or a red badge
+-- with the tool's icon (when you hit something), with a white rounded pill on it
+-- holding the number.
+local function heart(parent: Instance, size: number, colour: Color3, z: number)
+	local holder = Instance.new("Frame")
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	holder.Position = UDim2.fromScale(0.5, 0.5)
+	holder.Size = UDim2.fromOffset(size, size)
+	holder.ZIndex = z
+	holder.Parent = parent
+	local function piece(x: number, y: number, w: number, round: boolean, rot: number)
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(x, y)
+		f.Size = UDim2.fromScale(w, w)
+		f.Rotation = rot
+		f.BackgroundColor3 = colour
+		f.BorderSizePixel = 0
+		f.ZIndex = z
+		f.Parent = holder
+		if round then
+			Instance.new("UICorner", f).CornerRadius = UDim.new(1, 0)
+		else
+			Instance.new("UICorner", f).CornerRadius = UDim.new(0.12, 0)
+		end
+	end
+	piece(0.5, 0.56, 0.6, false, 45)
+	piece(0.3, 0.36, 0.52, true, 0)
+	piece(0.7, 0.36, 0.52, true, 0)
+	return holder
+end
+
 local function show(at: Vector3, amount: number, color: Color3, itemId: string?, _self: boolean, heal: boolean?)
 	local anchor = Instance.new("Part")
 	anchor.Anchored, anchor.CanCollide, anchor.CanQuery, anchor.CanTouch = true, false, false, false
@@ -28,7 +61,7 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	anchor.CFrame = CFrame.new(at + Vector3.new(math.random() * 1.2 - 0.6, 1.2, math.random() * 1.2 - 0.6))
 	anchor.Parent = workspace.CurrentCamera
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(140, 48)
+	gui.Size = UDim2.fromOffset(72, 72)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
 	gui.MaxDistance = 120
@@ -41,66 +74,63 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	group.GroupTransparency = 0.15
 	group.Parent = gui
 	local scale = Instance.new("UIScale")
-	scale.Scale = 0.85
+	scale.Scale = 0.6
 	scale.Parent = group
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.Padding = UDim.new(0, 3)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = group
-	if heal then
-		-- A little green cross in a soft round badge instead of an item icon.
+	local dark = if heal then Color3.fromRGB(30, 96, 40) else Color3.fromRGB(120, 22, 18)
+	local fill = if heal then Color3.fromRGB(92, 200, 80) else Color3.fromRGB(232, 58, 48)
+	local textColour = if heal then Color3.fromRGB(46, 150, 50) else Color3.fromRGB(210, 40, 32)
+	local pillY = 0.5
+	if itemId and not heal then
+		-- What you hit with: a red rounded badge with the tool's icon, number below it.
 		local badge = Instance.new("Frame")
-		badge.Size = UDim2.fromOffset(26, 26)
-		badge.LayoutOrder = 1
-		badge.BackgroundColor3 = Color3.fromRGB(40, 110, 50)
+		badge.AnchorPoint = Vector2.new(0.5, 0.5)
+		badge.Position = UDim2.fromScale(0.5, 0.36)
+		badge.Size = UDim2.fromOffset(40, 40)
+		badge.BackgroundColor3 = fill
 		badge.Parent = group
-		Instance.new("UICorner", badge).CornerRadius = UDim.new(1, 0)
+		Instance.new("UICorner", badge).CornerRadius = UDim.new(0.3, 0)
 		local ring = Instance.new("UIStroke")
-		ring.Color = Color3.fromRGB(200, 255, 190)
-		ring.Thickness = 2
+		ring.Color = dark
+		ring.Thickness = 3
 		ring.Parent = badge
-		for _, sz in { Vector2.new(14, 4), Vector2.new(4, 14) } do
-			local bar = Instance.new("Frame")
-			bar.AnchorPoint = Vector2.new(0.5, 0.5)
-			bar.Position = UDim2.fromScale(0.5, 0.5)
-			bar.Size = UDim2.fromOffset(sz.X, sz.Y)
-			bar.BackgroundColor3 = Color3.fromRGB(235, 255, 225)
-			bar.BorderSizePixel = 0
-			bar.Parent = badge
-			Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
-		end
-	elseif itemId then
 		local holderIcon = Instance.new("Frame")
 		holderIcon.BackgroundTransparency = 1
-		holderIcon.Size = UDim2.fromOffset(26, 26)
-		holderIcon.LayoutOrder = 1
-		holderIcon.Parent = group
-		Icons.make(itemId, holderIcon, UDim2.fromOffset(26, 26), UDim2.fromOffset(0, 0))
+		holderIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+		holderIcon.Position = UDim2.fromScale(0.5, 0.5)
+		holderIcon.Size = UDim2.fromOffset(30, 30)
+		holderIcon.ZIndex = 2
+		holderIcon.Parent = badge
+		Icons.make(itemId, holderIcon, UDim2.fromOffset(30, 30), UDim2.fromOffset(0, 0))
+		pillY = 0.74
+	else
+		heart(group, 66, dark, 1)
+		heart(group, 58, fill, 2)
+		pillY = 0.52
 	end
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.LayoutOrder = 2
-	label.Size = UDim2.fromOffset(0, 40)
-	label.AutomaticSize = Enum.AutomaticSize.X
-	label.FontFace = FONT
-	label.TextSize = 30
-	label.TextColor3 = color
-	label.TextStrokeTransparency = 1
-	label.Text = (if heal then "+" else "") .. tostring(math.max(1, math.floor(amount + 0.5)))
-	if heal then
-		label.TextSize = 26
-	end
-	label.Parent = group
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = if heal then Color3.fromRGB(16, 52, 20) else Color3.fromRGB(28, 10, 6)
-	stroke.Thickness = 3
-	stroke.Parent = label
+	local pill = Instance.new("TextLabel")
+	pill.AnchorPoint = Vector2.new(0.5, 0.5)
+	pill.Position = UDim2.fromScale(0.5, pillY)
+	pill.Size = UDim2.fromOffset(0, 22)
+	pill.AutomaticSize = Enum.AutomaticSize.X
+	pill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	pill.ZIndex = 5
+	pill.FontFace = FONT
+	pill.TextSize = 20
+	pill.TextColor3 = textColour
+	pill.Text = (if heal then "+" else "-") .. tostring(math.max(1, math.floor(amount + 0.5)))
+	pill.Parent = group
+	Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 7), UDim.new(0, 7)
+	pad.Parent = pill
+	local edge = Instance.new("UIStroke")
+	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	edge.Color = dark
+	edge.Thickness = 2
+	edge.Parent = pill
 
-	-- Grow in softly, drift up, and fade out together.
-	TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	-- Pop in, drift up, and fade out together.
+	TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	TweenService:Create(group, TweenInfo.new(0.12), { GroupTransparency = 0 }):Play()
 	TweenService:Create(gui, TweenInfo.new(LIFE, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(0, RISE, 0) }):Play()
 	TweenService:Create(group, TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4), { GroupTransparency = 1 }):Play()

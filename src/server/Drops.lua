@@ -151,6 +151,12 @@ local function validDrop(player: Player, drop: unknown): Model?
 	if not root then
 		return nil
 	end
+	-- Dead players can't grab anything (not even what they just dropped): only once
+	-- they've respawned, like everyone else.
+	local hum = player.Character:FindFirstChildOfClass("Humanoid")
+	if not hum or hum.Health <= 0 or hum:GetState() == Enum.HumanoidStateType.Dead then
+		return nil
+	end
 	if (model:GetPivot().Position - root.Position).Magnitude > Config.PickupRange then
 		return nil
 	end

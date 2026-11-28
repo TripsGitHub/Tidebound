@@ -8,6 +8,8 @@ local SoundService = game:GetService("SoundService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared").Config)
 local Items = require(ReplicatedStorage:WaitForChild("Shared").Items)
+local Nodes = require(ReplicatedStorage:WaitForChild("Shared").Nodes)
+local TweenService = game:GetService("TweenService")
 local Anim = require(script.Parent.Anim)
 
 local Effects = {}
@@ -181,11 +183,159 @@ local function flash(model: Model, color: Color3)
 	Debris:AddItem(h, 0.12)
 end
 
+-- Hit effects by what you hit -----------------------------------------------------
+
+local function fxPart(props): Part
+	local p = Instance.new("Part")
+	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+	p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+	for k, v in props do
+		(p :: any)[k] = v
+	end
+	p.Parent = workspace
+	return p
+end
+
+-- The colour of the model's leaves (or a fresh green).
+local function leafColour(model: Model): Color3
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and (string.find(d.Name, "Lea") or string.find(d.Name, "Frond") or d.Material == Enum.Material.Grass) then
+			return d.Color
+		end
+	end
+	return Color3.fromRGB(96, 150, 60)
+end
+
+-- Leaves come loose from the canopy and flutter down, turning as they go.
+local function fallingLeaves(model: Model)
+	local cf, size = model:GetBoundingBox()
+	local colour = leafColour(model)
+	local top = cf.Y + size.Y * 0.32
+	local spread = math.min(size.X, size.Z) * 0.4
+	for _ = 1, math.random(5, 8) do
+		local start = Vector3.new(cf.X + (math.random() - 0.5) * 2 * spread, top + (math.random() - 0.5) * 2, cf.Z + (math.random() - 0.5) * 2 * spread)
+		local leaf = fxPart({ Size = Vector3.new(0.7, 0.06, 0.45), Color = colour:Lerp(Color3.fromRGB(200, 190, 80), math.random() * 0.3), Material = Enum.Material.SmoothPlastic, CFrame = CFrame.new(start) * CFrame.Angles(math.random() * 6, math.random() * 6, 0) })
+		local fall = 3 + math.random() * 4
+		local t = 1.3 + math.random() * 0.8
+		local drift = Vector3.new((math.random() - 0.5) * 4, -fall, (math.random() - 0.5) * 4)
+		TweenService:Create(leaf, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { CFrame = CFrame.new(start + drift) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6) }):Play()
+		TweenService:Create(leaf, TweenInfo.new(t * 0.4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, t * 0.6), { Transparency = 1 }):Play()
+		Debris:AddItem(leaf, t + 0.1)
+	end
+end
+
+-- Sparks and a quick flash of light off ore.
+local function sparks(at: Vector3, colour: Color3, count: number)
+	local holder = fxPart({ Size = Vector3.one * 0.2, Transparency = 1, CFrame = CFrame.new(at) })
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	e.Color = ColorSequence.new(Color3.fromRGB(255, 240, 190), colour)
+	e.LightEmission = 1
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 0) })
+	e.Lifetime = NumberRange.new(0.25, 0.5)
+	e.Speed = NumberRange.new(10, 20)
+	e.SpreadAngle = Vector2.new(70, 70)
+	e.Acceleration = Vector3.new(0, -30, 0)
+	e.Drag = 2
+	e.Rate = 0
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Parent = holder
+	e:Emit(count)
+	local light = Instance.new("PointLight")
+	light.Color = colour
+	light.Range = 14
+	light.Brightness = 3
+	light.Parent = holder
+	TweenService:Create(light, TweenInfo.new(0.25), { Brightness = 0 }):Play()
+	Debris:AddItem(holder, 0.7)
+end
+
+-- A puff of dust off rock.
+local function dust(at: Vector3, colour: Color3)
+	local holder = fxPart({ Size = Vector3.one * 0.2, Transparency = 1, CFrame = CFrame.new(at) })
+	local e = Instance.new("ParticleEmitter")
+	e.Color = ColorSequence.new(colour)
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 1.8) })
+	e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
+	e.Lifetime = NumberRange.new(0.5, 0.8)
+	e.Speed = NumberRange.new(2, 5)
+	e.SpreadAngle = Vector2.new(80, 80)
+	e.Rate = 0
+	e.Parent = holder
+	e:Emit(8)
+	Debris:AddItem(holder, 1)
+end
+
+-- Blobs of slime flying off and splatting.
+local function slimeSplat(at: Vector3, colour: Color3)
+	for _ = 1, math.random(6, 9) do
+		local s = 0.35 + math.random() * 0.45
+		local blob = Instance.new("Part")
+		blob.Shape = Enum.PartType.Ball
+		blob.Size = Vector3.one * s
+		blob.Color = colour
+		blob.Material = Enum.Material.Glass
+		blob.Transparency = 0.15
+		blob.CanCollide, blob.CanQuery, blob.CanTouch, blob.CastShadow = false, false, false, false
+		blob.CFrame = CFrame.new(at + Vector3.new((math.random() - 0.5) * 1.5, 0.5, (math.random() - 0.5) * 1.5))
+		blob.AssemblyLinearVelocity = Vector3.new((math.random() - 0.5) * 22, 10 + math.random() * 10, (math.random() - 0.5) * 22)
+		blob.Parent = workspace
+		TweenService:Create(blob, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.3), { Transparency = 1, Size = Vector3.new(s * 1.6, s * 0.3, s * 1.6) }):Play()
+		Debris:AddItem(blob, 0.85)
+	end
+end
+
+-- An orange burst where a creature or player takes a hit.
+local function fleshBurst(at: Vector3)
+	sparks(at, Color3.fromRGB(255, 120, 50), 8)
+end
+
+local TREES = { Pine = true, Palm = true, FruitPalm = true, BananaPalm = true, Tree = true, Bush = true, Sapling = true }
+local function hitFx(model: Model)
+	local cf, size = model:GetBoundingBox()
+	local kind = model:GetAttribute("NodeType")
+	local animal = model:GetAttribute("AnimalType")
+	local low = Vector3.new(cf.X, cf.Y - size.Y / 2 + math.min(size.Y * 0.5, 3), cf.Z)
+	if kind then
+		local def = Nodes[kind]
+		if TREES[kind] or string.find(kind, "Palm") or string.find(kind, "Tree") or (def and def.material == "wood") then
+			fallingLeaves(model)
+		elseif def and def.ore then
+			local glow = Color3.fromRGB(255, 200, 90)
+			for _, d in model:GetDescendants() do
+				if d:IsA("BasePart") and d.Material ~= Enum.Material.Slate and d.Material ~= Enum.Material.Rock and d.Material ~= Enum.Material.Basalt then
+					glow = d.Color
+					break
+				end
+			end
+			sparks(low, glow, 16)
+			dust(low, Color3.fromRGB(150, 144, 136))
+		elseif kind == "Boulder" then
+			sparks(low, Color3.fromRGB(255, 220, 150), 6)
+			dust(low, Color3.fromRGB(160, 154, 146))
+		elseif string.find(kind, "Slime") then
+			slimeSplat(low, Color3.fromRGB(110, 210, 90))
+		end
+	elseif animal and string.find(animal, "Slime") then
+		local colour = Color3.fromRGB(110, 210, 90)
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d.Transparency < 0.9 and d.Name ~= "HumanoidRootPart" then
+				colour = d.Color
+				break
+			end
+		end
+		slimeSplat(cf.Position, colour)
+	elseif not model:GetAttribute("StructureType") then
+		fleshBurst(cf.Position)
+	end
+end
+
 function Effects.hit(target: Instance)
 	if not target or not target.Parent or not target:IsA("Model") then
 		return
 	end
 	local model = target :: Model
+	pcall(hitFx, model)
 	if model:GetAttribute("NodeType") then
 		shake(model)
 		chips(model)
