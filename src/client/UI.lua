@@ -162,7 +162,7 @@ local function tierFx(slot: GuiObject, id: string)
 		TweenService:Create(glow, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.93 }):Play()
 		return
 	end
-	local base = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = tier.plate, BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
+	local base = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = tier.plate, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
 	if tier.style == "wood" or tier.style == "stone" then
 		TweenService:Create(base, TweenInfo.new(if tier.style == "wood" then 1.1 else 1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.8 }):Play()
 	elseif tier.style == "metal" then
@@ -171,15 +171,15 @@ local function tierFx(slot: GuiObject, id: string)
 		local grad = new("UIGradient", {
 			Parent = band,
 			Rotation = 25,
-			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1) }),
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.38, 1), NumberSequenceKeypoint.new(0.5, 0.1), NumberSequenceKeypoint.new(0.62, 1), NumberSequenceKeypoint.new(1, 1) }),
 			Offset = Vector2.new(-1, 0),
 		})
-		TweenService:Create(grad, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, 0.9), { Offset = Vector2.new(1, 0) }):Play()
+		TweenService:Create(grad, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, 0.5), { Offset = Vector2.new(1, 0) }):Play()
 	else
 		-- Crystal: little four-point stars twinkling in and out.
 		for k = 1, 6 do
-			local star = label({ Parent = fx, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.15 + ((k * 0.37) % 0.7), 0.15 + ((k * 0.61) % 0.7)), Size = UDim2.fromOffset(14, 14), Text = "✦", TextColor3 = tier.trim:Lerp(Color3.new(1, 1, 1), 0.6), TextScaled = true, TextTransparency = 1, TextStrokeTransparency = 1, ZIndex = 0 })
-			TweenService:Create(star, TweenInfo.new(0.5 + (k % 3) * 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true, k * 0.17), { TextTransparency = 0.05, Rotation = 45 }):Play()
+			local star = label({ Parent = fx, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.15 + ((k * 0.37) % 0.7), 0.15 + ((k * 0.61) % 0.7)), Size = UDim2.fromOffset(20, 20), Text = "✦", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextTransparency = 1, TextStrokeColor3 = tier.accent, TextStrokeTransparency = 1, ZIndex = 0 })
+			TweenService:Create(star, TweenInfo.new(0.5 + (k % 3) * 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true, k * 0.17), { TextTransparency = 0, TextStrokeTransparency = 0.3, Rotation = 45 }):Play()
 		end
 	end
 	if tier.glow then

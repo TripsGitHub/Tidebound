@@ -2623,6 +2623,49 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		end
 	end
 	print("[World] camps and outposts: " .. table.concat(built, ", "))
+	local caveThroats: { Vector3 } = {}
+	do
+		-- The first stretch of every way in, from the mouth down until it's well under
+		-- the ground: later passes (island dressing, camps, landmarks) can put rock or
+		-- earth back over it, so carve it open again here and keep nodes out of it.
+		caveThroats = {}
+		for _, path in network.paths or {} do
+			local pts = Caves.samples(path)
+			for i, pt in pts do
+				if i > 40 or pt.Y < -20 then
+					break
+				end
+				table.insert(caveThroats, pt)
+			end
+		end
+		if not WorldBake.baked then
+			for i, pt in caveThroats do
+				WorldBake.terrain:FillBall(pt, Caves.HALL_R * 0.8, Enum.Material.Air)
+				if i % 30 == 0 then
+					task.wait()
+				end
+			end
+			-- Then walk every path once more and open any stretch something filled
+			-- back in (the same check Caves.verify reports on), so a way the minimap
+			-- shows as open is open.
+			local opened = 0
+			for n, path in network.paths or {} do
+				for _, pt in Caves.samples(path) do
+					local region = Region3.new(pt - Vector3.one * 2, pt + Vector3.one * 2):ExpandToGrid(4)
+					local mats, occ = workspace.Terrain:ReadVoxels(region, 4)
+					local m = mats[1][1][1]
+					if m ~= Enum.Material.Air and m ~= Enum.Material.Water and occ[1][1][1] > 0.5 then
+						WorldBake.terrain:FillBall(pt, Caves.HALL_R * 0.7, if pt.Y < -2 and m == Enum.Material.Sand then Enum.Material.Water else Enum.Material.Air)
+						opened += 1
+					end
+				end
+				if n % 4 == 0 then
+					task.wait()
+				end
+			end
+			print("[World] reopened " .. opened .. " blocked bits of cave path")
+		end
+	end
 	-- Everything made of terrain is done by here.
 	if bakeOnly then
 		WorldBake.save(network)
@@ -2703,46 +2746,6 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		for _, sh in network.shafts or {} do
 			table.insert(mouths, sh.top)
 		end
-		-- The first stretch of every way in, from the mouth down until it's well under
-		-- the ground: later passes (island dressing, camps, landmarks) can put rock or
-		-- earth back over it, so carve it open again here and keep nodes out of it.
-		local throats = {}
-		for _, path in network.paths or {} do
-			local pts = Caves.samples(path)
-			for i, pt in pts do
-				if i > 40 or pt.Y < -20 then
-					break
-				end
-				table.insert(throats, pt)
-			end
-		end
-		if not WorldBake.baked then
-			for i, pt in throats do
-				WorldBake.terrain:FillBall(pt, Caves.HALL_R * 0.8, Enum.Material.Air)
-				if i % 30 == 0 then
-					task.wait()
-				end
-			end
-			-- Then walk every path once more and open any stretch something filled
-			-- back in (the same check Caves.verify reports on), so a way the minimap
-			-- shows as open is open.
-			local opened = 0
-			for n, path in network.paths or {} do
-				for _, pt in Caves.samples(path) do
-					local region = Region3.new(pt - Vector3.one * 2, pt + Vector3.one * 2):ExpandToGrid(4)
-					local mats, occ = workspace.Terrain:ReadVoxels(region, 4)
-					local m = mats[1][1][1]
-					if m ~= Enum.Material.Air and m ~= Enum.Material.Water and occ[1][1][1] > 0.5 then
-						WorldBake.terrain:FillBall(pt, Caves.HALL_R * 0.7, if pt.Y < -2 and m == Enum.Material.Sand then Enum.Material.Water else Enum.Material.Air)
-						opened += 1
-					end
-				end
-				if n % 4 == 0 then
-					task.wait()
-				end
-			end
-			print("[World] reopened " .. opened .. " blocked bits of cave path")
-		end
 		local nodes = workspace:FindFirstChild("Nodes")
 		local cleared = 0
 		if nodes then
@@ -2757,7 +2760,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 						end
 					end
 					if m.Parent then
-						for _, at in throats do
+						for _, at in caveThroats do
 							if (p - at).Magnitude < Caves.HALL_R + 3 then
 								m:Destroy()
 								cleared += 1
