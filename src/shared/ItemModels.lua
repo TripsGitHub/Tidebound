@@ -574,23 +574,54 @@ for _, tier in Tiers.list do
 	end
 end
 
-function builders.leather_bag(m)
-	local core = part(m, Vector3.new(1.6, 1.8, 0.8), CFrame.new(), C.leather, Enum.Material.Fabric)
-	part(m, Vector3.new(1.7, 0.5, 0.9), CFrame.new(0, 0.75, 0), C.leather:Lerp(Color3.new(0, 0, 0), 0.2), Enum.Material.Fabric)
-	part(m, Vector3.new(0.3, 0.3, 0.1), CFrame.new(0, 0.4, -0.45), Color3.fromRGB(200, 170, 90), Enum.Material.Metal)
+-- A proper rucksack: a rounded main body, a top flap with a buckle, a front pocket
+-- with its own flap, two side pouches, a rolled bedroll strapped on top and two
+-- shoulder straps down the back (the -Z side sits against the wearer).
+local function backpack(m: Model, body: Color3, flap: Color3, trim: Color3, accent: Color3, accentMat: Enum.Material, bodyMat: Enum.Material?)
+	local mat = bodyMat or Enum.Material.Fabric
+	local core = part(m, Vector3.new(1.6, 1.7, 0.85), CFrame.new(0, -0.05, 0), body, mat)
+	-- Rounded top and bottom edges.
+	part(m, Vector3.new(1.6, 0.85, 0.85), CFrame.new(0, 0.8, 0), body, mat, Enum.PartType.Cylinder)
+	part(m, Vector3.new(1.5, 0.3, 0.8), CFrame.new(0, -0.95, 0), body:Lerp(Color3.new(0, 0, 0), 0.15), mat)
+	-- Top flap folding over the front, with a buckle.
+	part(m, Vector3.new(1.66, 0.22, 0.95), CFrame.new(0, 1.12, 0.02), flap, mat)
+	part(m, Vector3.new(1.62, 0.62, 0.12), CFrame.new(0, 0.82, 0.48), flap, mat)
+	part(m, Vector3.new(0.18, 0.5, 0.06), CFrame.new(0, 0.5, 0.56), trim, Enum.Material.Leather)
+	part(m, Vector3.new(0.3, 0.22, 0.07), CFrame.new(0, 0.34, 0.57), accent, accentMat)
+	-- Front pocket.
+	part(m, Vector3.new(1.1, 0.75, 0.3), CFrame.new(0, -0.45, 0.55), body:Lerp(flap, 0.35), mat)
+	part(m, Vector3.new(1.14, 0.22, 0.34), CFrame.new(0, -0.1, 0.56), flap, mat)
+	part(m, Vector3.new(0.2, 0.14, 0.06), CFrame.new(0, -0.24, 0.73), accent, accentMat)
+	-- Side pouches.
+	for _, x in { -0.9, 0.9 } do
+		part(m, Vector3.new(0.26, 0.7, 0.55), CFrame.new(x, -0.35, 0.05), body:Lerp(flap, 0.35), mat)
+		part(m, Vector3.new(0.3, 0.12, 0.58), CFrame.new(x, 0.0, 0.05), trim, Enum.Material.Leather)
+	end
+	-- Bedroll on top, tied with two straps.
+	part(m, Vector3.new(1.9, 0.5, 0.5), CFrame.new(0, 1.45, 0), Color3.fromRGB(178, 150, 110), Enum.Material.Fabric, Enum.PartType.Cylinder)
+	for _, x in { -0.55, 0.55 } do
+		part(m, Vector3.new(0.12, 0.56, 0.56), CFrame.new(x, 1.45, 0), trim, Enum.Material.Leather, Enum.PartType.Cylinder)
+	end
+	-- Shoulder straps down the back.
+	for _, x in { -0.45, 0.45 } do
+		part(m, Vector3.new(0.22, 1.5, 0.08), CFrame.new(x, 0.05, -0.46), trim, Enum.Material.Leather)
+	end
+	-- Trim straps round the body.
+	part(m, Vector3.new(1.64, 0.1, 0.89), CFrame.new(0, -0.75, 0), trim, Enum.Material.Leather)
 	return core
+end
+
+function builders.leather_bag(m)
+	return backpack(m, C.leather, C.leather:Lerp(Color3.new(0, 0, 0), 0.2), Color3.fromRGB(86, 56, 34), Color3.fromRGB(200, 170, 90), Enum.Material.Metal)
 end
 
 builders.hide_pack = builders.leather_bag
 builders.explorer_pack = builders.leather_bag
--- Ore-tier bags: the satchel in the tier's colours.
+-- Ore-tier bags: the rucksack in the tier's colours.
 for _, tier in Tiers.list do
 	builders[tier.id .. "_bag"] = function(m)
-		local core = part(m, Vector3.new(1.7, 1.9, 0.9), CFrame.new(), tier.strap, Enum.Material.Fabric)
-		part(m, Vector3.new(1.8, 0.5, 1), CFrame.new(0, 0.8, 0), tier.plate, if tier.glow then Enum.Material.Neon else Enum.Material.Metal)
-		part(m, Vector3.new(1.75, 0.25, 0.95), CFrame.new(0, -0.6, 0), tier.trim, Enum.Material.Metal)
-		part(m, Vector3.new(0.35, 0.35, 0.1), CFrame.new(0, 0.4, -0.5), tier.accent, Enum.Material.Neon)
-		return core
+		local accentMat = if tier.glow then Enum.Material.Neon else Enum.Material.Metal
+		return backpack(m, tier.plate, tier.trim, tier.strap, tier.accent, accentMat, if tier.style == "crystal" then Enum.Material.Glass else Enum.Material.Fabric)
 	end
 end
 
@@ -836,10 +867,40 @@ for _, t in Items.CARTS do
 end
 
 for _, tier in Tiers.list do
+	-- A kite shield like Island Tribes': pointed top and bottom, a wooden face with
+	-- plank lines, a rim in the tier's colour (thick down one side), and a round boss
+	-- in the middle with the tier's accent on it.
 	builders[tier.id .. "_shield"] = function(m)
-		local core = part(m, Vector3.new(0.25, 1.9, 1.9), CFrame.Angles(0, math.rad(90), 0), tier.plate, tierMaterial(tier.id), Enum.PartType.Cylinder)
-		part(m, Vector3.new(0.2, 2.1, 2.1), CFrame.new(0, 0, 0.03) * CFrame.Angles(0, math.rad(90), 0), tier.trim, Enum.Material.Metal, Enum.PartType.Cylinder)
-		part(m, Vector3.new(0.5, 0.5, 0.5), CFrame.new(0, 0, -0.18), tier.accent, if tier.glow then Enum.Material.Neon else Enum.Material.Metal, Enum.PartType.Ball)
+		local wood, woodDark = Color3.fromRGB(122, 82, 46), Color3.fromRGB(88, 58, 32)
+		local rimMat = if tier.id == "wood" then Enum.Material.Wood else tierMaterial(tier.id)
+		local core = part(m, Vector3.new(0.6, 0.3, 0.2), CFrame.new(0, 0, 0.12), woodDark, Enum.Material.Wood) -- the handle at the back
+		local ROWS, HALF = 14, 1.25
+		local step = HALF * 2 / ROWS
+		for i = 0, ROWS - 1 do
+			local y = -HALF + (i + 0.5) * step
+			local t = math.abs(y) / HALF
+			local w = 1.05 * (1 - t ^ 1.7) ^ 0.75 + 0.06
+			-- The rim: a little wider than the face, and thicker on the left edge.
+			part(m, Vector3.new(w + 0.22, step + 0.02, 0.16), CFrame.new(-0.05, y, 0.02), tier.plate, rimMat)
+			part(m, Vector3.new(w, step + 0.02, 0.2), CFrame.new(0.03, y, -0.02), if i % 2 == 0 then wood else wood:Lerp(woodDark, 0.25), Enum.Material.Wood)
+		end
+		-- Tips of the rim, so the points stay sharp.
+		for _, side in { -1, 1 } do
+			part(m, Vector3.new(0.14, 0.24, 0.16), CFrame.new(-0.02, side * (HALF + 0.06), 0.02), tier.plate, rimMat)
+		end
+		-- Plank lines down the face.
+		for _, x in { -0.28, 0.3 } do
+			part(m, Vector3.new(0.04, HALF * 1.35, 0.02), CFrame.new(x, 0, -0.125), woodDark, Enum.Material.Wood)
+		end
+		-- The boss: a dark iron ring with the tier's colour in the middle.
+		part(m, Vector3.new(0.12, 0.62, 0.62), CFrame.new(0.03, 0.05, -0.15) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(70, 66, 62), Enum.Material.Metal, Enum.PartType.Cylinder)
+		part(m, Vector3.new(0.34, 0.34, 0.34), CFrame.new(0.03, 0.05, -0.2), tier.accent, if tier.glow then Enum.Material.Neon else Enum.Material.Metal, Enum.PartType.Ball)
+		for _, y in { 0.62, -0.52 } do
+			part(m, Vector3.new(0.1, 0.1, 0.06), CFrame.new(0.03, y, -0.14), Color3.fromRGB(70, 66, 62), Enum.Material.Metal)
+		end
+		-- Same pivot as the old round shield (turned a quarter about Y, at the middle),
+		-- so it still straps onto the forearm facing out.
+		core.PivotOffset = CFrame.new(0, 0, -0.12) * CFrame.Angles(0, math.rad(90), 0)
 		return core
 	end
 end
