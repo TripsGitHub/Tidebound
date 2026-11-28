@@ -163,6 +163,9 @@ function Minimap.publish(islands: { any }, network, groundAt)
 	for _, e in network.exits or {} do
 		mark("exit", e.pos, "Way out")
 	end
+	for _, e in network.ropes or {} do
+		mark("exit", e.pos, "Rope up")
+	end
 	value(data, "CaveMarks", table.concat(marks))
 
 	-- Names

@@ -369,6 +369,21 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 	end
 	-- A thick stone wall with the doorway cut through it.
 	local wall = part({ Name = "Wall", Size = Vector3.new(size + 6, size + 6, 4), CFrame = look, Color = stone, Material = Enum.Material.Slate, Transparency = 1, CanCollide = false })
+	-- The doorway itself is smaller than the tunnel, standing on its floor, with a
+	-- stone wall filling the rest of the tunnel round it (into the rock).
+	local dsz = math.min(size, math.max(14, b.r * 1.3))
+	local dlook = look * CFrame.new(0, -(size - dsz) / 2, 0)
+	local side = (size - dsz) / 2 + 4
+	if side > 1 then
+		for sx = -1, 1, 2 do
+			part({ Name = "Fill", Size = Vector3.new(side + 4, size + 10, 4), CFrame = look * CFrame.new(sx * (dsz / 2 + 2 + side / 2), 0, 0), Color = stone, Material = Enum.Material.Cobblestone })
+		end
+	end
+	local topY = -(size - dsz) / 2 + dsz / 2 + 7
+	local topH = size / 2 + 6 - topY
+	if topH > 0.5 then
+		part({ Name = "Fill", Size = Vector3.new(dsz + 8, topH, 4), CFrame = look * CFrame.new(0, topY + topH / 2, 0), Color = stone, Material = Enum.Material.Cobblestone })
+	end
 	-- The boss's colour runs through the runes, the emblem and the braziers.
 	local BOSS_COLOUR = {
 		CrawlerQueen = Color3.fromRGB(150, 220, 90),
@@ -380,23 +395,23 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 	local light = Color3.fromRGB(96, 90, 86)
 	-- Two heavy pillars: a wide base, a shaft with bands, and a carved capital.
 	for side = -1, 1, 2 do
-		local x = side * (size / 2 + 0.5)
-		part({ Name = "Jamb", Size = Vector3.new(6, 3, 7), CFrame = look * CFrame.new(x, -size / 2 + 0.5, 0), Color = dark, Material = Enum.Material.Slate })
-		part({ Name = "Jamb", Size = Vector3.new(5, size, 6), CFrame = look * CFrame.new(x, 0, 0), Color = stone, Material = Enum.Material.Cobblestone })
-		for _, y in { -size / 4, size / 4 } do
-			part({ Name = "Band", Size = Vector3.new(5.4, 0.8, 6.4), CFrame = look * CFrame.new(x, y, 0), Color = dark, Material = Enum.Material.Slate })
+		local x = side * (dsz / 2 + 0.5)
+		part({ Name = "Jamb", Size = Vector3.new(6, 3, 7), CFrame = dlook * CFrame.new(x, -dsz / 2 + 0.5, 0), Color = dark, Material = Enum.Material.Slate })
+		part({ Name = "Jamb", Size = Vector3.new(5, dsz, 6), CFrame = dlook * CFrame.new(x, 0, 0), Color = stone, Material = Enum.Material.Cobblestone })
+		for _, y in { -dsz / 4, dsz / 4 } do
+			part({ Name = "Band", Size = Vector3.new(5.4, 0.8, 6.4), CFrame = dlook * CFrame.new(x, y, 0), Color = dark, Material = Enum.Material.Slate })
 		end
-		part({ Name = "Capital", Size = Vector3.new(6.6, 2.2, 7.6), CFrame = look * CFrame.new(x, size / 2 + 0.6, 0), Color = light, Material = Enum.Material.Slate })
+		part({ Name = "Capital", Size = Vector3.new(6.6, 2.2, 7.6), CFrame = dlook * CFrame.new(x, dsz / 2 + 0.6, 0), Color = light, Material = Enum.Material.Slate })
 		-- A glowing rune cut into each pillar's face, both sides of the gate.
 		for _, z in { -3.05, 3.05 } do
-			local rune = part({ Name = "Rune", Size = Vector3.new(1.1, size * 0.45, 0.2), CFrame = look * CFrame.new(x, 0, z), Color = glowColour, Material = Enum.Material.Neon, CanCollide = false })
+			local rune = part({ Name = "Rune", Size = Vector3.new(1.1, dsz * 0.45, 0.2), CFrame = dlook * CFrame.new(x, 0, z), Color = glowColour, Material = Enum.Material.Neon, CanCollide = false })
 			rune.CastShadow = false
 		end
 		-- Braziers on stone posts out in front of the pillars, burning in the boss colour.
 		for _, z in { -5.5, 5.5 } do
-			local bx = side * (size / 2 + 3.5)
-			part({ Name = "BrazierPost", Size = Vector3.new(1.6, 5, 1.6), CFrame = look * CFrame.new(bx, -size / 2 + 2.5, z), Color = dark, Material = Enum.Material.Slate })
-			local bowl = part({ Name = "Brazier", Size = Vector3.new(2.8, 1, 2.8), CFrame = look * CFrame.new(bx, -size / 2 + 5.4, z), Color = Color3.fromRGB(60, 50, 44), Material = Enum.Material.Metal })
+			local bx = side * (dsz / 2 + 3.5)
+			part({ Name = "BrazierPost", Size = Vector3.new(1.6, 5, 1.6), CFrame = dlook * CFrame.new(bx, -dsz / 2 + 2.5, z), Color = dark, Material = Enum.Material.Slate })
+			local bowl = part({ Name = "Brazier", Size = Vector3.new(2.8, 1, 2.8), CFrame = dlook * CFrame.new(bx, -dsz / 2 + 5.4, z), Color = Color3.fromRGB(60, 50, 44), Material = Enum.Material.Metal })
 			local fire = Instance.new("Fire")
 			fire.Size, fire.Heat = 4, 6
 			fire.Color, fire.SecondaryColor = glowColour, Color3.fromRGB(255, 230, 160)
@@ -407,34 +422,34 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 		end
 	end
 	-- A pointed arch over the top: two sloped slabs meeting at a keystone.
-	local span = size + 6
+	local span = dsz + 6
 	for side = -1, 1, 2 do
-		part({ Name = "Arch", Size = Vector3.new(span / 2 + 1.5, 3.4, 6.4), CFrame = look * CFrame.new(side * span / 4, size / 2 + 3.2, 0) * CFrame.Angles(0, 0, -side * math.rad(18)), Color = stone, Material = Enum.Material.Cobblestone })
+		part({ Name = "Arch", Size = Vector3.new(span / 2 + 1.5, 3.4, 6.4), CFrame = dlook * CFrame.new(side * span / 4, dsz / 2 + 3.2, 0) * CFrame.Angles(0, 0, -side * math.rad(18)), Color = stone, Material = Enum.Material.Cobblestone })
 	end
-	part({ Name = "Lintel", Size = Vector3.new(size + 2, 3, 6), CFrame = look * CFrame.new(0, size / 2 - 0.5, 0), Color = light, Material = Enum.Material.Slate })
-	part({ Name = "Keystone", Size = Vector3.new(3.4, 4.4, 7), CFrame = look * CFrame.new(0, size / 2 + 5.2, 0), Color = dark, Material = Enum.Material.Slate })
+	part({ Name = "Lintel", Size = Vector3.new(dsz + 2, 3, 6), CFrame = dlook * CFrame.new(0, dsz / 2 - 0.5, 0), Color = light, Material = Enum.Material.Slate })
+	part({ Name = "Keystone", Size = Vector3.new(3.4, 4.4, 7), CFrame = dlook * CFrame.new(0, dsz / 2 + 5.2, 0), Color = dark, Material = Enum.Material.Slate })
 	-- The boss's emblem over the door on both faces: a glowing diamond in a stone ring.
 	for _, z in { -3.6, 3.6 } do
-		local ring = part({ Name = "Emblem", Size = Vector3.new(0.6, 3.6, 3.6), CFrame = look * CFrame.new(0, size / 2 + 2.4, z) * CFrame.Angles(0, math.rad(90), 0), Color = dark, Material = Enum.Material.Slate, Shape = Enum.PartType.Cylinder })
+		local ring = part({ Name = "Emblem", Size = Vector3.new(0.6, 3.6, 3.6), CFrame = dlook * CFrame.new(0, dsz / 2 + 2.4, z) * CFrame.Angles(0, math.rad(90), 0), Color = dark, Material = Enum.Material.Slate, Shape = Enum.PartType.Cylinder })
 		ring.CanCollide = false
-		local gem = part({ Name = "EmblemGem", Size = Vector3.new(1.6, 1.6, 0.5), CFrame = look * CFrame.new(0, size / 2 + 2.4, z * 1.06) * CFrame.Angles(0, 0, math.rad(45)), Color = glowColour, Material = Enum.Material.Neon, CanCollide = false })
+		local gem = part({ Name = "EmblemGem", Size = Vector3.new(1.6, 1.6, 0.5), CFrame = dlook * CFrame.new(0, dsz / 2 + 2.4, z * 1.06) * CFrame.Angles(0, 0, math.rad(45)), Color = glowColour, Material = Enum.Material.Neon, CanCollide = false })
 		gem.CastShadow = false
 	end
 	-- Worn steps up to the threshold.
-	part({ Name = "Step", Size = Vector3.new(size + 4, 1, 4), CFrame = look * CFrame.new(0, -size / 2 - 0.2, 4.6), Color = light, Material = Enum.Material.Slate })
-	part({ Name = "Step", Size = Vector3.new(size + 8, 1, 3), CFrame = look * CFrame.new(0, -size / 2 - 0.7, 7.6), Color = stone, Material = Enum.Material.Slate })
+	part({ Name = "Step", Size = Vector3.new(dsz + 4, 1, 4), CFrame = dlook * CFrame.new(0, -dsz / 2 - 0.2, 4.6), Color = light, Material = Enum.Material.Slate })
+	part({ Name = "Step", Size = Vector3.new(dsz + 8, 1, 3), CFrame = dlook * CFrame.new(0, -dsz / 2 - 0.7, 7.6), Color = stone, Material = Enum.Material.Slate })
 	local bars = Instance.new("Model")
 	bars.Name = "Bars"
 	bars.Parent = m
-	for x = -size / 2 + 3, size / 2 - 3, 2.4 do
-		local bar = part({ Name = "Bar", Size = Vector3.new(0.7, size - 3, 0.7), CFrame = look * CFrame.new(x, -1, 0), Color = Color3.fromRGB(56, 52, 50), Material = Enum.Material.Metal, Reflectance = 0.1 })
+	for x = -dsz / 2 + 3, dsz / 2 - 3, 2.4 do
+		local bar = part({ Name = "Bar", Size = Vector3.new(0.7, dsz - 3, 0.7), CFrame = dlook * CFrame.new(x, -1, 0), Color = Color3.fromRGB(56, 52, 50), Material = Enum.Material.Metal, Reflectance = 0.1 })
 		bar.Parent = bars
 		-- A spike on the foot of every bar.
-		local tip = part({ Name = "Spike", Size = Vector3.new(0.5, 1.4, 0.5), CFrame = look * CFrame.new(x, -size / 2 - 0.2, 0) * CFrame.Angles(0, math.rad(45), 0), Color = Color3.fromRGB(70, 66, 64), Material = Enum.Material.Metal })
+		local tip = part({ Name = "Spike", Size = Vector3.new(0.5, 1.4, 0.5), CFrame = dlook * CFrame.new(x, -dsz / 2 - 0.2, 0) * CFrame.Angles(0, math.rad(45), 0), Color = Color3.fromRGB(70, 66, 64), Material = Enum.Material.Metal })
 		tip.Parent = bars
 	end
-	for y = -size / 2 + 3, size / 2 - 4, 4 do
-		local rail = part({ Name = "Rail", Size = Vector3.new(size - 4, 0.6, 0.9), CFrame = look * CFrame.new(0, y, 0), Color = Color3.fromRGB(56, 52, 50), Material = Enum.Material.Metal })
+	for y = -dsz / 2 + 3, dsz / 2 - 4, 4 do
+		local rail = part({ Name = "Rail", Size = Vector3.new(dsz - 4, 0.6, 0.9), CFrame = dlook * CFrame.new(0, y, 0), Color = Color3.fromRGB(56, 52, 50), Material = Enum.Material.Metal })
 		rail.Parent = bars
 	end
 	-- A block across the doorway that actually stops you (the bars have gaps).
@@ -442,7 +457,7 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 	block.Parent = bars
 	-- Outside (the way in, behind the gate's facing): a lock that takes a Maw Key.
 	-- Inside (the lair side): a lever that opens it free, so nobody gets shut in.
-	local lock = part({ Name = "Lock", Size = Vector3.new(1.6, 2, 1.2), CFrame = look * CFrame.new(0, -1, 1.2), Color = Color3.fromRGB(150, 50, 40), Material = Enum.Material.Metal })
+	local lock = part({ Name = "Lock", Size = Vector3.new(1.6, 2, 1.2), CFrame = dlook * CFrame.new(0, -1, 1.2), Color = Color3.fromRGB(150, 50, 40), Material = Enum.Material.Metal })
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Unlock"
 	prompt.ObjectText = "Lair Gate (Maw Key)"
@@ -451,7 +466,7 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 	prompt.RequiresLineOfSight = false
 	prompt.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally
 	prompt.Parent = lock
-	local lever = part({ Name = "Lever", Size = Vector3.new(0.6, 3, 0.6), CFrame = look * CFrame.new(size / 2 - 3, -size / 2 + 3, -1.4) * CFrame.Angles(0.4, 0, 0), Color = Color3.fromRGB(120, 90, 60), Material = Enum.Material.Wood })
+	local lever = part({ Name = "Lever", Size = Vector3.new(0.6, 3, 0.6), CFrame = dlook * CFrame.new(dsz / 2 - 3, -dsz / 2 + 3, -1.4) * CFrame.Angles(0.4, 0, 0), Color = Color3.fromRGB(120, 90, 60), Material = Enum.Material.Wood })
 	local inside = Instance.new("ProximityPrompt")
 	inside.ActionText = "Open"
 	inside.ObjectText = "Lair Gate"

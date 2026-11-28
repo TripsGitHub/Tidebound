@@ -2148,6 +2148,125 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	end
 	table.move(network.chambers, 1, #network.chambers, #chambers + 1, chambers)
 	table.move(network.tunnels, 1, #network.tunnels, #tunnels + 1, tunnels)
+	-- Climb-out ropes: in the Maw's great cavern, every boss lair and every island's
+	-- deep root cavern, a knotted rope with a lantern hauls you back up to the surface
+	-- (the Maw's ropes to Maw Rock, the rest to the island above). The minimap shows
+	-- them as ways out.
+	do
+		local folder = Instance.new("Folder")
+		folder.Name = "ClimbRopes"
+		folder.Parent = workspace
+		network.ropes = {}
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { workspace.Terrain }
+		params.IgnoreWater = true
+		local function surfaceOf(isl): Vector3?
+			for k = 0, 11 do
+				local a = k / 12 * math.pi * 2
+				local d = if k == 0 then 0 else isl.r * 0.25
+				local x, z = isl.x + math.cos(a) * d, isl.z + math.sin(a) * d
+				local hit = groundAt(x, z)
+				if hit and hit.Material ~= Enum.Material.Water and hit.Position.Y > 1 then
+					return hit.Position + Vector3.new(0, 4, 0)
+				end
+			end
+			return nil
+		end
+		local function rope(at: Vector3, target: Vector3, label: string)
+			local hit = workspace:Raycast(at + Vector3.new(0, 6, 0), Vector3.new(0, -140, 0), params)
+			if not hit then
+				return
+			end
+			local foot = hit.Position
+			local m = Instance.new("Model")
+			m.Name = "ClimbRope"
+			local up = workspace:Raycast(foot + Vector3.new(0, 3, 0), Vector3.new(0, 80, 0), params)
+			local len = if up then math.max(12, up.Position.Y - foot.Y) else 40
+			local core = Props.part(m, { Name = "Rope", Size = Vector3.new(0.7, len, 0.7), CFrame = CFrame.new(foot + Vector3.new(0, len / 2, 0)), Color = Color3.fromRGB(176, 140, 92), Material = Enum.Material.Fabric, CanCollide = false })
+			for y = 2, len - 2, 3 do
+				Props.part(m, { Name = "Knot", Size = Vector3.new(1.1, 0.7, 1.1), CFrame = CFrame.new(foot + Vector3.new(0, y, 0)), Color = Color3.fromRGB(150, 116, 72), Material = Enum.Material.Fabric, CanCollide = false, Shape = Enum.PartType.Ball })
+			end
+			-- A coil on the floor, a post with a sign, and a lantern so you can spot it.
+			Props.part(m, { Name = "Coil", Size = Vector3.new(0.8, 3, 3), CFrame = CFrame.new(foot + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(160, 124, 80), Material = Enum.Material.Fabric, Shape = Enum.PartType.Cylinder, CanCollide = false })
+			Props.part(m, { Name = "Post", Size = Vector3.new(0.6, 5, 0.6), CFrame = CFrame.new(foot + Vector3.new(3, 2.5, 0)), Color = Props.WOOD_DARK, Material = Enum.Material.Wood })
+			local sign = Props.part(m, { Name = "Sign", Size = Vector3.new(0.3, 1.6, 3.4), CFrame = CFrame.new(foot + Vector3.new(3, 4.6, 0)), Color = Props.WOOD_LIGHT, Material = Enum.Material.WoodPlanks })
+			for _, face in { Enum.NormalId.Left, Enum.NormalId.Right } do
+				local gui = Instance.new("SurfaceGui")
+				gui.Face = face
+				gui.LightInfluence = 0
+				gui.Brightness = 1.5
+				gui.PixelsPerStud = 40
+				gui.Parent = sign
+				local t = Instance.new("TextLabel")
+				t.Size = UDim2.fromScale(1, 1)
+				t.BackgroundTransparency = 1
+				t.Text = "WAY UP"
+				t.TextScaled = true
+				t.Font = Enum.Font.Merriweather
+				t.TextColor3 = Color3.fromRGB(60, 40, 24)
+				t.Parent = gui
+			end
+			Props.torchPost(m, foot + Vector3.new(-3, 0, 0), 6)
+			local glow = Instance.new("PointLight")
+			glow.Color, glow.Range, glow.Brightness = Color3.fromRGB(255, 210, 140), 26, 1.4
+			glow.Parent = sign
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.ActionText = "Climb out"
+			prompt.ObjectText = label
+			prompt.HoldDuration = 1
+			prompt.MaxActivationDistance = 12
+			prompt.RequiresLineOfSight = false
+			prompt.Parent = core
+			prompt.Triggered:Connect(function(player)
+				local char = player.Character
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				if char and hum and hum.Health > 0 then
+					char:PivotTo(CFrame.new(target))
+				end
+			end)
+			m.PrimaryPart = core
+			m.Parent = folder
+			table.insert(network.ropes, { pos = foot, label = label })
+		end
+		local mawIsland, islandOf = nil, {}
+		for i, isl in ISLANDS do
+			if isl.hub then
+				mawIsland = isl
+			end
+			islandOf[i] = isl
+		end
+		local mawTop = mawIsland and surfaceOf(mawIsland)
+		if mawTop then
+			if network.hub then
+				for k = 0, 2 do
+					local a = k / 3 * math.pi * 2
+					rope(network.hub.pos + Vector3.new(math.cos(a) * 34, 0, math.sin(a) * 34), mawTop, "Rope up to Maw Rock")
+				end
+			end
+			for _, room in network.bossRooms or {} do
+				rope(room.pos + Vector3.new(36, 0, 0), mawTop, "Rope up to Maw Rock")
+			end
+		end
+		-- Every named island's deep root cavern: the "deep" chamber nearest under it.
+		for _, isl in NAMED do
+			local top = surfaceOf(isl)
+			if top and not isl.hub then
+				local best, bestD
+				for _, c in network.chambers do
+					if c.tier == "deep" and c.pos then
+						local d = (Vector3.new(c.pos.X, 0, c.pos.Z) - Vector3.new(isl.x, 0, isl.z)).Magnitude
+						if d < isl.r and (not bestD or d < bestD) then
+							best, bestD = c, d
+						end
+					end
+				end
+				if best then
+					rope(best.pos + Vector3.new((best.r or 20) * 0.4, 0, 0), top, "Rope up to " .. isl.name)
+				end
+			end
+		end
+	end
 	for _, b in network.barriers do
 		local boss = string.match(b.kind, "^gate_(.+)$")
 		if boss then
