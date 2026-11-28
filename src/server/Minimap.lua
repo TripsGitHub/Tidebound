@@ -141,7 +141,8 @@ function Minimap.publish(islands: { any }, network, groundAt)
 	-- gates, the Maw, and the ways in and out. "kind|x|z|y|label;"
 	local marks = {}
 	local function mark(kind: string, pos: Vector3, label: string)
-		table.insert(marks, string.format("%s|%d|%d|%d|%s;", kind, pos.X, pos.Z, pos.Y, ((label:gsub("[|;]", " "):gsub("(%l)(%u)", "%1 %2"))))))
+		local text = string.gsub(string.gsub(label, "[|;]", " "), "(%l)(%u)", "%1 %2")
+		table.insert(marks, string.format("%s|%d|%d|%d|%s;", kind, pos.X, pos.Z, pos.Y, text))
 	end
 	for _, room in network.bossRooms or {} do
 		mark("boss", room.pos, tostring(room.boss))
