@@ -379,4 +379,13 @@ for _, tier in Tiers.list do
 	end
 end
 
+-- Lunar gear is heavy (see Appearance.lua): each piece slows you and lowers your jump.
+for _, key in { "sword", "harvester", "helmet", "body", "legs", "boots", "shield", "bag", "crossbow" } do
+	local item = Items["lunar_" .. key]
+	if item then
+		item.heavy = true
+		item.description = (if item.description then item.description .. " " else "") .. "Heavy: slows your walk and jump while you wear or hold it."
+	end
+end
+
 return Items

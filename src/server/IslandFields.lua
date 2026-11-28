@@ -747,6 +747,19 @@ IslandFields.isle6 = make({ name = "", r = 38, peak = 18, hills = 2, spires = 3,
 IslandFields.isle7 = make({ name = "", r = 36, peak = 10, hills = 4, seed = 149, low = M.Sand, high = M.Grass, cliff = M.Sandstone })
 IslandFields.isle8 = make({ name = "", r = 30, peak = 12, hills = 3, seed = 151, low = M.Grass, high = M.Grass, cliff = M.Rock })
 
+-- Wild islands (WorldBuilder ISLANDS "Wild n"): ten kinds, each rebuilt at every
+-- island's own size and seed.
+IslandFields.wild_pine = make({ name = "", r = 46, peak = 18, hills = 4, seed = 501, low = M.LeafyGrass, high = M.Grass, cliff = M.Rock })
+IslandFields.wild_beach = make({ name = "", r = 46, peak = 7, hills = 4, seed = 503, atoll = true, low = M.Sand, high = M.Grass })
+IslandFields.wild_rocks = make({ name = "", r = 46, peak = 26, hills = 3, spires = 6, seed = 507, low = M.Rock, high = M.Slate, cliff = M.Slate })
+IslandFields.wild_meadow = make({ name = "", r = 46, peak = 9, hills = 5, ponds = 1, seed = 509, low = M.Grass, high = M.Grass, cliff = M.Rock })
+IslandFields.wild_mesa = make({ name = "", r = 46, peak = 28, hills = 2, mesa = true, seed = 511, low = M.Sandstone, high = M.Sandstone, cliff = M.Sandstone, shore = M.Sand })
+IslandFields.wild_crescent = make({ name = "", r = 46, peak = 10, hills = 4, seed = 513, shape = "banana", low = M.Sand, high = M.Grass })
+IslandFields.wild_lakes = make({ name = "", r = 46, peak = 12, hills = 4, ponds = 4, seed = 517, low = M.Grass, high = M.LeafyGrass })
+IslandFields.wild_jungle = make({ name = "", r = 46, peak = 16, hills = 6, ponds = 1, seed = 519, low = M.LeafyGrass, high = M.LeafyGrass, cliff = M.Rock })
+IslandFields.wild_dunes = make({ name = "", r = 46, peak = 9, hills = 5, seed = 521, low = M.Sand, high = M.Sand, cliff = M.Sandstone })
+IslandFields.wild_highland = make({ name = "", r = 46, peak = 34, hills = 3, spires = 2, seed = 523, low = M.Grass, high = M.Rock, cliff = M.Slate })
+
 -- Islets (WorldBuilder ISLANDS "Islet n"): palm, rock, grass and sandbar in turn.
 IslandFields.islet1 = make({ name = "", r = 20, peak = 7, hills = 2, low = M.Sand, high = M.Grass, seed = 207 })
 IslandFields.islet2 = make({ name = "", r = 16, peak = 16, hills = 2, spires = 3, low = M.Rock, high = M.Slate, cliff = M.Slate, seed = 214 })

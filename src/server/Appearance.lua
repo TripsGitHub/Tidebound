@@ -34,7 +34,44 @@ local function findPart(character: Model, names: { string }): BasePart?
 	return nil
 end
 
+-- Lunar (Moonstone) gear is heavy: every worn piece, and a held Lunar tool, slows you
+-- and lowers your jump a little. Speeds are recomputed whenever armour or the held
+-- tool changes.
+local HEAVY = { lunar = { walk = 0.6, jump = 2.2 } } -- per piece: walk speed and jump power lost
+local worn: { [Player]: { [string]: string } } = {}
+local held: { [Player]: string? } = {}
+local function updateWeight(player: Player)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local walk, jump = 0, 0
+	local function add(id: string?)
+		local tier = id and string.match(id, "^(%a+)_")
+		local heavy = tier and HEAVY[tier]
+		if heavy then
+			walk += heavy.walk
+			jump += heavy.jump
+		end
+	end
+	for _, id in worn[player] or {} do
+		add(id)
+	end
+	add(held[player])
+	humanoid.UseJumpPower = true
+	humanoid.WalkSpeed = 16 - walk
+	humanoid.JumpPower = 50 - jump
+	player:SetAttribute("Heavy", if walk > 0 then math.floor(walk / 16 * 100 + 0.5) else nil)
+end
+
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+	worn[player] = nil
+	held[player] = nil
+end)
+
 function Appearance.setTool(player: Player, itemId: string?)
+	held[player] = itemId
+	updateWeight(player)
 	local character = player.Character
 	if not character then
 		return
@@ -119,6 +156,8 @@ local function simplePiece(itemId: string, attach: BasePart, spec): Model
 end
 
 function Appearance.setArmour(player: Player, armour: { [string]: string })
+	worn[player] = table.clone(armour)
+	updateWeight(player)
 	local character = player.Character
 	if not character then
 		return

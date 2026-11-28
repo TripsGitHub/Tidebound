@@ -139,8 +139,8 @@ Config.Events = {
 	EruptionWarning = 20, -- rumbling before the obsidian spires burst out
 	EruptionSpires = { 4, 6 },
 	EruptionLasts = 300, -- unmined spires crumble after this long
-	MeteorChance = 0.15, -- chance each night brings a meteor shower (Moonstone): rarer than eruptions
-	Meteors = { 2, 4 },
+	MeteorChance = 0.06, -- chance each night brings a meteor shower (Moonstone): much rarer than eruptions
+	Meteors = { 1, 2 },
 }
 
 return Config
