@@ -324,10 +324,12 @@ local function statBar(parent: Instance, order: number, name: string, color: Col
 	-- Roomy rows with a softer outline: the label, then a wide rounded bar with the
 	-- value centred in it.
 	local row = new("Frame", { Parent = parent, LayoutOrder = order, Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1 })
-	label({ Parent = row, Size = UDim2.new(0, 74, 1, 0), Text = name, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 18, TextStrokeTransparency = 0.55 })
-	local back = new("Frame", { Parent = row, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 78, 0.5, 0), Size = UDim2.new(1, -78, 0, 20), BackgroundColor3 = C.barBack, BorderSizePixel = 0 }, { UIKit.round() })
-	local fill = new("Frame", { Parent = back, Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0 }, { UIKit.round() })
-	local text = label({ Parent = back, Size = UDim2.fromScale(1, 1), Text = "", TextScaled = false, TextSize = 15, TextStrokeTransparency = 0.5, ZIndex = 2 })
+	-- Same look as the XP and target bars: square-ish corners, the rim outline, the
+	-- panel colour behind, value centred.
+	label({ Parent = row, Size = UDim2.new(0, 70, 1, 0), Text = name, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 17 })
+	local back = new("Frame", { Parent = row, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 72, 0.5, 0), Size = UDim2.new(1, -72, 0, 20), BackgroundColor3 = C.cardDark, BackgroundTransparency = UIKit.PANEL_ALPHA, BorderSizePixel = 0 }, { corner(6), stroke(C.rim, 2) })
+	local fill = new("Frame", { Parent = back, Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0 }, { corner(6) })
+	local text = label({ Parent = back, Size = UDim2.fromScale(1, 1), Text = "", TextScaled = false, TextSize = 15, ZIndex = 2 })
 	bars[name] = { fill = fill, text = text }
 end
 
@@ -352,7 +354,7 @@ local function healthPending()
 	end
 	if not pending then
 		local back = b.fill.Parent :: Frame
-		pending = new("Frame", { Parent = back, Name = "Healing", Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.fromRGB(150, 236, 120), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = b.fill.ZIndex }, { UIKit.round() })
+		pending = new("Frame", { Parent = back, Name = "Healing", Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.fromRGB(150, 236, 120), BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = b.fill.ZIndex }, { corner(6) })
 		TweenService:Create(pending :: Frame, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.7 }):Play()
 		pendingText = label({ Parent = back, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(56, 18), Text = "", TextXAlignment = Enum.TextXAlignment.Right, TextScaled = false, TextSize = 14, TextColor3 = Color3.fromRGB(200, 255, 170), TextStrokeTransparency = 0.4, ZIndex = 10 })
 	end
@@ -823,6 +825,49 @@ local function rebuildShop()
 	end
 end
 
+-- The wandering merchant: what they'll make this stop. You bring the materials.
+local function rebuildMerchant()
+	local list = panelLists.merchant
+	clear(list)
+	local place = workspace:GetAttribute("MerchantPlace") or "?"
+	local untilPhase = workspace:GetAttribute("MerchantUntil") or "later"
+	label({ Parent = list, LayoutOrder = 0, Size = UDim2.new(1, -8, 0, 36), Text = "On " .. place .. " until " .. untilPhase .. ". Bring the materials and I'll make it.", TextWrapped = true, TextScaled = false, TextSize = 15 })
+	local level = player:GetAttribute("Level") or 1
+	local i = 0
+	for id in string.gmatch(workspace:GetAttribute("MerchantStock") or "", "[^,]+") do
+		local recipe
+		for _, rc in Recipes do
+			if rc.id == id then
+				recipe = rc
+				break
+			end
+		end
+		if recipe and Items[id] then
+			i += 1
+			local row = UIKit.block({ Parent = list, LayoutOrder = i, Size = UDim2.new(1, -8, 0, 92) })
+			local box = UIKit.block({ Parent = row, Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(52, 52), BackgroundColor3 = C.cardDark })
+			Icons.make(id, box, UDim2.fromScale(0.9, 0.9), UDim2.fromScale(0.05, 0.05))
+			label({ Parent = row, Position = UDim2.fromOffset(64, 4), Size = UDim2.new(1, -150, 0, 22), Text = Items[id].name, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 19 })
+			local costs = new("Frame", { Parent = row, Position = UDim2.fromOffset(64, 28), Size = UDim2.new(1, -150, 0, 60), BackgroundTransparency = 1 }, {
+				new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }),
+			})
+			local can = level >= recipe.level
+			for cid, amount in recipe.cost do
+				local have = state.items[cid] or 0
+				if have < amount then
+					can = false
+				end
+				local cell = new("Frame", { Parent = costs, Size = UDim2.fromOffset(40, 58), BackgroundTransparency = 1 })
+				Icons.make(cid, cell, UDim2.fromOffset(34, 34), UDim2.fromOffset(3, 2))
+				label({ Parent = cell, Position = UDim2.fromOffset(0, 38), Size = UDim2.new(1, 0, 0, 16), Text = have .. "/" .. amount, TextScaled = false, TextSize = 13, TextColor3 = if have >= amount then C.good else C.bad })
+			end
+			button({ Parent = row, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(74, 30), BackgroundColor3 = if can then C.good else C.cardDark, Text = if level < recipe.level then "Lv " .. recipe.level else "Make", TextScaled = false, TextSize = 18 }, function()
+				callbacks.onCraft(id)
+			end)
+		end
+	end
+end
+
 -- Storage chest: what's inside on top, your bag underneath. Click a stack to move it.
 local chest: { model: Model?, contents: { [string]: number }, cap: number } = { model = nil, contents = {}, cap = 0 }
 
@@ -883,7 +928,7 @@ local function rebuildChest()
 	end)
 end
 
-local rebuilders = { quests = rebuildQuests, shop = rebuildShop, chest = rebuildChest }
+local rebuilders = { quests = rebuildQuests, shop = rebuildShop, chest = rebuildChest, merchant = rebuildMerchant }
 
 -- Opens or refreshes the chest panel; contents == nil closes it (the chest broke).
 function UI.showChest(model: Model?, contents: { [string]: number }?, cap: number?)
@@ -1139,6 +1184,18 @@ function UI.init(cb)
 
 	makePanel("quests", "Quest Board")
 	makePanel("shop", "Trader")
+	makePanel("merchant", "Wandering Merchant")
+	panels.merchant.Size = UDim2.fromOffset(440, 440)
+	-- Walk away from the merchant and the panel closes.
+	RunService.Heartbeat:Connect(function()
+		if openPanel == "merchant" then
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local at = workspace:GetAttribute("MerchantAt")
+			if not root or typeof(at) ~= "Vector3" or (at - root.Position).Magnitude > 22 then
+				UI.closePanels()
+			end
+		end
+	end)
 	makePanel("chest", "Storage Chest")
 	-- Walk away from an open chest and it closes.
 	RunService.Heartbeat:Connect(function()

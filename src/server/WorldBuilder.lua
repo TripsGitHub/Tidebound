@@ -1254,10 +1254,10 @@ local CAVE_NODES = {
 	deep = { { "GoldVein", 1 }, { "SunstoneVein", 1, 0.4 } },
 	-- Side pockets at the end of crawlways: usually the layer's better ore, rarely more.
 	pocket_lower = { { "GoldVein", 1, 0.65 }, { "DiamondCluster", 1, 0.17 } },
-	pocket_deep = { { "SunstoneVein", 1, 0.65 }, { "DiamondCluster", 1, 0.33 }, { "FractiteCluster", 1, 0.1 } },
+	pocket_deep = { { "SunstoneVein", 1, 0.65 }, { "DiamondCluster", 1, 0.33 }, { "AmethystGeode", 1, 0.1 } },
 	-- The hidden crystal caves: the only place Amethyst grows.
-	crystal = { { "DiamondCluster", 1 }, { "FractiteCluster", 1, 0.6 }, { "AmethystGeode", 1, 0.3 } },
-	abyss = { { "SunstoneVein", 1 }, { "DiamondCluster", 1, 0.4 }, { "FractiteCluster", 1, 0.05 } },
+	crystal = { { "DiamondCluster", 1 }, { "AmethystGeode", 1, 0.5 } },
+	abyss = { { "SunstoneVein", 1 }, { "DiamondCluster", 1, 0.4 }, { "AmethystGeode", 1, 0.05 } },
 	lair = {},
 }
 -- Odd ores along the halls, by depth (and never the rare ones).
@@ -2327,7 +2327,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		SeaFloor.build(ISLANDS, bores, spaces)
 		if not bakeOnly then
 			-- The ravines' special resources: richer ore and crystal down in the trenches.
-			local RAVINE = { "GoldVein", "SunstoneVein", "DiamondCluster", "GoldVein", "FractiteCluster", "SunstoneVein" }
+			local RAVINE = { "GoldVein", "SunstoneVein", "DiamondCluster", "GoldVein", "DiamondCluster", "SunstoneVein" }
 			for i, p in SeaFloor.ravineSpots(ISLANDS, 48) do
 				local kind = RAVINE[(i - 1) % #RAVINE + 1]
 				if Nodes[kind] then
@@ -2672,6 +2672,64 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		return
 	end
 	stage("Setting out the scenes")
+	-- The wandering merchant (Traders.lua): a covered cart-stall and its keeper,
+	-- moved between these islands as the day goes by.
+	do
+		local merchant = Instance.new("Model")
+		merchant.Name = "WanderingMerchant"
+		local o = CFrame.new()
+		local cloth = Color3.fromRGB(96, 52, 140)
+		local base = part(merchant, { Name = "Base", Size = Vector3.new(8, 0.4, 5), CFrame = o * CFrame.new(0, 0.2, -2.5), Color = COLORS.trunkDark, Material = Enum.Material.WoodPlanks })
+		merchant.PrimaryPart = base
+		part(merchant, { Name = "Counter", Size = Vector3.new(7, 2.8, 1.4), CFrame = o * CFrame.new(0, 1.8, -4.3), Color = COLORS.trunk, Material = Enum.Material.WoodPlanks })
+		for _, x in { -3.6, 3.6 } do
+			for _, z in { -0.2, -4.8 } do
+				part(merchant, { Size = Vector3.new(0.45, 7.6, 0.45), CFrame = o * CFrame.new(x, 4, z), Color = COLORS.trunkDark, Material = Enum.Material.Wood })
+			end
+			part(merchant, { Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 2.6, 2.6), CFrame = o * CFrame.new(x * 1.12, 1.3, -2.5) * CFrame.Angles(0, math.rad(90), 0), Color = COLORS.trunkDark, Material = Enum.Material.Wood })
+		end
+		for i = 0, 3 do
+			part(merchant, { Size = Vector3.new(8.4, 0.3, 1.5), CFrame = o * CFrame.new(0, 7.9 + (if i == 1 or i == 2 then 0.5 else 0), -0.4 - i * 1.4), Color = if i % 2 == 0 then cloth else Color3.fromRGB(230, 196, 90), Material = Enum.Material.Fabric })
+		end
+		part(merchant, { Shape = Enum.PartType.Ball, Size = Vector3.new(1.4, 1.4, 1.4), CFrame = o * CFrame.new(-2.2, 3.9, -4.3), Color = Color3.fromRGB(120, 255, 220), Material = Enum.Material.Neon })
+		local glow = Instance.new("PointLight")
+		glow.Color, glow.Range, glow.Brightness = Color3.fromRGB(150, 230, 255), 16, 1.4
+		glow.Parent = merchant:FindFirstChildWhichIsA("Part", true)
+		merchant.Parent = workspace
+		local npc = npcAvatar(o * CFrame.new(0, 0, -2.6), "Wandering Merchant", 100, { shirt = cloth, pants = Color3.fromRGB(60, 44, 36), skin = Color3.fromRGB(196, 150, 110) })
+		if npc then
+			npc.Parent = merchant
+			local root = npc:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if root then
+				prompt(root, "Trade", "Wandering Merchant", "merchant")
+			end
+		end
+		local stops = {}
+		for _, name in { "Pine Hills", "Stone Shelf", "Frost Isle", "Slime Marsh", "Gold Mesa", "Silver Crags", "Old Ruins", "Banana Isle", "Tide Isle", "Coral Atoll" } do
+			for _, isl in ISLANDS do
+				if isl.name == name then
+					local spot = flatSpot(isl, 7, 3)
+					if spot then
+						for _, nd in nodes:GetChildren() do
+							if (nd:GetPivot().Position - spot).Magnitude < 12 then
+								nd:Destroy()
+							end
+						end
+						for _, d in workspace.Decor:GetChildren() do
+							if (d.Position - spot).Magnitude < 12 then
+								d:Destroy()
+							end
+						end
+						local look = Vector3.new(isl.x - spot.X, 0, isl.z - spot.Z)
+						local face = if look.Magnitude > 1 then look.Unit else Vector3.zAxis
+						table.insert(stops, { cf = CFrame.lookAt(spot, spot + face), place = name })
+					end
+				end
+			end
+		end
+		print("[World] merchant stops: " .. #stops)
+		require(script.Parent.Traders).start(merchant, stops)
+	end
 	-- Small lived-in scenes between the camps: one to three per island.
 	local ambient = Instance.new("Folder")
 	ambient.Name = "Ambient"

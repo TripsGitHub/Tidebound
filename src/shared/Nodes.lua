@@ -88,7 +88,7 @@ local Nodes = {
 		name = "Maw Seal",
 		material = "stone",
 		hp = 3400,
-		minPower = 8,
+		minPower = 7,
 		respawn = 900,
 		xp = 250,
 		drops = { { item = "stone", min = 10, max = 14 }, { item = "diamond", min = 0, max = 1 } },

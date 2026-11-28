@@ -25,7 +25,6 @@ local LIST: { Tier } = {
 	{ id = "gold", name = "Gold", style = "metal", plate = rgb(236, 192, 72), trim = rgb(150, 104, 40), accent = rgb(200, 40, 48), strap = rgb(88, 58, 38), glow = false },
 	{ id = "sunsteel", name = "Sunsteel", style = "metal", plate = rgb(186, 44, 40), trim = rgb(240, 180, 60), accent = rgb(255, 150, 40), strap = rgb(60, 36, 30), glow = true },
 	{ id = "diamond", name = "Diamond", style = "crystal", plate = rgb(170, 236, 240), trim = rgb(60, 70, 86), accent = rgb(230, 252, 255), strap = rgb(52, 44, 52), glow = false },
-	{ id = "fractite", name = "Fractite", style = "crystal", plate = rgb(70, 220, 230), trim = rgb(30, 60, 70), accent = rgb(170, 255, 255), strap = rgb(40, 40, 48), glow = true },
 	{ id = "amethyst", name = "Amethyst", style = "crystal", plate = rgb(150, 80, 220), trim = rgb(50, 34, 70), accent = rgb(230, 180, 255), strap = rgb(44, 36, 52), glow = true },
 	-- Obsidian: dark navy-charcoal plates with hot orange inlays.
 	{ id = "obsidian", name = "Obsidian", style = "crystal", plate = rgb(36, 44, 58), trim = rgb(22, 26, 36), accent = rgb(255, 104, 36), strap = rgb(26, 28, 36), glow = true },

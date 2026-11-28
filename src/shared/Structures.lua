@@ -7,9 +7,12 @@ local Structures = {
 	WoodBase = { size = Vector3.new(56, 1.6, 56), hp = 1500 },
 	StoneBase = { size = Vector3.new(68, 1.8, 68), hp = 4000 },
 	LargeStoneBase = { size = Vector3.new(92, 2, 92), hp = 7000 },
-	WoodWall = { size = Vector3.new(12, 24, 1.6), hp = 300 },
-	StoneWall = { size = Vector3.new(12, 24, 2.6), hp = 900 },
-	WoodGate = { size = Vector3.new(12, 24, 1.6), hp = 250 },
+	WoodWall = { size = Vector3.new(12, 24, 1.6), hp = 300, tier = "wood", wall = true, plain = true },
+	StoneWall = { size = Vector3.new(12, 24, 2.6), hp = 900, tier = "stone", wall = true, plain = true },
+	-- Gates: a wall with a door in the middle that its owner (and their tribe, unless
+	-- it's locked) can open and close.
+	WoodGate = { size = Vector3.new(12, 24, 1.6), hp = 250, tier = "wood", gate = true, wallOf = "WoodWall", plain = true },
+	StoneGate = { size = Vector3.new(12, 24, 2.6), hp = 760, tier = "stone", gate = true, wallOf = "StoneWall", plain = true },
 	Chest = { size = Vector3.new(6, 4.2, 4.2), hp = 260 },
 }
 
@@ -24,10 +27,23 @@ Structures.Chest.chest = Config.ChestCapacity
 do
 	local Tiers = require(script.Parent.Tiers)
 	for _, tier in Tiers.list do
-		if tier.rank >= 3 then
+		-- Trader-only tiers (Tidecaller) have no building pieces.
+		if tier.rank >= 3 and not tier.mythic then
 			local name = tier.name:gsub("%s", "")
-			Structures[name .. "Wall"] = { size = Vector3.new(12, 24, 2.4), hp = math.floor(900 * (1 + (tier.rank - 2) * 0.55)), tier = tier.id, wall = true }
+			local wallHp = math.floor(900 * (1 + (tier.rank - 2) * 0.55))
+			Structures[name .. "Wall"] = { size = Vector3.new(12, 24, 2.4), hp = wallHp, tier = tier.id, wall = true }
+			Structures[name .. "Gate"] = { size = Vector3.new(12, 24, 2.4), hp = math.floor(wallHp * 0.85), tier = tier.id, gate = true, wallOf = name .. "Wall" }
 			Structures[name .. "Chest"] = { size = Vector3.new(6, 4.2, 4.2), hp = 260 + tier.rank * 220, tier = tier.id, chest = Config.ChestCapacity + (tier.rank - 2) * 150 }
+		end
+	end
+	-- Floor tiles and roofs for every building tier: lay them on the ground, on a
+	-- base, or on top of your walls for an upper floor or a roof over a room.
+	for _, tier in Tiers.list do
+		if not tier.mythic then
+			local name = tier.name:gsub("%s", "")
+			local k = 1 + (tier.rank - 1) * 0.5
+			Structures[name .. "Floor"] = { size = Vector3.new(12, 1, 12), hp = math.floor(220 * k), tier = tier.id, tile = true }
+			Structures[name .. "Roof"] = { size = Vector3.new(12, 5, 12), hp = math.floor(200 * k), tier = tier.id, roof = true }
 		end
 	end
 	for i, t in { "wood", "stone", "silver", "gold" } do

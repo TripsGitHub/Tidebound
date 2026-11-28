@@ -35,14 +35,14 @@ local KINDS = {
 		name = "Pearl Grotto",
 		seal = nil,
 		glow = Color3.fromRGB(120, 230, 255),
-		ores = { { "DiamondCluster", 2 }, { "SunstoneVein", 2 }, { "FractiteCluster", 1 } },
+		ores = { { "DiamondCluster", 2 }, { "SunstoneVein", 2 }, { "AmethystGeode", 1 } },
 		npc = { name = "Pearl Diver", level = 60, line = "Not many find their way down here. Mind your air on the way back up.", shirt = Color3.fromRGB(60, 120, 150), pants = Color3.fromRGB(50, 60, 80), skin = Color3.fromRGB(196, 150, 112) },
 	},
 	{
 		name = "Drowned Hollow",
 		seal = "tide",
 		glow = Color3.fromRGB(150, 255, 200),
-		ores = { { "FractiteCluster", 2 }, { "AmethystGeode", 1 }, { "DiamondCluster", 2 } },
+		ores = { { "AmethystGeode", 2 }, { "DiamondCluster", 1 }, { "DiamondCluster", 2 } },
 		npc = { name = "Drowned Hermit", level = 120, line = "The tide sealed this place long ago. You cracked it. Interesting...", shirt = Color3.fromRGB(70, 96, 80), pants = Color3.fromRGB(56, 50, 44), skin = Color3.fromRGB(160, 176, 160) },
 	},
 	{

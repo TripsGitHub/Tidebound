@@ -15,6 +15,8 @@ local Crafting = require(script.Parent.Crafting)
 local Chests = require(script.Parent.Chests)
 local Vehicles = require(script.Parent.Vehicles)
 local Farming = require(script.Parent.Farming)
+local Access = require(script.Parent.Access)
+local TweenService = game:GetService("TweenService")
 
 local Building = {}
 
@@ -105,19 +107,6 @@ function builders.StoneWall(model: Model, cf: CFrame, size: Vector3)
 			boulder(model, rng:NextNumber(2.1, 2.6), cf * CFrame.new(x + (row % 2), y, 0), if rng:NextNumber() < 0.5 then STONE else STONE_DARK)
 		end
 	end
-	return core
-end
-
--- A gate looks like a wall with braces across it. There's no opening animation:
--- its owner simply walks through it (each owner's client turns its collision off
--- locally, see Gates.lua), while everyone else is blocked like by any wall.
-function builders.WoodGate(model: Model, cf: CFrame, size: Vector3)
-	local core = builders.WoodWall(model, cf, size)
-	for _, y in { -size.Y / 4, size.Y / 4 } do
-		part(model, false, { Name = "Brace", Size = Vector3.new(size.X - 0.4, 0.55, 0.5), CFrame = cf * CFrame.new(0, y, -size.Z / 2 - 0.2), Color = WOOD_LIGHT, Material = Enum.Material.Wood, CanCollide = false })
-	end
-	local diag = math.sqrt(size.X ^ 2 + (size.Y / 2) ^ 2)
-	part(model, false, { Name = "Brace", Size = Vector3.new(diag - 0.6, 0.5, 0.45), CFrame = cf * CFrame.new(0, 0, -size.Z / 2 - 0.2) * CFrame.Angles(0, 0, math.atan2(size.Y / 2, size.X)), Color = WOOD_LIGHT, Material = Enum.Material.Wood, CanCollide = false })
 	return core
 end
 
@@ -311,7 +300,7 @@ end
 -- Ore walls: a stone wall faced with plates of the ore, with a rim along the top.
 -- Ore chests and carts: the wooden chest bound in the ore.
 for name, def in Structures do
-	if type(def) ~= "table" or not def.tier then
+	if type(def) ~= "table" or not def.tier or def.plain or def.gate or def.tile or def.roof then
 		continue
 	end
 	local tier = Tiers.get(def.tier) :: any
@@ -359,6 +348,235 @@ for name, def in Structures do
 	end
 end
 
+-- Gates: the tier's wall, cut into two pillars and a lintel, with a door in the gap.
+-- The invisible core covers the whole gate (hits, placement) but doesn't collide; the
+-- pillars, lintel and door do. The door swings open on its hinge (see setupGate).
+local DOOR_W, DOOR_H = 6, 11
+local function wallPiece(model: Model, wallName: string, cf: CFrame, size: Vector3)
+	local temp = Instance.new("Model")
+	local core = builders[wallName](temp, cf, size)
+	if wallName == "WoodWall" then
+		local mesh = Meshes.build("woodwall", { fit = size, collide = false })
+		if mesh then
+			for _, p in temp:GetChildren() do
+				if p ~= core and p:IsA("BasePart") then
+					p:Destroy()
+				end
+			end
+			core.Transparency = 1
+			mesh:PivotTo(cf * CFrame.new(0, -size.Y / 2, 0))
+			for _, p in mesh:GetChildren() do
+				(p :: BasePart).CanQuery = false
+				p.Parent = temp
+			end
+			mesh:Destroy()
+		end
+	end
+	core.Name = "Segment"
+	for _, p in temp:GetChildren() do
+		p.Parent = model
+	end
+	temp:Destroy()
+end
+
+local function tierLook(tierId: string): (Color3, Color3, Color3, Enum.Material, boolean)
+	local tier = Tiers.get(tierId) :: any
+	if tierId == "wood" then
+		return WOOD_DARK, WOOD_LIGHT, WOOD, Enum.Material.WoodPlanks, false
+	elseif tierId == "stone" then
+		return STONE, STONE_DARK, WOOD_DARK, Enum.Material.Slate, false
+	end
+	local mat = if tier.style == "crystal" then Enum.Material.Glass else Enum.Material.Metal
+	return tier.plate, tier.trim, tier.accent, mat, tier.glow
+end
+
+local function gateBuilder(def)
+	return function(model: Model, cf: CFrame, size: Vector3)
+		local core = part(model, true, { Name = "Core", Size = size, CFrame = cf, Transparency = 1 })
+		core.CanCollide = false
+		local side = (size.X - DOOR_W) / 2
+		for sx = -1, 1, 2 do
+			wallPiece(model, def.wallOf, cf * CFrame.new(sx * (DOOR_W / 2 + side / 2), 0, 0), Vector3.new(side, size.Y, size.Z))
+		end
+		local lintelH = size.Y - DOOR_H
+		wallPiece(model, def.wallOf, cf * CFrame.new(0, size.Y / 2 - lintelH / 2, 0), Vector3.new(DOOR_W, lintelH, size.Z))
+		-- The door: planks (or plates) with two bands and a ring handle. Wood and stone
+		-- gates get a wooden door bound in iron; ore gates a door of the ore.
+		local plate, trim, accent, mat, glow = tierLook(def.tier)
+		local doorColour = if def.tier == "wood" or def.tier == "stone" then WOOD_DARK else plate
+		local doorMat = if def.tier == "wood" or def.tier == "stone" then Enum.Material.WoodPlanks else mat
+		local band = if def.tier == "wood" or def.tier == "stone" then Color3.fromRGB(70, 70, 76) else trim
+		local door = Instance.new("Model")
+		door.Name = "Door"
+		local dz = math.min(size.Z * 0.5, 1)
+		local doorCf = cf * CFrame.new(0, -size.Y / 2 + DOOR_H / 2, 0)
+		local panel = part(door, true, { Name = "DoorPanel", Size = Vector3.new(DOOR_W - 0.2, DOOR_H - 0.1, dz), CFrame = doorCf, Color = doorColour, Material = doorMat })
+		for _, y in { -DOOR_H * 0.3, DOOR_H * 0.3 } do
+			part(door, false, { Name = "Band", Size = Vector3.new(DOOR_W - 0.1, 0.5, dz + 0.2), CFrame = doorCf * CFrame.new(0, y, 0), Color = band, Material = Enum.Material.Metal })
+		end
+		for sz = -1, 1, 2 do
+			part(door, false, { Name = "Handle", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.25, 0.8, 0.8), CFrame = doorCf * CFrame.new(DOOR_W / 2 - 1, 0, sz * (dz / 2 + 0.12)) * CFrame.Angles(0, math.rad(90), 0), Color = if glow then accent else Color3.fromRGB(200, 170, 80), Material = if glow then Enum.Material.Neon else Enum.Material.Metal })
+		end
+		if def.tier ~= "wood" and def.tier ~= "stone" then
+			part(door, false, { Name = "Trim", Size = Vector3.new(0.35, DOOR_H - 0.6, dz + 0.15), CFrame = doorCf, Color = trim, Material = Enum.Material.Metal })
+		end
+		door.PrimaryPart = panel
+		door.Parent = model
+		model:SetAttribute("DoorClosed", doorCf)
+		return core
+	end
+end
+
+local function tileBuilder(def)
+	return function(model: Model, cf: CFrame, size: Vector3)
+		local plate, trim, accent, mat, glow = tierLook(def.tier)
+		local top = if def.tier == "wood" then WOOD else plate
+		local core = part(model, true, { Name = "Core", Size = size, CFrame = cf, Color = if def.tier == "wood" then WOOD_DARK else trim, Material = if def.tier == "wood" then Enum.Material.Wood else mat })
+		if def.tier == "wood" then
+			for i = 0, 5 do
+				part(model, false, { Name = "Plank", Size = Vector3.new(size.X / 6 - 0.12, 0.2, size.Z - 0.2), CFrame = cf * CFrame.new(-size.X / 2 + size.X / 12 + i * size.X / 6, size.Y / 2 + 0.05, 0), Color = if i % 2 == 0 then WOOD else WOOD_LIGHT, Material = Enum.Material.WoodPlanks })
+			end
+		else
+			for gx = 0, 2 do
+				for gz = 0, 2 do
+					part(model, false, { Name = "Slab", Size = Vector3.new(size.X / 3 - 0.3, 0.2, size.Z / 3 - 0.3), CFrame = cf * CFrame.new(-size.X / 3 + gx * size.X / 3, size.Y / 2 + 0.05, -size.Z / 3 + gz * size.Z / 3), Color = if (gx + gz) % 2 == 0 then top else top:Lerp(Color3.new(0, 0, 0), 0.12), Material = mat })
+				end
+			end
+			if glow then
+				part(model, false, { Name = "Glow", Size = Vector3.new(1, 0.22, 1), CFrame = cf * CFrame.new(0, size.Y / 2 + 0.08, 0) * CFrame.Angles(0, math.rad(45), 0), Color = accent, Material = Enum.Material.Neon })
+			end
+		end
+		return core
+	end
+end
+
+local function roofBuilder(def)
+	return function(model: Model, cf: CFrame, size: Vector3)
+		local plate, trim, accent, mat, glow = tierLook(def.tier)
+		local roofColour = if def.tier == "wood" then Color3.fromRGB(196, 150, 80) elseif def.tier == "stone" then STONE_DARK else plate
+		local roofMat = if def.tier == "wood" then Enum.Material.Grass else mat
+		-- A ceiling you can stand on, then two slopes up to a ridge beam.
+		local core = part(model, true, { Name = "Core", Size = Vector3.new(size.X, 0.8, size.Z), CFrame = cf * CFrame.new(0, -size.Y / 2 + 0.4, 0), Color = if def.tier == "wood" then WOOD_DARK else trim, Material = if def.tier == "wood" then Enum.Material.WoodPlanks else mat })
+		local h = size.Y - 0.8
+		for sz = -1, 1, 2 do
+			local w = Instance.new("WedgePart")
+			w.Name = "Slope"
+			w.Anchored, w.CanCollide, w.CanQuery = true, true, false
+			w.TopSurface, w.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+			w.Size = Vector3.new(size.X + 0.6, h, size.Z / 2 + 0.3)
+			w.CFrame = cf * CFrame.new(0, -size.Y / 2 + 0.8 + h / 2, sz * (size.Z / 4 + 0.15)) * CFrame.Angles(0, if sz > 0 then 0 else math.pi, 0)
+			w.Color = roofColour
+			w.Material = roofMat
+			w.Parent = model
+		end
+		part(model, false, { Name = "Ridge", Size = Vector3.new(size.X + 0.9, 0.6, 0.7), CFrame = cf * CFrame.new(0, size.Y / 2 - 0.1, 0), Color = if def.tier == "wood" then WOOD_DARK else trim, Material = if def.tier == "wood" then Enum.Material.Wood else Enum.Material.Metal })
+		if glow then
+			part(model, false, { Name = "Glow", Size = Vector3.new(size.X + 0.95, 0.18, 0.3), CFrame = cf * CFrame.new(0, size.Y / 2 + 0.25, 0), Color = accent, Material = Enum.Material.Neon })
+		end
+		return core
+	end
+end
+
+for name, def in Structures do
+	if type(def) == "table" then
+		if def.gate then
+			builders[name] = gateBuilder(def)
+		elseif def.tile then
+			builders[name] = tileBuilder(def)
+		elseif def.roof then
+			builders[name] = roofBuilder(def)
+		end
+	end
+end
+
+-- Opening a gate: E at the door. It swings open away from you, stays open a few
+-- seconds, then shuts. Only those who may use it (Access.canUse) can open it.
+local function setupGate(model: Model, core: BasePart)
+	local door = model:FindFirstChild("Door") :: Model?
+	local closed = model:GetAttribute("DoorClosed")
+	if not door or typeof(closed) ~= "CFrame" then
+		return
+	end
+	local hinge = closed * CFrame.new(-DOOR_W / 2, 0, 0)
+	local offset = hinge:ToObjectSpace(door:GetPivot())
+	local angle = Instance.new("NumberValue")
+	angle.Name = "DoorAngle"
+	angle.Parent = model
+	angle.Changed:Connect(function(a)
+		door:PivotTo(hinge * CFrame.Angles(0, math.rad(a), 0) * offset)
+	end)
+	local at = Instance.new("Attachment")
+	at.Name = "DoorPrompt"
+	at.Position = core.CFrame:PointToObjectSpace(closed.Position)
+	at.Parent = core
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "GatePrompt"
+	prompt.ActionText = "Open"
+	prompt.ObjectText = model:GetAttribute("DisplayName") or "Gate"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = at
+	local open = false
+	local token = 0
+	local function setOpen(v: boolean, towards: number)
+		open = v
+		token += 1
+		prompt.ActionText = if v then "Close" else "Open"
+		for _, p in door:GetDescendants() do
+			if p:IsA("BasePart") and p.Name == "DoorPanel" then
+				p.CanCollide = not v
+			end
+		end
+		TweenService:Create(angle, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Value = if v then 100 * towards else 0 }):Play()
+		if v then
+			local mine = token
+			task.delay(6, function()
+				if open and token == mine and model.Parent then
+					setOpen(false, 1)
+				end
+			end)
+		end
+	end
+	prompt.Triggered:Connect(function(player)
+		if not Access.canUse(player, model) then
+			Remotes.Notify:FireClient(player, if model:GetAttribute("Locked") then "That gate is locked" else "That gate isn't yours", "warn")
+			return
+		end
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		-- Swing away from whoever opens it.
+		local towards = 1
+		if root then
+			towards = if closed:PointToObjectSpace(root.Position).Z > 0 then -1 else 1
+		end
+		setOpen(not open, towards)
+	end)
+end
+
+-- Locking: the owner's client shows a Lock / Unlock prompt on each lockable build
+-- (client/Locks.lua) and sends ToggleLock.
+function Building.toggleLock(player: Player, model: unknown)
+	if typeof(model) ~= "Instance" or not (model :: Instance):IsA("Model") or (model :: Instance).Parent ~= workspace.Structures then
+		return
+	end
+	local m = model :: Model
+	if m:GetAttribute("OwnerId") ~= player.UserId then
+		return
+	end
+	local def = Structures[m:GetAttribute("StructureType") or ""]
+	if not Access.lockable(def) then
+		return
+	end
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root or not m.PrimaryPart or (root.Position - m.PrimaryPart.Position).Magnitude > 20 then
+		return
+	end
+	local locked = not m:GetAttribute("Locked")
+	m:SetAttribute("Locked", locked)
+	Remotes.Notify:FireClient(player, (m:GetAttribute("DisplayName") or "It") .. (if locked then " locked: only you can use it" else " unlocked: your tribe can use it too"), "good")
+end
+
 local function characterList(): { Instance }
 	local list = {}
 	for _, p in Players:GetPlayers() do
@@ -373,7 +591,6 @@ end
 -- (collision, hits, fire, prompts); the mesh replaces the block decoration.
 local STRUCTURE_MESHES = {
 	WoodWall = { mesh = "woodwall", stretch = true },
-	WoodGate = { mesh = "woodgate", stretch = true },
 	WoodBase = { mesh = "woodfloor", stretch = true },
 	Campfire = { mesh = "campfire" },
 }
@@ -416,6 +633,16 @@ local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, 
 	model:SetAttribute("HP", math.min(hp or maxHp, maxHp))
 	model:SetAttribute("MaxHP", maxHp)
 	model:SetAttribute("OwnerId", ownerId)
+	if ownerPlayer and ownerPlayer:GetAttribute("Tribe") ~= nil then
+		model:SetAttribute("OwnerTribe", ownerPlayer:GetAttribute("Tribe"))
+	end
+	if Access.lockable(def) then
+		model:SetAttribute("Lockable", true)
+		model:SetAttribute("Locked", false)
+	end
+	if def.gate then
+		setupGate(model, core)
+	end
 	if def.chest then
 		model:SetAttribute("Capacity", def.chest)
 		Chests.setup(model, stored)
@@ -550,16 +777,24 @@ function Building.onPlace(player: Player, itemId: unknown, position: unknown, ro
 
 	-- Walls on a floor's edge: the ray can slip past the floor's rim, so if the
 	-- client put it on top of one of the floors there, trust that height.
+	-- Floor tiles and roofs can also sit on top of walls, gates and other tiles (an
+	-- upper floor, a roof over a room): trust the client's height if a build's top
+	-- is right there under the piece's footprint.
 	local groundY = hit.Position.Y
 	if pos.Y > groundY + 0.5 then
+		local upper = def.tile or def.roof or def.wall or def.gate
 		for _, m in workspace.Structures:GetChildren() do
 			local st = m:GetAttribute("StructureType")
 			local core = m:IsA("Model") and m.PrimaryPart
-			if st and core and Structures.isFloor(st) then
+			local sdef = st and Structures[st]
+			if st and core and sdef and (Structures.isFloor(st) or (upper and (sdef.wall or sdef.gate or sdef.tile or sdef.roof))) then
 				local top = core.Position.Y + core.Size.Y / 2
 				local rel = core.CFrame:PointToObjectSpace(pos)
-				if math.abs(top - pos.Y) < 0.6 and math.abs(rel.X) <= core.Size.X / 2 + 1 and math.abs(rel.Z) <= core.Size.Z / 2 + 1 then
-					groundY = top
+				local reach = if Structures.isFloor(st) then 1 else size.X / 2 + 0.5
+				local bottom = core.Position.Y - core.Size.Y / 2
+				local level = math.abs(top - pos.Y) < 0.8 or ((sdef.tile or sdef.roof) and math.abs(bottom - pos.Y) < 0.3)
+				if level and math.abs(rel.X) <= core.Size.X / 2 + reach and math.abs(rel.Z) <= core.Size.Z / 2 + reach then
+					groundY = pos.Y
 					break
 				end
 			end
@@ -677,7 +912,10 @@ function rebuildOn(player: Player, base: Model)
 			if not onBase(frame, plate, cf.Position) then
 				table.insert(leftover, e) -- needs a bigger plate; kept for next time
 			elseif count < Config.MaxStructures and not blocked(cf, size) then
-				construct(player.UserId, player, e.i, cf, 1, if (tonumber(e.hp) or 0) > 0 then e.hp else nil, e.c)
+				local m = construct(player.UserId, player, e.i, cf, 1, if (tonumber(e.hp) or 0) > 0 then e.hp else nil, e.c)
+				if e.l == true and m:GetAttribute("Lockable") then
+					m:SetAttribute("Locked", true)
+				end
 				count += 1
 			else
 				skipped += 1
@@ -715,6 +953,7 @@ function Building.export(player: Player): any
 					z = round1(rel.Z),
 					r = Structures.snapRotation(math.deg(ry)),
 					hp = math.floor(m:GetAttribute("HP") or 0),
+					l = if m:GetAttribute("Locked") then true else nil,
 					c = if Structures[st] and Structures[st].chest then Chests.export(m) elseif Structures[st] and Structures[st].planter then Farming.export(m) else nil,
 				})
 				if #list >= Config.MaxStructures then

@@ -209,7 +209,8 @@ local function rebuildCrafting()
 	for i, recipe in Recipes do
 		-- Every recipe shows, locked ones greyed with the level they unlock at, so you
 		-- can see what you're working towards.
-		local show = craftTab == "All" or recipe.tab == craftTab
+		-- Merchant-only gear (Tidecaller, boss gear) is made at the wandering merchant.
+		local show = (craftTab == "All" or recipe.tab == craftTab) and not recipe.trader
 		local entry = craftCards[recipe.id]
 		if show and not entry then
 			entry = craftCard(i, recipe)

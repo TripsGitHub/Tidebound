@@ -165,8 +165,7 @@ local function pickSeed(player: Player): string?
 end
 
 local function canUse(player: Player, box: Model): boolean
-	local owner = box:GetAttribute("OwnerId")
-	return owner == nil or owner == player.UserId or (player:GetAttribute("Tribe") ~= nil and player:GetAttribute("Tribe") == box:GetAttribute("OwnerTribe"))
+	return require(script.Parent.Access).canUse(player, box)
 end
 
 local function plant(player: Player, box: Model)

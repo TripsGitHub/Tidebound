@@ -25,9 +25,10 @@ local Recipes = {
 
 	-- Cave and boss gear (levels on the 1-20 scale like the rest)
 	{ id = "maw_key", tab = "Tools", level = 9, cost = { key_fragment = 3, gold_bar = 4 } },
-	{ id = "fang_blade", tab = "Tools", level = 19, cost = { queen_fang = 1, diamond = 6, leather = 6 } },
-	{ id = "golem_harvester", tab = "Tools", level = 20, cost = { golem_heart = 1, obsidian = 8, stick = 6 } },
-	{ id = "warden_pack", tab = "Armour", level = 19, cost = { warden_core = 1, amethyst = 4, leather = 12 } },
+	-- Boss gear is made only at the wandering merchant (trader = true, see Traders.lua).
+	{ id = "fang_blade", tab = "Tools", level = 19, trader = true, cost = { queen_fang = 1, diamond = 6, leather = 6 } },
+	{ id = "golem_harvester", tab = "Tools", level = 20, trader = true, cost = { golem_heart = 1, obsidian = 8, stick = 6 } },
+	{ id = "warden_pack", tab = "Armour", level = 19, trader = true, cost = { warden_core = 1, amethyst = 4, leather = 12 } },
 
 	-- Slime armour: soaks up beasts' bites, weak against other players' blades.
 	{ id = "slime_boots", tab = "Armour", level = 9, cost = { sticky_slime = 10, leather = 2 } },
@@ -44,6 +45,11 @@ local Recipes = {
 	{ id = "stone_base", tab = "Buildables", level = 8, cost = { stone = 50, sticky_slime = 4 } },
 	{ id = "large_stone_base", tab = "Buildables", level = 12, cost = { stone = 90, sticky_slime = 8, silver_bar = 4 } },
 	{ id = "stone_wall", tab = "Buildables", level = 8, cost = { stone = 14, sticky_slime = 2 } },
+	{ id = "stone_gate", tab = "Buildables", level = 8, cost = { stone = 14, log = 4, sticky_slime = 2 } },
+	{ id = "wood_floor", tab = "Buildables", level = 3, cost = { log = 6 } },
+	{ id = "wood_roof", tab = "Buildables", level = 3, cost = { log = 8, leaves = 6 } },
+	{ id = "stone_floor", tab = "Buildables", level = 8, cost = { stone = 10 } },
+	{ id = "stone_roof", tab = "Buildables", level = 8, cost = { stone = 12, log = 4 } },
 
 	-- Round 7: lights, beds, traps, ladders, carts, rafts, shields, bows
 	{ id = "torch", tab = "Buildables", level = 2, cost = { stick = 3, leaves = 2, log = 1 } },
@@ -96,6 +102,9 @@ for i, ore in Ores do
 	table.insert(Recipes, { id = t .. "_bag", tab = "Armour", level = L2, cost = cost(10, { leather = 6, sticky_slime = 2 }, 4) })
 	table.insert(Recipes, { id = t .. "_shield", tab = "Armour", level = L, cost = cost(9, { leather = 2, log = 2 }, 3) })
 	table.insert(Recipes, { id = t .. "_wall", tab = "Buildables", level = L, cost = cost(10, { stone = 6 }) })
+	table.insert(Recipes, { id = t .. "_gate", tab = "Buildables", level = L, cost = cost(10, { stone = 6, log = 4 }) })
+	table.insert(Recipes, { id = t .. "_floor", tab = "Buildables", level = L, cost = cost(6, { stone = 4 }) })
+	table.insert(Recipes, { id = t .. "_roof", tab = "Buildables", level = L, cost = cost(7, { log = 4 }) })
 	table.insert(Recipes, { id = t .. "_chest", tab = "Buildables", level = L, cost = cost(8, { log = 8 }) })
 	local Items = require(script.Parent.Items)
 	local bowId = if Items[t .. "_crossbow"] then t .. "_crossbow" else t .. "_bow"
@@ -104,7 +113,8 @@ for i, ore in Ores do
 	end
 end
 
--- Tidecaller (Mythic) gear: Moonstone plus the crate-only Mythic materials.
+-- Tidecaller (Mythic) gear: Moonstone plus the crate-only Mythic materials. Made only
+-- at the wandering merchant, never at the crafting menu.
 for _, r in {
 	{ "harvester", "Tools", 18, { moonstone = 8, star_shard = 3, ancient_rune = 1, stick = 4 } },
 	{ "sword", "Tools", 18, { moonstone = 10, star_shard = 3, abyss_pearl = 1 } },
@@ -115,7 +125,7 @@ for _, r in {
 	{ "body", "Armour", 20, { moonstone = 15, star_shard = 4, abyss_pearl = 1, ancient_rune = 1 } },
 	{ "bag", "Armour", 20, { moonstone = 10, star_shard = 3, ancient_rune = 2, leather = 10 } },
 } do
-	table.insert(Recipes, { id = "tidecaller_" .. r[1], tab = r[2], level = r[3], cost = r[4] })
+	table.insert(Recipes, { id = "tidecaller_" .. r[1], tab = r[2], level = r[3], cost = r[4], trader = true })
 end
 
 -- A whole tier's gear unlocks together, at the level of its first piece: reaching

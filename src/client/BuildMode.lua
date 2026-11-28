@@ -117,7 +117,9 @@ RunService.RenderStepped:Connect(function()
 	local cf = CFrame.new(snapped.X, hit.Position.Y + size.Y / 2, snapped.Z) * CFrame.Angles(0, math.rad(rotation), 0)
 	local item = Items[currentItem :: string]
 	local floor = Structures.isFloor(item.structure)
-	local wall = item.structure == "WoodWall" or item.structure == "StoneWall" or item.structure == "WoodGate"
+	local def = Structures[item.structure]
+	local wall = def.wall == true or def.gate == true
+	local piece = def.tile == true or def.roof == true
 	-- Walls on your base: near its rim they line up along the nearest edge; further in
 	-- they can stand anywhere on top of it.
 	local structures = workspace:FindFirstChild("Structures")
@@ -170,6 +172,41 @@ RunService.RenderStepped:Connect(function()
 					along = math.clamp(math.round((rel.X + half - w / 2) / w) * w - half + w / 2, -half + w / 2, half - w / 2)
 					local p = baseCf:PointToWorldSpace(edge + Vector3.new(along, 0, 0))
 					cf = CFrame.new(p.X, top + size.Y / 2, p.Z) * CFrame.Angles(0, ry, 0)
+				end
+			end
+		end
+	end
+	-- Floor tiles and roofs: aimed at the top of a wall or gate, the tile sits on it
+	-- with one edge along the wall's middle, on whichever side of the wall you aim
+	-- (an upper floor, or a roof over the room). Aimed at another tile or roof, it
+	-- goes flush beside it at the same height.
+	if structures and piece then
+		local m = hit.Instance
+		while m and m.Parent and m.Parent ~= structures do
+			m = m.Parent
+		end
+		local st = m and m.Parent == structures and m:GetAttribute("StructureType")
+		local sdef = st and Structures[st]
+		local core = m and m:IsA("Model") and m.PrimaryPart
+		if sdef and core then
+			local wcf = CFrame.new(core.Position) * (core.CFrame - core.CFrame.Position)
+			local _, ry = wcf:ToOrientation()
+			local top = core.Position.Y + core.Size.Y / 2
+			local rel = wcf:PointToObjectSpace(hit.Position)
+			if (sdef.wall or sdef.gate) and hit.Position.Y > top - 1.2 then
+				local sideZ = math.sign(rel.Z)
+				if sideZ == 0 then
+					sideZ = if wcf:PointToObjectSpace(root.Position).Z > 0 then -1 else 1
+				end
+				local p = wcf:PointToWorldSpace(Vector3.new(0, 0, sideZ * size.Z / 2))
+				cf = CFrame.new(p.X, top + size.Y / 2, p.Z) * CFrame.Angles(0, ry, 0)
+			elseif (sdef.tile or sdef.roof) and hit.Position.Y > top - 0.6 then
+				local half = core.Size.X / 2
+				local off = if math.abs(rel.X) > math.abs(rel.Z) then Vector3.new(math.sign(rel.X) * (half + size.X / 2), 0, 0) else Vector3.new(0, 0, math.sign(rel.Z) * (half + size.Z / 2))
+				if math.abs(rel.X) > half * 0.5 or math.abs(rel.Z) > half * 0.5 then
+					local p = wcf:PointToWorldSpace(off)
+					local bottom = core.Position.Y - core.Size.Y / 2
+					cf = CFrame.new(p.X, bottom + size.Y / 2, p.Z) * CFrame.Angles(0, ry, 0)
 				end
 			end
 		end

@@ -11,7 +11,7 @@
 -- The halls are wide (built for a tribe, not one player) and the best ore is never on
 -- the main way. Side branches wander off the halls: most are dead ends, some squeeze
 -- down to a crawlway that opens into a small pocket with rare ore (Diamond in the
--- lower caves; Fractite and Amethyst only deep down), and a few hide a sealed-looking
+-- lower caves; Amethyst only deep down), and a few hide a sealed-looking
 -- secret room, kept empty for traders and events later.
 --
 -- Ways out besides the fang mouths:

@@ -133,7 +133,6 @@ Items.CRATES = {
 			{ "sunstone", 3, 6, 10 },
 			{ "sunsteel_bar", 2, 4, 6 },
 			{ "diamond", 2, 4, 7 },
-			{ "fractite", 1, 3, 5 },
 			{ "amethyst", 1, 2, 3 },
 			{ "key_fragment", 1, 2, 5 },
 			{ "pink_slime", 2, 4, 4 },
@@ -238,11 +237,10 @@ Items.ARMOUR_VS = {
 	gold = { mob = 0.9, player = 1.1 },
 	sunsteel = { mob = 1.15, player = 0.95 },
 	diamond = { mob = 1.05, player = 1.05 },
-	fractite = { mob = 1.2, player = 0.9 },
 	amethyst = { mob = 0.95, player = 1.2 },
 	obsidian = { mob = 1.2, player = 1.4 },
 	lunar = { mob = 1.15, player = 1.15 },
-	tidecaller = { mob = 1.3, player = 1.3 },
+	tidecaller = { mob = 1.6, player = 0.7 }, -- made for beasts and bosses, not for PvP
 	slime = { mob = 1.8, player = 0.45 },
 }
 for _, tier in Tiers.extra do
@@ -275,11 +273,24 @@ Items.ladder = { name = "Ladder", kind = "placeable", order = 37.4, structure = 
 -- Walls and chests made from each ore, tougher (and roomier) the rarer the ore.
 Items.ORE_BUILD = {}
 for _, tier in Tiers.list do
-	if tier.rank >= 3 then
+	if tier.rank >= 3 and not tier.mythic then
 		local wall, chest = tier.id .. "_wall", tier.id .. "_chest"
 		Items[wall] = { name = tier.name .. " Wall", kind = "placeable", order = 35 + tier.rank * 0.01, structure = (tier.name:gsub("%s", "")) .. "Wall", tier = tier.id, description = "A wall of " .. tier.name .. ". Much harder to break than stone." }
 		Items[chest] = { name = tier.name .. " Chest", kind = "placeable", order = 36 + tier.rank * 0.01, structure = (tier.name:gsub("%s", "")) .. "Chest", tier = tier.id, description = "A " .. tier.name .. "-bound chest: holds more and takes a beating." }
+		Items[tier.id .. "_gate"] = { name = tier.name .. " Gate", kind = "placeable", order = 35.5 + tier.rank * 0.01, structure = (tier.name:gsub("%s", "")) .. "Gate", tier = tier.id, description = "A " .. tier.name .. " wall with a door. Press E to open it. Only you (and your tribe, unless you lock it) can." }
 		table.insert(Items.ORE_BUILD, tier.id)
+	end
+end
+Items.stone_gate = { name = "Stone Gate", kind = "placeable", order = 35.5, structure = "StoneGate", tier = "stone", description = "A stone wall with a door. Press E to open it. Only you (and your tribe, unless you lock it) can." }
+Items.wood_gate.description = "A wooden wall with a door. Press E to open it. Only you (and your tribe, unless you lock it) can."
+-- Floor tiles and roofs for every building tier.
+Items.BUILD_TIERS = {}
+for _, tier in Tiers.list do
+	if not tier.mythic then
+		local n = tier.name:gsub("%s", "")
+		Items[tier.id .. "_floor"] = { name = tier.name .. " Floor", kind = "placeable", order = 34.7 + tier.rank * 0.01, structure = n .. "Floor", tier = tier.id, description = "A 12x12 floor tile. Put it on the ground, or on top of your walls for an upper floor." }
+		Items[tier.id .. "_roof"] = { name = tier.name .. " Roof", kind = "placeable", order = 34.8 + tier.rank * 0.01, structure = n .. "Roof", tier = tier.id, description = "A peaked roof. Put it on top of your walls to cover a room." }
+		table.insert(Items.BUILD_TIERS, tier.id)
 	end
 end
 -- Farming: crops you grow in a Plant Box from seeds. Seeds come from wild crops
@@ -333,7 +344,6 @@ Items.BOWS = {
 	gold = { 30, 200, 150, 0.85 },
 	sunsteel = { 38, 220, 170, 0.85 },
 	diamond = { 48, 250, 200, 1.0 },
-	fractite = { 58, 270, 220, 1.0 },
 	amethyst = { 68, 290, 240, 0.95 },
 	obsidian = { 80, 310, 260, 0.95 },
 	lunar = { 94, 340, 290, 0.9 },
@@ -371,7 +381,7 @@ end
 
 -- A bag for every ore tier, each one bigger than the last (after the Leather Bag,
 -- Hide Pack and Explorer Pack). Recipes are in Recipes.lua.
-Items.BAG_SIZES = { silver = 200, gold = 250, sunsteel = 310, diamond = 380, fractite = 460, amethyst = 550, obsidian = 650, lunar = 800, tidecaller = 1200 }
+Items.BAG_SIZES = { silver = 200, gold = 250, sunsteel = 310, diamond = 380, amethyst = 550, obsidian = 650, lunar = 800, tidecaller = 1200 }
 for _, tier in Tiers.list do
 	local size = Items.BAG_SIZES[tier.id]
 	if size then

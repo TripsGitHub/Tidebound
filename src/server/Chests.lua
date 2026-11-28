@@ -9,6 +9,7 @@ local Items = require(Shared.Items)
 local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
 local Drops = require(script.Parent.Drops)
+local Access = require(script.Parent.Access)
 
 local Chests = {}
 
@@ -35,8 +36,7 @@ local function near(player: Player, model: Model): boolean
 end
 
 local function canOpen(player: Player, model: Model): boolean
-	local owner = model:GetAttribute("OwnerId")
-	return owner == nil or owner == player.UserId
+	return Access.canUse(player, model)
 end
 
 local function send(player: Player, model: Model)
@@ -75,7 +75,7 @@ function Chests.setup(model: Model, saved: any)
 		prompt.Parent = c
 		prompt.Triggered:Connect(function(player)
 			if not canOpen(player, model) then
-				Remotes.Notify:FireClient(player, "That chest isn't yours", "warn")
+				Remotes.Notify:FireClient(player, if model:GetAttribute("Locked") then "That chest is locked" else "That chest isn't yours", "warn")
 				return
 			end
 			viewers[model][player] = true

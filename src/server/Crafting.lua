@@ -22,6 +22,13 @@ function Crafting.onCraft(player: Player, recipeId: unknown)
 	end
 	for _, recipe in Recipes do
 		if recipe.id == recipeId then
+			if recipe.trader then
+				local ok, why = require(script.Parent.Traders).canCraft(player, recipe.id)
+				if not ok then
+					Remotes.Notify:FireClient(player, why or "Only the wandering merchant can make that", "warn")
+					return
+				end
+			end
 			if Progression.getLevel(player) < recipe.level then
 				Remotes.Notify:FireClient(player, "Reach level " .. recipe.level .. " first", "warn")
 				return

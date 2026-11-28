@@ -147,7 +147,6 @@ local SWORD_TIERS: { [string]: Color3 } = {
 	gold = Color3.fromRGB(240, 204, 64),
 	sunsteel = Color3.fromRGB(176, 28, 38),
 	diamond = Color3.fromRGB(196, 242, 242),
-	fractite = Color3.fromRGB(64, 226, 236),
 	amethyst = Color3.fromRGB(124, 52, 222),
 	obsidian = Color3.fromRGB(32, 30, 38),
 	lunar = Color3.fromRGB(214, 222, 255),
@@ -939,6 +938,44 @@ for _, t in Items.ORE_BUILD do
 			part(m, Vector3.new(0.22, 1.95, 1.75), CFrame.new(x, 0.25, 0), trim, Enum.Material.Metal)
 		end
 		part(m, Vector3.new(0.4, 0.45, 0.15), CFrame.new(0, 0.6, -0.85), plate, Enum.Material.Metal)
+		return core
+	end
+end
+
+-- Gates: the wall icon with a door in it. Floors: a slab. Roofs: a little peak.
+for _, t in { "stone", table.unpack(Items.ORE_BUILD) } do
+	builders[t .. "_gate"] = function(m)
+		local plate, trim = tierColour(t)
+		local mat = tierMaterial(t)
+		local core = part(m, Vector3.new(2, 2.2, 0.45), CFrame.new(), plate, mat)
+		local door = if t == "stone" then C.woodDark else plate:Lerp(Color3.new(0, 0, 0), 0.25)
+		part(m, Vector3.new(0.9, 1.25, 0.55), CFrame.new(0, -0.48, 0), door, if t == "stone" then Enum.Material.WoodPlanks else mat)
+		part(m, Vector3.new(1, 0.14, 0.6), CFrame.new(0, -0.2, 0), trim, Enum.Material.Metal)
+		part(m, Vector3.new(0.14, 0.14, 0.62), CFrame.new(0.3, -0.5, 0), Color3.fromRGB(214, 176, 72), Enum.Material.Metal)
+		return core
+	end
+end
+for _, t in Items.BUILD_TIERS do
+	builders[t .. "_floor"] = function(m)
+		local plate, trim = tierColour(t)
+		local mat = tierMaterial(t)
+		local core = part(m, Vector3.new(2.4, 0.3, 2.4), CFrame.new(), trim, mat)
+		for gx = -1, 1, 2 do
+			for gz = -1, 1, 2 do
+				part(m, Vector3.new(1.1, 0.12, 1.1), CFrame.new(gx * 0.6, 0.18, gz * 0.6), if gx == gz then plate else plate:Lerp(Color3.new(0, 0, 0), 0.15), mat)
+			end
+		end
+		return core
+	end
+	builders[t .. "_roof"] = function(m)
+		local plate, trim = tierColour(t)
+		local roof = if t == "wood" then Color3.fromRGB(196, 150, 80) else plate
+		local core = part(m, Vector3.new(2.4, 0.2, 2.2), CFrame.new(0, -0.5, 0), trim, tierMaterial(t))
+		for sz = -1, 1, 2 do
+			local w = part(m, Vector3.new(2.5, 1, 1.15), CFrame.new(0, 0.1, sz * 0.55) * CFrame.Angles(0, if sz > 0 then 0 else math.pi, 0), roof, if t == "wood" then Enum.Material.Grass else tierMaterial(t), Enum.PartType.Wedge)
+			_ = w
+		end
+		part(m, Vector3.new(2.6, 0.16, 0.2), CFrame.new(0, 0.62, 0), trim, Enum.Material.Metal)
 		return core
 	end
 end

@@ -138,7 +138,7 @@ local Animals = {
 		reach = 9,
 		cave = true,
 		boss = true,
-		loot = { { "queen_fang", 1, 1 }, { "epic_crate", 1, 2 }, { "mythic_crate", 1, 1, 0.25 }, { "key_fragment", 1, 2 }, { "diamond", 2, 4 }, { "fractite", 1, 2, 0.5 } },
+		loot = { { "queen_fang", 1, 1 }, { "epic_crate", 1, 2 }, { "mythic_crate", 1, 1, 0.25 }, { "key_fragment", 1, 2 }, { "diamond", 2, 4 }, { "diamond", 2, 3, 0.5 } },
 	},
 	CrystalWarden = {
 		name = "Crystal Warden",
@@ -154,7 +154,7 @@ local Animals = {
 		reach = 11,
 		cave = true,
 		boss = true,
-		loot = { { "warden_core", 1, 1 }, { "epic_crate", 1, 2 }, { "mythic_crate", 1, 1, 0.35 }, { "key_fragment", 1, 2 }, { "amethyst", 1, 3, 0.6 }, { "fractite", 2, 3 } },
+		loot = { { "warden_core", 1, 1 }, { "epic_crate", 1, 2 }, { "mythic_crate", 1, 1, 0.35 }, { "key_fragment", 1, 2 }, { "amethyst", 1, 3, 0.6 }, { "amethyst", 2, 3 } },
 	},
 	MagmaGolem = {
 		name = "Magma Golem",

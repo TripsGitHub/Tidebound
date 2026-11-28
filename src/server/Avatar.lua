@@ -15,6 +15,13 @@ local HAIR = { rgb(40, 30, 24), rgb(62, 44, 30), rgb(24, 20, 18), rgb(96, 64, 38
 local HAIRS = { 63690008, 376548738, 20573078, 62234425, 451220849 }
 local FACES = { 144075659, 7074786, 86487700 }
 local HIDE = { rgb(150, 86, 44), rgb(136, 78, 42), rgb(160, 100, 56), rgb(122, 74, 44) }
+-- The tribe outfit as real Roblox clothing: a hide tunic with a fang necklace and a
+-- belted hide kilt (assets/clothing/tribe_shirt.png and tribe_pants.png, uploaded as
+-- images). The templates are pale; Clothing.Color3 tints them to each player's hide.
+-- 0 = not uploaded yet: the older part-built outfit is used instead.
+local SHIRT_IMAGE = 0
+local PANTS_IMAGE = 0
+local useClothing = SHIRT_IMAGE ~= 0 and PANTS_IMAGE ~= 0
 
 local function look(userId: number)
 	local rng = Random.new(math.abs(userId) + 17)
@@ -31,8 +38,12 @@ function Avatar.description(player: Player): HumanoidDescription
 	local l = look(player.UserId)
 	local d = Instance.new("HumanoidDescription")
 	d.HeadColor, d.LeftArmColor, d.RightArmColor = l.skin, l.skin, l.skin
-	d.TorsoColor = l.hide
-	d.LeftLegColor, d.RightLegColor = l.hide:Lerp(Color3.new(0, 0, 0), 0.12), l.hide:Lerp(Color3.new(0, 0, 0), 0.12)
+	d.TorsoColor = if useClothing then l.skin else l.hide
+	if useClothing then
+		d.LeftLegColor, d.RightLegColor = l.skin, l.skin
+	else
+		d.LeftLegColor, d.RightLegColor = l.hide:Lerp(Color3.new(0, 0, 0), 0.12), l.hide:Lerp(Color3.new(0, 0, 0), 0.12)
+	end
 	-- Blocky default body parts, standard scale, a Roblox hair and face, no hats.
 	d.HeightScale, d.WidthScale, d.DepthScale, d.HeadScale = 1, 1, 1, 1
 	d.BodyTypeScale, d.ProportionScale = 0, 0
@@ -98,6 +109,23 @@ function Avatar.dress(player: Player, character: Model)
 	end
 	local folder = Instance.new("Folder")
 	folder.Name = "TribeOutfit"
+	if useClothing then
+		for _, c in character:GetChildren() do
+			if c:IsA("Shirt") or c:IsA("Pants") or c:IsA("ShirtGraphic") then
+				c:Destroy()
+			end
+		end
+		local shirt = Instance.new("Shirt")
+		shirt.ShirtTemplate = "rbxassetid://" .. SHIRT_IMAGE
+		shirt.Color3 = l.hide:Lerp(Color3.new(1, 1, 1), 0.25)
+		shirt.Parent = character
+		local pants = Instance.new("Pants")
+		pants.PantsTemplate = "rbxassetid://" .. PANTS_IMAGE
+		pants.Color3 = l.hide:Lerp(Color3.new(1, 1, 1), 0.15)
+		pants.Parent = character
+		folder.Parent = character
+		return
+	end
 	local head = character:WaitForChild("Head", 5) :: BasePart?
 	local upper = character:WaitForChild("UpperTorso", 5) :: BasePart?
 	local lower = character:WaitForChild("LowerTorso", 5) :: BasePart?

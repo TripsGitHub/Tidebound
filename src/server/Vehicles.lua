@@ -120,6 +120,10 @@ function Vehicles.rig(model: Model, root: BasePart, kind: string, speed: number,
 	ride.Triggered:Connect(function(player)
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not require(script.Parent.Access).canUse(player, model) then
+			Remotes.Notify:FireClient(player, "That's locked", "warn")
+			return
+		end
 		if humanoid and humanoid.Health > 0 and not vs.Occupant and not humanoid.SeatPart then
 			vs:Sit(humanoid)
 		end
@@ -137,6 +141,17 @@ function Vehicles.rig(model: Model, root: BasePart, kind: string, speed: number,
 	vs:GetPropertyChangedSignal("Occupant"):Connect(function()
 		local occupant = vs.Occupant
 		local driver = occupant and Players:GetPlayerFromCharacter(occupant.Parent)
+		if driver and not require(script.Parent.Access).canUse(driver, model) then
+			-- Sat on by walking into the seat: off you get.
+			task.defer(function()
+				if occupant and occupant.Parent then
+					occupant.Sit = false
+					occupant.Jump = true
+				end
+			end)
+			Remotes.Notify:FireClient(driver, "That's locked", "warn")
+			return
+		end
 		if not driver then
 			vel.PlaneVelocity = Vector2.zero
 		end
