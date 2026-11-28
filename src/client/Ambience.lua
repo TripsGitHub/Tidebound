@@ -64,28 +64,28 @@ local KEYS: { { h: number, look: Look } } = {
 		tint = rgb(255, 232, 224), contrast = 0.14, saturation = 0.06, bloom = 0.5, rays = 0.2,
 		clouds = rgb(255, 196, 186), cover = 0.5, water = rgb(70, 110, 140),
 	} },
-	-- Daytime is soft, warm and hazy, not punchy: low contrast, colours held back a
-	-- little, lifted warm shadows, a creamy haze that turns the sky pale near the
-	-- horizon and fades far islands out, and a bright sun glare.
+	-- Daytime: a strong warm sun with cool blue sky-light in the shade, so the side
+	-- of a hill or tree facing away from the sun is shaded rather than flat, a little
+	-- more contrast and saturation so the grass pops, and a lighter haze.
 	{ h = 8.5, look = { -- morning
-		brightness = 2.7, exposure = 0.12,
-		ambient = rgb(80, 74, 68), outdoor = rgb(166, 156, 136),
-		atmoColor = rgb(240, 228, 204), atmoDecay = rgb(206, 188, 156), density = 0.28, haze = 1.9, glare = 1.6,
-		tint = rgb(255, 244, 226), contrast = 0.04, saturation = -0.06, bloom = 0.7, rays = 0.14,
+		brightness = 3.1, exposure = 0.1,
+		ambient = rgb(64, 66, 76), outdoor = rgb(118, 130, 152),
+		atmoColor = rgb(240, 228, 204), atmoDecay = rgb(206, 188, 156), density = 0.24, haze = 1.6, glare = 1.6,
+		tint = rgb(255, 244, 226), contrast = 0.12, saturation = 0.06, bloom = 0.7, rays = 0.14,
 		clouds = rgb(252, 248, 240), cover = 0.45, water = rgb(84, 150, 156),
 	} },
 	{ h = 12.5, look = { -- midday
-		brightness = 2.8, exposure = 0.1,
-		ambient = rgb(78, 74, 70), outdoor = rgb(164, 158, 142),
-		atmoColor = rgb(238, 230, 210), atmoDecay = rgb(200, 190, 164), density = 0.27, haze = 1.7, glare = 1.4,
-		tint = rgb(255, 246, 230), contrast = 0.04, saturation = -0.05, bloom = 0.65, rays = 0.12,
+		brightness = 3.2, exposure = 0.08,
+		ambient = rgb(62, 66, 78), outdoor = rgb(116, 130, 154),
+		atmoColor = rgb(238, 230, 210), atmoDecay = rgb(200, 190, 164), density = 0.23, haze = 1.5, glare = 1.4,
+		tint = rgb(255, 246, 230), contrast = 0.12, saturation = 0.07, bloom = 0.65, rays = 0.12,
 		clouds = rgb(255, 252, 246), cover = 0.42, water = rgb(80, 152, 160),
 	} },
 	{ h = 16.3, look = { -- golden afternoon
-		brightness = 2.9, exposure = 0.12,
-		ambient = rgb(84, 72, 62), outdoor = rgb(176, 152, 120),
-		atmoColor = rgb(244, 228, 200), atmoDecay = rgb(208, 184, 148), density = 0.27, haze = 1.8, glare = 1.3,
-		tint = rgb(255, 242, 220), contrast = 0.05, saturation = -0.04, bloom = 0.65, rays = 0.16,
+		brightness = 3.3, exposure = 0.1,
+		ambient = rgb(68, 64, 74), outdoor = rgb(124, 122, 146),
+		atmoColor = rgb(244, 228, 200), atmoDecay = rgb(208, 184, 148), density = 0.23, haze = 1.6, glare = 1.3,
+		tint = rgb(255, 242, 220), contrast = 0.13, saturation = 0.08, bloom = 0.65, rays = 0.16,
 		clouds = rgb(255, 236, 210), cover = 0.44, water = rgb(88, 142, 146),
 	} },
 	{ h = 18.2, look = { -- sunset: deep orange to rose

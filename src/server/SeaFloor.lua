@@ -338,6 +338,7 @@ local function school(folder: Instance, at: Vector3, rng: Random)
 	end
 	local m = Instance.new("Model")
 	m.Name = "FishSchool"
+	m.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	local colour = FISH[rng:NextInteger(1, #FISH)]
 	local centre = at + Vector3.new(0, rng:NextNumber(5, 14), 0)
 	m:SetAttribute("Centre", centre)
@@ -347,6 +348,7 @@ local function school(folder: Instance, at: Vector3, rng: Random)
 	for i = 1, rng:NextInteger(5, 11) do
 		local f = Meshes.build("fish", { scale = scale, collide = false }) :: Model
 		f.Name = "Fish"
+		f.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- streams in whole, so the client can swim it as one piece
 		for _, p in f:GetDescendants() do
 			if p:IsA("BasePart") then
 				p.CanQuery = false

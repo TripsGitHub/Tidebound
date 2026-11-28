@@ -343,6 +343,33 @@ local function airPose(rising: boolean): Pose
 	}
 end
 
+-- Gliding: arms spread wide like wings, body tipped forward, legs trailing.
+local function glidePose(t: number): Pose
+	local sway = math.sin(t * 2.2) * 6
+	return {
+		Root = V(-38, 0, sway * 0.5), Waist = V(-8, 0, 0), Neck = V(24, 0, 0),
+		RightShoulder = V(0, 0, 88 + sway), LeftShoulder = V(0, 0, -88 + sway),
+		RightElbow = V(6, 0, 0), LeftElbow = V(6, 0, 0),
+		RightHip = V(-14, 0, 6), LeftHip = V(-10, 0, -6), RightKnee = V(-18, 0, 0), LeftKnee = V(-12, 0, 0),
+		RightAnkle = V(-30, 0, 0), LeftAnkle = V(-30, 0, 0),
+	}
+end
+
+-- Swimming: lying flat in the water, front crawl arms and a flutter kick; treading
+-- water upright-ish when not moving.
+local function swimPose(t: number, moving: number): Pose
+	local stroke = t * 5
+	local kick = math.sin(t * 10) * 22
+	local lie = -20 - 62 * moving
+	return {
+		Root = V(lie, 0, math.sin(stroke) * 8 * moving), Neck = V(30 * moving, 0, 0),
+		RightShoulder = V(90 + math.sin(stroke) * 90 * moving, 0, 10 + 30 * (1 - moving)), LeftShoulder = V(90 + math.sin(stroke + math.pi) * 90 * moving, 0, -10 - 30 * (1 - moving)),
+		RightElbow = V(20 + math.max(0, math.cos(stroke)) * 40, 0, 0), LeftElbow = V(20 + math.max(0, math.cos(stroke + math.pi)) * 40, 0, 0),
+		RightHip = V(kick, 0, 0), LeftHip = V(-kick, 0, 0), RightKnee = V(-10 - math.max(0, kick) * 0.6, 0, 0), LeftKnee = V(-10 - math.max(0, -kick) * 0.6, 0, 0),
+		RightAnkle = V(-40, 0, 0), LeftAnkle = V(-40, 0, 0),
+	}
+end
+
 -- Sampling one-off animations -----------------------------------------------------------
 
 -- Samples keys on top of `under`. Absolute joints blend from/to `under`; the rest
@@ -540,6 +567,23 @@ local function step(player: Player, character: Model, s: State, now: number, dt:
 		-- About one full stride (two steps) per 7.5 studs.
 		s.phase += dt * math.max(s.speed, 6) / 7.5 * math.pi * 2
 		apply(character, runPose(s.phase), s.run)
+	end
+
+	-- Gliding: falling for a while spreads your arms and slows the fall (your own
+	-- character only; everyone sees the pose).
+	local falling = s.airborne and now - s.airSince > 0.55 and vel.Y < -10 and state == Enum.HumanoidStateType.Freefall
+	s.glide = (s.glide or 0) + ((if falling then 1 else 0) - (s.glide or 0)) * math.min(1, dt * 6)
+	if s.glide > 0.01 then
+		apply(character, glidePose(now), s.glide)
+		if falling and player == Players.LocalPlayer and vel.Y < -26 then
+			root.AssemblyLinearVelocity = Vector3.new(vel.X, -26, vel.Z) + root.CFrame.LookVector * Vector3.new(1, 0, 1) * 0.4
+		end
+	end
+	-- Swimming: lie flat and crawl.
+	local swimming = state == Enum.HumanoidStateType.Swimming
+	s.swim = (s.swim or 0) + ((if swimming then 1 else 0) - (s.swim or 0)) * math.min(1, dt * 5)
+	if s.swim > 0.01 then
+		apply(character, swimPose(now, math.clamp(s.speed / 8, 0, 1)), s.swim)
 	end
 
 	-- The tool-holding arm and one-off actions go on top, on just the joints they use.

@@ -543,6 +543,7 @@ local function spawnAnimal(kind: string, home: Vector3): Model
 		tag.StudsOffsetWorldSpace = Vector3.new(0, size.Y * 0.6, 0)
 		tag.Parent = model
 	end
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- body and limbs always stream in together
 	model.Parent = folder()
 	-- Remember where each limb sits on the body so the step can swing it.
 	local limbs = {}
@@ -722,8 +723,10 @@ local function pose(s, moving: boolean, windup: number)
 				-- Upright leg: swing about its top.
 				cf = cf * CFrame.new(0, size.Y / 2, 0) * CFrame.Angles(a, 0, 0) * CFrame.new(0, -size.Y / 2, 0)
 			else
-				-- Spidery leg sticking out sideways: lift and drop it.
-				cf = cf * CFrame.Angles(0, a * 0.5, a * 0.4 * l.side)
+				-- Spidery leg sticking out sideways: lift and drop it about the end that
+				-- meets the body, so it never comes away from the shell.
+				local inner = CFrame.new(-l.side * size.X / 2, 0, 0)
+				cf = cf * inner * CFrame.Angles(0, a * 0.35, a * 0.4 * l.side) * inner:Inverse()
 			end
 		elseif l.kind == "arm" then
 			local a = -windup * 1.1 + (if moving then math.sin(t * 1.6 + (if l.side > 0 then math.pi else 0)) * 0.3 else 0)

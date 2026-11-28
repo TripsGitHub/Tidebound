@@ -1019,7 +1019,7 @@ local function buildTerrain()
 	pcall(function()
 		(terrain :: any).Decoration = true
 	end)
-	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(134, 152, 76))
+	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(142, 172, 58)) -- bright, warm green like the footage
 	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(178, 156, 70)) -- autumn grass (Old Ruins)
 	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(228, 212, 168))
 	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(112, 104, 94))
