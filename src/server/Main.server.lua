@@ -52,8 +52,15 @@ Events.start()
 Oxygen.start()
 Admin.start()
 
+-- Ore is counted when it's mined (Harvest.lua), everything else when picked up.
+local ORE_ITEMS = {}
+for _, ore in require(game:GetService("ReplicatedStorage").Shared.Ores) do
+	ORE_ITEMS[ore.item] = true
+end
 Drops.setPickupCallback(function(player, itemId, amount)
-	Quests.record(player, "gather", itemId, amount)
+	if not ORE_ITEMS[itemId] then
+		Quests.record(player, "gather", itemId, amount)
+	end
 end)
 
 local function onCharacterAdded(player: Player, character: Model)

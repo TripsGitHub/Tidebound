@@ -403,7 +403,8 @@ local function gateBuilder(def)
 		-- The door: planks (or plates) with two bands and a ring handle. Wood and stone
 		-- gates get a wooden door bound in iron; ore gates a door of the ore.
 		local plate, trim, accent, mat, glow = tierLook(def.tier)
-		local doorColour = if def.tier == "wood" or def.tier == "stone" then WOOD_DARK else plate
+		-- Darker than the wall round it, so the door reads as a door.
+		local doorColour = if def.tier == "wood" or def.tier == "stone" then WOOD_DARK else plate:Lerp(Color3.new(0, 0, 0), 0.4)
 		local doorMat = if def.tier == "wood" or def.tier == "stone" then Enum.Material.WoodPlanks else mat
 		local band = if def.tier == "wood" or def.tier == "stone" then Color3.fromRGB(70, 70, 76) else trim
 		local door = Instance.new("Model")
@@ -548,7 +549,7 @@ local function setupGate(model: Model, core: BasePart)
 		-- Swing away from whoever opens it.
 		local towards = 1
 		if root then
-			towards = if closed:PointToObjectSpace(root.Position).Z > 0 then -1 else 1
+			towards = if closed:PointToObjectSpace(root.Position).Z > 0 then 1 else -1
 		end
 		setOpen(not open, towards)
 	end)

@@ -33,7 +33,9 @@ local function build(prompt: ProximityPrompt, gui: ScreenGui)
 		Name = "TideboundPrompt",
 		AlwaysOnTop = true,
 		Size = UDim2.fromOffset(300, 72),
-		SizeOffset = Vector2.new(0, 0.5),
+		-- UIOffset moves a prompt off its neighbours on the same part (a chest's Open
+		-- and Lock, a cart's Ride): pixels turned into a share of the board's size.
+		SizeOffset = Vector2.new(prompt.UIOffset.X / 300, 0.5 - prompt.UIOffset.Y / 72),
 		StudsOffset = Vector3.new(0, 1, 0),
 		LightInfluence = 0,
 		ResetOnSpawn = false,

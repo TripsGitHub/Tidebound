@@ -13,7 +13,7 @@ local function setup(model: Instance)
 		return
 	end
 	local core = model.PrimaryPart
-	if not core or core:FindFirstChild("LockPrompt") then
+	if not core or core:FindFirstChild("LockPrompt", true) then
 		return
 	end
 	local prompt = Instance.new("ProximityPrompt")
@@ -35,7 +35,8 @@ local function setup(model: Instance)
 	prompt.Triggered:Connect(function()
 		Remotes.ToggleLock:FireServer(model)
 	end)
-	prompt.Parent = core
+	-- Gates: by the door (the core's centre is high up the wall).
+	prompt.Parent = (if string.find(model.Name, "Gate") then core:WaitForChild("DoorPrompt", 3) else nil) or core
 end
 
 function Locks.start()

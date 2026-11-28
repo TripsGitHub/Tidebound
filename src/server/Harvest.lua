@@ -52,6 +52,11 @@ local function respawnLater(model: Model, def, home: CFrame)
 end
 
 -- Rolls what a broken node gives: { { item, amount } }.
+local ORE_ITEMS: { [string]: boolean } = {}
+for _, ore in require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ores")) do
+	ORE_ITEMS[ore.item] = true
+end
+
 local function rollLoot(def): { { item: string, amount: number } }
 	local loot = {}
 	for _, drop in def.drops do
@@ -72,6 +77,14 @@ local function deplete(player: Player, model: Model, def, _awayFrom: Vector3)
 	setVisible(model, false)
 	local center = home.Position + Vector3.new(0, 2, 0)
 	local mult = model:GetAttribute("LootMult") or 1 -- giant event ores give more
+	-- Ore counts towards "Mine N ore" quests when you break it out of the rock, not
+	-- when you pick it up: a full bag used to stop the quest (and Main.server.lua
+	-- skips ore on pickup so it isn't counted twice).
+	for _, drop in loot do
+		if ORE_ITEMS[drop.item] then
+			require(script.Parent.Quests).record(player, "gather", drop.item, drop.amount * mult)
+		end
+	end
 	for _, drop in loot do
 		for _ = 1, drop.amount * mult do
 			local a = math.random() * math.pi * 2
