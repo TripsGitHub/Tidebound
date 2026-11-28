@@ -39,18 +39,28 @@ end
 type Gull = { body: Part, wl: Part, wr: Part, centre: Vector3, radius: number, height: number, speed: number, phase: number }
 local gulls: { Gull } = {}
 
+-- A gull: a rounded white body and head, orange beak, grey back, and two-part
+-- wings (inner and outer, swept back, black tips) that bend as they flap.
+local GULL_WHITE, GULL_GREY, GULL_TIP = Color3.fromRGB(246, 246, 242), Color3.fromRGB(176, 182, 190), Color3.fromRGB(46, 46, 50)
 local function makeGull(centre: Vector3): Gull
 	local m = Instance.new("Model")
 	m.Name = "Gull"
 	m.Parent = folder
-	local body = part(m, Vector3.new(0.5, 0.45, 1.6), Color3.fromRGB(245, 245, 240))
-	local wl = part(m, Vector3.new(2.2, 0.1, 0.7), Color3.fromRGB(235, 235, 232))
-	local wr = part(m, Vector3.new(2.2, 0.1, 0.7), Color3.fromRGB(235, 235, 232))
-	local tipL = part(m, Vector3.new(0.6, 0.11, 0.5), Color3.fromRGB(60, 60, 64))
-	local tipR = part(m, Vector3.new(0.6, 0.11, 0.5), Color3.fromRGB(60, 60, 64))
-	tipL.Name, tipR.Name = "TipL", "TipR"
-	local g = { body = body, wl = wl, wr = wr, centre = centre, radius = rng:NextNumber(25, 55), height = rng:NextNumber(26, 46), speed = rng:NextNumber(0.25, 0.4) * (if rng:NextNumber() < 0.5 then -1 else 1), phase = rng:NextNumber(0, math.pi * 2) }
-	;(g :: any).tipL, (g :: any).tipR = tipL, tipR
+	local body = part(m, Vector3.new(0.7, 0.62, 1.7), GULL_WHITE)
+	body.Shape = Enum.PartType.Ball
+	local head = part(m, Vector3.new(0.5, 0.5, 0.55), GULL_WHITE)
+	head.Shape = Enum.PartType.Ball
+	local beak = part(m, Vector3.new(0.12, 0.12, 0.42), Color3.fromRGB(246, 176, 50))
+	local back = part(m, Vector3.new(0.5, 0.12, 1.1), GULL_GREY)
+	local tail = part(m, Vector3.new(0.5, 0.08, 0.6), GULL_GREY)
+	local parts: { [string]: BasePart } = { head = head, beak = beak, back = back, tail = tail }
+	for _, side in { "L", "R" } do
+		parts["in" .. side] = part(m, Vector3.new(1.3, 0.1, 0.75), GULL_GREY)
+		parts["out" .. side] = part(m, Vector3.new(1.3, 0.09, 0.55), GULL_GREY)
+		parts["tip" .. side] = part(m, Vector3.new(0.5, 0.1, 0.42), GULL_TIP)
+	end
+	local g = { body = body, wl = parts.inL, wr = parts.inR, centre = centre, radius = rng:NextNumber(25, 55), height = rng:NextNumber(26, 46), speed = rng:NextNumber(0.25, 0.4) * (if rng:NextNumber() < 0.5 then -1 else 1), phase = rng:NextNumber(0, math.pi * 2) }
+	;(g :: any).parts = parts
 	return g
 end
 
@@ -60,19 +70,31 @@ local function stepGull(g: Gull, t: number)
 	local dir = Vector3.new(-math.sin(a), 0, math.cos(a)) * math.sign(g.speed)
 	local bank = CFrame.Angles(0, 0, -0.35 * math.sign(g.speed))
 	local cf = CFrame.lookAt(pos, pos + dir) * bank
-	-- Mostly gliding, with a few flaps now and then.
+	-- Mostly gliding, with a few flaps now and then; the outer wing lags the inner.
 	local flapping = math.sin(t * 0.5 + g.phase) > 0.3
-	local flap = if flapping then math.sin(t * 9 + g.phase) * 0.6 else 0.08
+	local flap = if flapping then math.sin(t * 9 + g.phase) * 0.55 else 0.08
+	local lag = if flapping then math.sin(t * 9 + g.phase - 0.7) * 0.45 else -0.06
+	local p = (g :: any).parts
 	g.body.CFrame = cf
-	g.wl.CFrame = cf * CFrame.new(-0.2, 0.1, 0) * CFrame.Angles(0, 0, flap) * CFrame.new(-1.1, 0, 0)
-	g.wr.CFrame = cf * CFrame.new(0.2, 0.1, 0) * CFrame.Angles(0, 0, -flap) * CFrame.new(1.1, 0, 0)
-	;(g :: any).tipL.CFrame = g.wl.CFrame * CFrame.new(-1.3, 0, 0)
-	;(g :: any).tipR.CFrame = g.wr.CFrame * CFrame.new(1.3, 0, 0)
+	p.head.CFrame = cf * CFrame.new(0, 0.28, -0.85)
+	p.beak.CFrame = cf * CFrame.new(0, 0.24, -1.25) * CFrame.Angles(math.rad(-8), 0, 0)
+	p.back.CFrame = cf * CFrame.new(0, 0.26, 0.1)
+	p.tail.CFrame = cf * CFrame.new(0, 0.1, 1.05) * CFrame.Angles(math.rad(8), 0, 0)
+	for _, side in { -1, 1 } do
+		local k = if side < 0 then "L" else "R"
+		local shoulder = cf * CFrame.new(side * 0.25, 0.18, -0.1) * CFrame.Angles(0, side * math.rad(-10), side * -flap)
+		local inner = shoulder * CFrame.new(side * 0.65, 0, 0)
+		p["in" .. k].CFrame = inner
+		local elbow = shoulder * CFrame.new(side * 1.3, 0, 0.05) * CFrame.Angles(0, side * math.rad(-22), side * -lag)
+		p["out" .. k].CFrame = elbow * CFrame.new(side * 0.62, 0, 0.1)
+		p["tip" .. k].CFrame = elbow * CFrame.new(side * 1.45, 0, 0.2)
+	end
 end
 
 -- Leaping fish ----------------------------------------------------------------------
 local function leap(at: Vector3)
 	local fish = part(folder, Vector3.new(1.4, 0.5, 0.35), Color3.fromRGB(120, 170, 200))
+	fish.Shape = Enum.PartType.Ball
 	local dir = Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1))
 	dir = if dir.Magnitude > 0.1 then dir.Unit else Vector3.xAxis
 	local dur = rng:NextNumber(0.7, 1.0)

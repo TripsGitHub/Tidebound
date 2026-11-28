@@ -376,6 +376,7 @@ local VARIANTS = {
 	FruitPalm = { default = { { "sunfruit", 1 } } },
 	BananaPalm = { default = { { "banana", 1 } } },
 }
+local dressFruit: (Model, string, string?) -> ()
 local currentBiome = "default" -- set by populate while it fills an island
 
 local function pickVariant(nodeType: string): string?
@@ -427,6 +428,75 @@ local function groundMaterialAt(pos: Vector3): Enum.Material?
 	return hit and hit.Material
 end
 
+-- Fruit hanging on the trees and bushes so you can see what they'll give you:
+-- coconuts under a palm's crown, sunfruit on fruit palms, banana hands on banana
+-- palms, berries dotted over berry bushes.
+local function deco(model: Model, props): Part
+	local p = part(model, props)
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CastShadow = false
+	return p
+end
+
+function dressFruit(model: Model, nodeType: string, tint: string?)
+	if nodeType ~= "Palm" and nodeType ~= "FruitPalm" and nodeType ~= "BananaPalm" and nodeType ~= "Bush" then
+		return
+	end
+	local leaves = {}
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") and string.find(p:GetAttribute("Mat") or p.Name, "Lea") then
+			table.insert(leaves, p)
+		end
+	end
+	if #leaves == 0 then
+		return
+	end
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, p in leaves do
+		local half = p.Size / 2
+		lo = lo:Min(p.Position - half)
+		hi = hi:Max(p.Position + half)
+	end
+	local mid = (lo + hi) / 2
+	if nodeType == "Bush" then
+		local colour = if tint == "blueberry" then Color3.fromRGB(70, 90, 200) elseif tint == "snowy" or tint == "dry" or tint == "dead" then nil else Color3.fromRGB(200, 40, 52)
+		if not colour then
+			return
+		end
+		local r = (hi - lo) / 2
+		for i = 1, 9 do
+			local a = i / 9 * math.pi * 2 + rng:NextNumber(0, 0.5)
+			local y = rng:NextNumber(-0.1, 0.6)
+			local at = mid + Vector3.new(math.cos(a) * r.X * 0.85, y * r.Y, math.sin(a) * r.Z * 0.85)
+			deco(model, { Name = "Berry", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.55, CFrame = CFrame.new(at), Color = colour, Material = Enum.Material.SmoothPlastic })
+		end
+		return
+	end
+	-- Under the crown: a little below the leaves' centre, around the trunk top.
+	local crown = Vector3.new(mid.X, lo.Y + (hi.Y - lo.Y) * 0.35, mid.Z)
+	local count = if nodeType == "BananaPalm" then 2 else 3
+	for i = 1, count do
+		local a = i / count * math.pi * 2 + rng:NextNumber(0, 0.6)
+		local at = crown + Vector3.new(math.cos(a) * 1.1, -rng:NextNumber(0, 0.6), math.sin(a) * 1.1)
+		if nodeType == "Palm" then
+			deco(model, { Name = "Coconut", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.3, CFrame = CFrame.new(at), Color = Color3.fromRGB(104, 70, 44), Material = Enum.Material.Fabric })
+		elseif nodeType == "FruitPalm" then
+			deco(model, { Name = "Sunfruit", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.3, CFrame = CFrame.new(at), Color = Color3.fromRGB(255, 146, 36), Material = Enum.Material.SmoothPlastic })
+		else
+			-- A hand of bananas: a short stalk with curved yellow fingers fanning out.
+			local base = CFrame.new(at) * CFrame.Angles(0, a, 0)
+			deco(model, { Name = "Stalk", Size = Vector3.new(0.4, 2.2, 0.4), CFrame = base * CFrame.new(0, 0.6, 0), Color = Color3.fromRGB(110, 120, 50), Material = Enum.Material.Wood })
+			for row = 0, 1 do
+				for k = -2, 2 do
+					local f = base * CFrame.new(0, 0.4 - row * 0.9, 0) * CFrame.Angles(0, k * 0.45, 0) * CFrame.new(0, 0, -0.55) * CFrame.Angles(math.rad(-55), 0, 0)
+					deco(model, { Name = "Banana", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.4, 0.42, 0.42), CFrame = f * CFrame.Angles(0, 0, math.rad(90)) * CFrame.new(0.5, 0, 0), Color = Color3.fromRGB(250, 214, 60), Material = Enum.Material.SmoothPlastic })
+				end
+			end
+		end
+	end
+end
+
 local function makeNode(nodeType: string, cf: CFrame): Model
 	if Nodes[nodeType].ore then
 		return makeOre(Nodes[nodeType], cf)
@@ -451,6 +521,7 @@ local function makeNode(nodeType: string, cf: CFrame): Model
 			end
 		end
 		applyTint(model, tint)
+		dressFruit(model, nodeType, tint)
 		return model
 	end
 	return makers[nodeType](cf)
