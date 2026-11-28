@@ -79,7 +79,8 @@ local function describe(id: string): string
 		if item.bagSize then
 			return "Carry +" .. item.bagSize
 		end
-		return "Blocks " .. math.floor((item.defense or 0) * 100 + 0.5) .. "% damage"
+		local d = item.defense or 0
+		return "Blocks " .. math.floor(d * (item.vsMob or 1) * 100 + 0.5) .. "% from mobs, " .. math.floor(d * (item.vsPlayer or 1) * 100 + 0.5) .. "% from players"
 	elseif item.kind == "food" then
 		return "Fills " .. (item.hunger or 0) .. " hunger"
 	elseif item.kind == "placeable" then

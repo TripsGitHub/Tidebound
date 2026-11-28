@@ -381,16 +381,6 @@ local function dressWithMesh(model: Model, core: BasePart, structure: string, cf
 	mesh:Destroy()
 end
 
-local function ownedCount(userId: number): number
-	local n = 0
-	for _, m in workspace.Structures:GetChildren() do
-		if m:GetAttribute("OwnerId") == userId then
-			n += 1
-		end
-	end
-	return n
-end
-
 -- Builds the structure at cf, owned by userId. No checks: callers check first.
 local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, cf: CFrame, tiles: number, hp: number?, stored: any?): Model
 	local item = Items[itemId]
@@ -462,6 +452,7 @@ end
 -- Defined with the base saving code below.
 local baseOf: (userId: number) -> Model?
 local rebuildOn: (player: Player, base: Model) -> ()
+local countPieces: (player: Player, at: Vector3) -> (number, number, boolean)
 
 function Building.onPlace(player: Player, itemId: unknown, position: unknown, rotation: unknown, tiles: unknown)
 	if type(itemId) ~= "string" or typeof(position) ~= "Vector3" or type(rotation) ~= "number" then
@@ -487,9 +478,17 @@ function Building.onPlace(player: Player, itemId: unknown, position: unknown, ro
 		Remotes.Notify:FireClient(player, "You already have a base. Build on it, or break it to move", "warn")
 		return
 	end
-	if ownedCount(player.UserId) >= Config.MaxStructures then
-		Remotes.Notify:FireClient(player, "Base is at its size limit (" .. Config.MaxStructures .. " pieces)", "warn")
-		return
+	-- Two separate limits: what stands on your base (saved with it), and loose
+	-- pieces out in the world (camps, bridges, walls on the way somewhere).
+	if not Structures.isBase(item.structure) then
+		local onYourBase, loose, isOnBase = countPieces(player, position :: Vector3)
+		if isOnBase and onYourBase >= Config.MaxStructures then
+			Remotes.Notify:FireClient(player, "Your base is full (" .. Config.MaxStructures .. " pieces)", "warn")
+			return
+		elseif not isOnBase and loose >= Config.MaxLooseStructures then
+			Remotes.Notify:FireClient(player, "Too many pieces out in the world (" .. Config.MaxLooseStructures .. "). Break some, or build on your base", "warn")
+			return
+		end
 	end
 	local size = Structures.sizeFor(item.structure, n)
 	local pos = position :: Vector3
@@ -605,6 +604,26 @@ end
 local function onBase(frame: CFrame, size: Vector3, p: Vector3): boolean
 	local rel = frame:PointToObjectSpace(p)
 	return math.abs(rel.X) <= size.X / 2 + 1.5 and math.abs(rel.Z) <= size.Z / 2 + 1.5 and rel.Y > -3 and rel.Y < 40
+end
+
+function countPieces(player: Player, at: Vector3): (number, number, boolean)
+	local base = baseOf(player.UserId)
+	local frame, size
+	if base then
+		frame, size = baseFrame(base)
+	end
+	local on, loose = 0, 0
+	for _, m in workspace.Structures:GetChildren() do
+		local st = m:GetAttribute("StructureType")
+		if m ~= base and m:GetAttribute("OwnerId") == player.UserId and st and not Structures.isBase(st) and m:IsA("Model") and m.PrimaryPart then
+			if frame and onBase(frame, size, m.PrimaryPart.Position) then
+				on += 1
+			else
+				loose += 1
+			end
+		end
+	end
+	return on, loose, frame ~= nil and onBase(frame, size, at)
 end
 
 local function round1(n: number): number

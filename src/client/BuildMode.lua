@@ -118,7 +118,8 @@ RunService.RenderStepped:Connect(function()
 	local item = Items[currentItem :: string]
 	local floor = Structures.isFloor(item.structure)
 	local wall = item.structure == "WoodWall" or item.structure == "StoneWall" or item.structure == "WoodGate"
-	-- Walls snap to your base: they line up along its nearest edge.
+	-- Walls on your base: near its rim they line up along the nearest edge; further in
+	-- they can stand anywhere on top of it.
 	local structures = workspace:FindFirstChild("Structures")
 	if structures and wall then
 		local best, bestDist = nil, math.huge
@@ -147,8 +148,16 @@ RunService.RenderStepped:Connect(function()
 					local p = baseCf:PointToWorldSpace(local_)
 					cf = CFrame.new(p.X, core.Position.Y + 0.15, p.Z) * CFrame.Angles(0, ry, 0)
 				end
+			elseif math.abs(rel.X) <= half - 3.5 and math.abs(rel.Z) <= half - 3.5 then
+				-- Well inside the base: stand the wall anywhere on top of it, on a grid
+				-- lined up with the base, turned with R (for rooms and inner walls).
+				local g = Config.GridSize
+				local lx = math.clamp(math.round(rel.X / g) * g, -half + 1, half - 1)
+				local lz = math.clamp(math.round(rel.Z / g) * g, -half + 1, half - 1)
+				local p = baseCf:PointToWorldSpace(Vector3.new(lx, 0, lz))
+				cf = CFrame.new(p.X, top + size.Y / 2, p.Z) * CFrame.Angles(0, ry + math.rad(rotation), 0)
 			elseif math.abs(rel.X) <= half + 3 and math.abs(rel.Z) <= half + 3 then
-				-- Nearest edge, and the wall slides along it in wall-width steps.
+				-- Near the rim: snap to the nearest edge, sliding along it in wall-width steps.
 				local w = size.X
 				local along, edge
 				if half - math.abs(rel.X) < half - math.abs(rel.Z) then

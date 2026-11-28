@@ -804,9 +804,45 @@ end
 
 -- Public -----------------------------------------------------------------------
 
+-- Armour readout above the stats: how much of a hit your worn armour blocks from
+-- beasts and from other players (the same sums the server uses), with a toast when
+-- it changes, like "+8% vs mobs".
+local armourBadges: { mob: TextLabel?, player: TextLabel? } = {}
+local lastDefense: { mob: number, player: number }? = nil
+local function defenseFor(vs: string): number
+	local total = 0
+	for _, id in state.armour or {} do
+		local item = Items[id]
+		if item then
+			local mult = if vs == "mob" then item.vsMob elseif vs == "player" then item.vsPlayer else 1
+			total += (item.defense or 0) * (mult or 1)
+		end
+	end
+	return math.min(total, 0.9)
+end
+local function updateArmour()
+	local mob, plr = defenseFor("mob"), defenseFor("player")
+	if armourBadges.mob then
+		armourBadges.mob.Text = math.floor(mob * 100 + 0.5) .. "%"
+		armourBadges.player.Text = math.floor(plr * 100 + 0.5) .. "%"
+	end
+	if lastDefense then
+		local dm = math.floor((mob - lastDefense.mob) * 100 + 0.5)
+		local dp = math.floor((plr - lastDefense.player) * 100 + 0.5)
+		if dm ~= 0 or dp ~= 0 then
+			local function sign(n)
+				return (if n > 0 then "+" else "") .. n .. "%"
+			end
+			UI.notify(sign(dm) .. " vs mobs  ·  " .. sign(dp) .. " vs players", if dm + dp >= 0 then "good" else "warn")
+		end
+	end
+	lastDefense = { mob = mob, player = plr }
+end
+
 function UI.setInventory(items, equipped, armour, bagSize)
 	state.items, state.equipped, state.armour, state.bagSize = items, equipped, armour, bagSize
 	rebuildHotbar()
+	updateArmour()
 	refreshOpen()
 end
 
@@ -895,7 +931,23 @@ function UI.init(cb)
 
 	-- Air: a row of bubbles above the stats that only shows under water (or while
 	-- it refills). Each bubble pops as your air runs down.
-	local airRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -128), Size = UDim2.fromOffset(268, 26), BackgroundTransparency = 1, Visible = false }, {
+	-- Armour badges just above the stats: a shield with a paw (vs mobs) and a shield
+	-- with a sword (vs players), each with the % of a hit it blocks.
+	local armourRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -128), Size = UDim2.fromOffset(268, 28), BackgroundTransparency = 1 }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	for i, spec in { { "mob", "Mobs", Color3.fromRGB(120, 170, 90) }, { "player", "Players", Color3.fromRGB(200, 110, 90) } } do
+		local pill = UIKit.panel({ Parent = armourRow, LayoutOrder = i, Size = UDim2.fromOffset(128, 28) })
+		local shield = new("Frame", { Parent = pill, Position = UDim2.fromOffset(5, 4), Size = UDim2.fromOffset(18, 20), BackgroundColor3 = spec[3] }, {
+			new("UICorner", { CornerRadius = UDim.new(0.45, 0) }),
+			new("UIStroke", { Color = C.wood, Thickness = 1.5 }),
+		})
+		new("Frame", { Parent = shield, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(3, 12), BackgroundColor3 = C.rim, BorderSizePixel = 0 })
+		label({ Parent = pill, Position = UDim2.fromOffset(28, 0), Size = UDim2.new(0, 58, 1, 0), Text = "vs " .. spec[2], TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 13 })
+		armourBadges[spec[1]] = label({ Parent = pill, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -7, 0, 0), Size = UDim2.new(0, 40, 1, 0), Text = "0%", TextXAlignment = Enum.TextXAlignment.Right, TextScaled = false, TextSize = 16, TextColor3 = C.gold })
+	end
+
+	local airRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -160), Size = UDim2.fromOffset(268, 26), BackgroundTransparency = 1, Visible = false }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	local bubbles: { Frame } = {}
