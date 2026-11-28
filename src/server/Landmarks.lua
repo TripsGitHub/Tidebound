@@ -525,21 +525,22 @@ function Landmarks.mawGate(mouth: Vector3, out: Vector3, groundAt): Model
 	for i = -4, 4 do
 		local t = i / 4
 		local x = t * 17
-		local archY = 22 - (t * t) * 10
-		local h = 9 + (1 - math.abs(t)) * 6 + rng:NextNumber(-1, 1)
+		local archY = 30 - (t * t) * 12
+		local h = 5 + (1 - math.abs(t)) * 3 + rng:NextNumber(-0.6, 0.6)
 		local at = front + right * x + Vector3.new(0, archY, 0)
-		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(3.6, h, 4), CFrame = CFrame.lookAt(at, at - out) * CFrame.Angles(math.rad(180 + 12), 0, 0) * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone })
+		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(3.6, h, 4), CFrame = CFrame.lookAt(at, at - out) * CFrame.Angles(math.rad(180 + 12), 0, 0) * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone, CanCollide = false })
 		Props.part(m, { Name = "Gum", Size = Vector3.new(4.6, 3, 5), CFrame = CFrame.lookAt(at + Vector3.new(0, 1.2, 0), at + Vector3.new(0, 1.2, 0) + out), Color = gum, Material = Enum.Material.Basalt })
 	end
-	for i = -3, 3 do
+	-- Lower teeth only at the corners of the mouth so the way in stays wide open.
+	for _, i in { -3, -2, 2, 3 } do
 		local t = i / 3
-		local x = t * 15
-		local h = 6 + (1 - math.abs(t)) * 4 + rng:NextNumber(-1, 1)
+		local x = t * 17
+		local h = 5 + math.abs(t) * 3 + rng:NextNumber(-0.6, 0.6)
 		local at = front + right * x + Vector3.new(0, -1, 0)
-		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(3.2, h, 3.6), CFrame = CFrame.lookAt(at, at + out) * CFrame.Angles(math.rad(-14), 0, 0) * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone })
+		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(3.2, h, 3.6), CFrame = CFrame.lookAt(at, at + out) * CFrame.Angles(math.rad(-14), 0, 0) * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone, CanCollide = false })
 	end
 	-- The beacon: a tall faint red column of light above the jaw.
-	local beam = Props.part(m, { Name = "Beacon", Shape = Enum.PartType.Cylinder, Size = Vector3.new(160, 5, 5), CFrame = CFrame.new(front + Vector3.new(0, 30 + 80, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 70, 50), Material = Enum.Material.Neon, Transparency = 0.55, CanCollide = false, CanQuery = false, CastShadow = false })
+	local beam = Props.part(m, { Name = "Beacon", Shape = Enum.PartType.Cylinder, Size = Vector3.new(160, 2.5, 2.5), CFrame = CFrame.new(front + Vector3.new(0, 36 + 80, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 70, 50), Material = Enum.Material.Neon, Transparency = 0.7, CanCollide = false, CanQuery = false, CastShadow = false })
 	local glow = Props.part(m, { Name = "MawGlow", Size = Vector3.new(10, 0.4, 10), CFrame = CFrame.new(mouth + Vector3.new(0, 0.5, 0)), Color = Color3.fromRGB(200, 40, 30), Material = Enum.Material.Neon, Transparency = 0.4, CanCollide = false, CanQuery = false })
 	local light = Instance.new("PointLight")
 	light.Color, light.Range, light.Brightness = Color3.fromRGB(255, 70, 40), 40, 2
