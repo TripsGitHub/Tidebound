@@ -453,8 +453,8 @@ local function build(root: ScreenGui)
 			show(b[1])
 		end)
 	end
-	-- The Admin button, top left under the menu buttons.
-	button({ Parent = root, Name = "AdminButton", Text = "Admin", AnchorPoint = Vector2.new(0, 0), Position = UDim2.fromOffset(12, 110), Size = UDim2.fromOffset(84, 30), BackgroundColor3 = C.plank, TextSize = 16, TextScaled = false }, function()
+	-- The Admin button, just above the minimap (clear of the chat window).
+	button({ Parent = root, Name = "AdminButton", Text = "Admin", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -238), Size = UDim2.fromOffset(84, 30), BackgroundColor3 = C.plank, TextSize = 16, TextScaled = false }, function()
 		AdminMenu.toggle()
 	end)
 end

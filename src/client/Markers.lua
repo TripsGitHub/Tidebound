@@ -66,12 +66,17 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	gui.LightInfluence = 0
 	gui.MaxDistance = 120
 	gui.Parent = anchor
-	local group = Instance.new("CanvasGroup")
+	-- One group so everything fades together. Item icons are 3D (ViewportFrames),
+	-- which don't draw inside a CanvasGroup, so those markers fade piece by piece.
+	local withIcon = itemId ~= nil and not heal
+	local group = Instance.new(if withIcon then "Frame" else "CanvasGroup") :: any
 	group.BackgroundTransparency = 1
 	group.AnchorPoint = Vector2.new(0.5, 0.5)
 	group.Position = UDim2.fromScale(0.5, 0.5)
 	group.Size = UDim2.fromScale(1, 1)
-	group.GroupTransparency = 0.15
+	if not withIcon then
+		group.GroupTransparency = 0.15
+	end
 	group.Parent = gui
 	local scale = Instance.new("UIScale")
 	scale.Scale = 0.6
@@ -86,12 +91,12 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 		badge.AnchorPoint = Vector2.new(0.5, 0.5)
 		badge.Position = UDim2.fromScale(0.5, 0.36)
 		badge.Size = UDim2.fromOffset(40, 40)
-		badge.BackgroundColor3 = fill
+		badge.BackgroundColor3 = Color3.fromRGB(255, 246, 228)
 		badge.Parent = group
 		Instance.new("UICorner", badge).CornerRadius = UDim.new(0.3, 0)
 		local ring = Instance.new("UIStroke")
-		ring.Color = dark
-		ring.Thickness = 3
+		ring.Color = fill
+		ring.Thickness = 4
 		ring.Parent = badge
 		local holderIcon = Instance.new("Frame")
 		holderIcon.BackgroundTransparency = 1
@@ -131,9 +136,24 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 
 	-- Pop in, drift up, and fade out together.
 	TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	TweenService:Create(group, TweenInfo.new(0.12), { GroupTransparency = 0 }):Play()
 	TweenService:Create(gui, TweenInfo.new(LIFE, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(0, RISE, 0) }):Play()
-	TweenService:Create(group, TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4), { GroupTransparency = 1 }):Play()
+	if withIcon then
+		local fadeInfo = TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4)
+		for _, d in group:GetDescendants() do
+			if d:IsA("ViewportFrame") then
+				TweenService:Create(d, fadeInfo, { ImageTransparency = 1 }):Play()
+			elseif d:IsA("TextLabel") then
+				TweenService:Create(d, fadeInfo, { TextTransparency = 1, BackgroundTransparency = 1 }):Play()
+			elseif d:IsA("Frame") and d.BackgroundTransparency < 1 then
+				TweenService:Create(d, fadeInfo, { BackgroundTransparency = 1 }):Play()
+			elseif d:IsA("UIStroke") then
+				TweenService:Create(d, fadeInfo, { Transparency = 1 }):Play()
+			end
+		end
+	else
+		TweenService:Create(group, TweenInfo.new(0.12), { GroupTransparency = 0 }):Play()
+		TweenService:Create(group, TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4), { GroupTransparency = 1 }):Play()
+	end
 	task.delay(LIFE + 0.05, function()
 		anchor:Destroy()
 	end)

@@ -212,11 +212,11 @@ local function fallingLeaves(model: Model)
 	local colour = leafColour(model)
 	local top = cf.Y + size.Y * 0.32
 	local spread = math.min(size.X, size.Z) * 0.4
-	for _ = 1, math.random(5, 8) do
+	for _ = 1, math.random(10, 14) do
 		local start = Vector3.new(cf.X + (math.random() - 0.5) * 2 * spread, top + (math.random() - 0.5) * 2, cf.Z + (math.random() - 0.5) * 2 * spread)
-		local leaf = fxPart({ Size = Vector3.new(0.7, 0.06, 0.45), Color = colour:Lerp(Color3.fromRGB(200, 190, 80), math.random() * 0.3), Material = Enum.Material.SmoothPlastic, CFrame = CFrame.new(start) * CFrame.Angles(math.random() * 6, math.random() * 6, 0) })
-		local fall = 3 + math.random() * 4
-		local t = 1.3 + math.random() * 0.8
+		local leaf = fxPart({ Size = Vector3.new(1.3, 0.08, 0.85) * (0.8 + math.random() * 0.5), Color = colour:Lerp(Color3.fromRGB(200, 190, 80), math.random() * 0.3), Material = Enum.Material.SmoothPlastic, CFrame = CFrame.new(start) * CFrame.Angles(math.random() * 6, math.random() * 6, 0) })
+		local fall = 5 + math.random() * 6
+		local t = 1.6 + math.random() * 1
 		local drift = Vector3.new((math.random() - 0.5) * 4, -fall, (math.random() - 0.5) * 4)
 		TweenService:Create(leaf, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { CFrame = CFrame.new(start + drift) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6) }):Play()
 		TweenService:Create(leaf, TweenInfo.new(t * 0.4, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, t * 0.6), { Transparency = 1 }):Play()

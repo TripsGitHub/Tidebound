@@ -454,6 +454,7 @@ end
 local function places(): { any }
 	local list = {}
 	local function add(group: string, name: string, pos: Vector3)
+		name = (string.gsub(name, "(%l)(%u)", "%1 %2"))
 		table.insert(list, { group = group, name = name, x = math.floor(pos.X), y = math.floor(pos.Y + 2), z = math.floor(pos.Z) })
 	end
 	local gates = workspace:FindFirstChild("BossGates")

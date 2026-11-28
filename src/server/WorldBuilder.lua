@@ -2198,8 +2198,23 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		end)
 	print("[World] map " .. (if WorldBake.baked then "loaded from the bake" else "built from scratch"))
 	WorldBuilder.network = network -- the admin menu's teleports read it (Admin.lua)
+	-- Rocks round every cave mouth, except the Maw's: its stone doorway frames it.
+	local mawMouth
+	for _, isl in ISLANDS do
+		if isl.hub then
+			local centre = Vector3.new(isl.x, 0, isl.z)
+			for _, e in network.entrances do
+				local flat = Vector3.new(e.pos.X, 0, e.pos.Z) - centre
+				if flat.Magnitude < isl.r * 1.4 and (not mawMouth or e.pos.Y < mawMouth.pos.Y) then
+					mawMouth = e
+				end
+			end
+		end
+	end
 	for _, e in network.entrances do
-		makeCaveMouth(e.pos, e.facing, Caves.HALL_R / 7)
+		if e ~= mawMouth then
+			makeCaveMouth(e.pos, e.facing, Caves.HALL_R / 7)
+		end
 	end
 	table.move(network.chambers, 1, #network.chambers, #chambers + 1, chambers)
 	table.move(network.tunnels, 1, #network.tunnels, #tunnels + 1, tunnels)
