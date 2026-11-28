@@ -2674,6 +2674,36 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		end
 	end
 	print("[World] ambient scenes: " .. placedAmbient)
+	-- Keep every cave mouth and way out clear: no tree, rock or bush stands in one.
+	do
+		local mouths = {}
+		for _, e in network.entrances or {} do
+			table.insert(mouths, e.pos)
+		end
+		for _, e in network.exits or {} do
+			table.insert(mouths, e.pos)
+		end
+		for _, sh in network.shafts or {} do
+			table.insert(mouths, sh.top)
+		end
+		local nodes = workspace:FindFirstChild("Nodes")
+		local cleared = 0
+		if nodes then
+			for _, m in nodes:GetDescendants() do
+				if m:IsA("Model") and m.Parent and m:GetAttribute("NodeType") ~= nil and not string.find(m:GetAttribute("NodeType"), "Seal") then
+					local p = m:GetPivot().Position
+					for _, at in mouths do
+						if math.abs(p.Y - at.Y) < 24 and (Vector3.new(p.X, 0, p.Z) - Vector3.new(at.X, 0, at.Z)).Magnitude < 20 then
+							m:Destroy()
+							cleared += 1
+							break
+						end
+					end
+				end
+			end
+		end
+		print("[World] cleared " .. cleared .. " nodes out of cave mouths")
+	end
 	stage("Drawing the map")
 	Minimap.publish(ISLANDS, network, groundAt)
 	if game:GetService("RunService"):IsStudio() and workspace:GetAttribute("VerifyCaves") ~= false then
