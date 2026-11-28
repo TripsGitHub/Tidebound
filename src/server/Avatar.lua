@@ -117,11 +117,11 @@ function Avatar.dress(player: Player, character: Model)
 		end
 		local shirt = Instance.new("Shirt")
 		shirt.ShirtTemplate = "rbxassetid://" .. SHIRT_IMAGE
-		shirt.Color3 = l.hide:Lerp(Color3.new(1, 1, 1), 0.25)
+		shirt.Color3 = l.hide:Lerp(Color3.new(1, 1, 1), 0.05)
 		shirt.Parent = character
 		local pants = Instance.new("Pants")
 		pants.PantsTemplate = "rbxassetid://" .. PANTS_IMAGE
-		pants.Color3 = l.hide:Lerp(Color3.new(1, 1, 1), 0.15)
+		pants.Color3 = l.hide:Lerp(Color3.new(0, 0, 0), 0.12)
 		pants.Parent = character
 		folder.Parent = character
 		return
