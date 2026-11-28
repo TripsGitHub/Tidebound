@@ -17,6 +17,7 @@ local NAMES = {
 	"ChestState", -- (chestModel, contents | nil) open/refresh the chest panel; nil closes it
 	"Arrow", -- (character, from, to, hit) an arrow flying from a bow
 	"RaftState", -- (raftModel | nil) you're sitting on a raft (for the steer hint)
+	"AdminState", -- (state) admin menu: islands, players, mobs (admins only)
 	-- client -> server
 	"Hit", -- (target)
 	"Equip", -- (itemId or nil) hold a tool/food/placeable
@@ -32,6 +33,7 @@ local NAMES = {
 	"Buy", -- (shopEntryId)
 	"ChestMove", -- (chestModel, itemId, "put" | "take") move a whole stack
 	"Launch", -- (itemId) put a raft in the water in front of you
+	"AdminRun", -- (commandText) a command from the admin menu, e.g. "tp Tide Isle"
 }
 
 local folder: Folder

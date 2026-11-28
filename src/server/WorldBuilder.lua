@@ -2186,6 +2186,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 			return far and (field == nil or field.canGrow(rx, rz))
 		end)
 	print("[World] map " .. (if WorldBake.baked then "loaded from the bake" else "built from scratch"))
+	WorldBuilder.network = network -- the admin menu's teleports read it (Admin.lua)
 	for _, e in network.entrances do
 		makeCaveMouth(e.pos, e.facing, Caves.HALL_R / 7)
 	end
