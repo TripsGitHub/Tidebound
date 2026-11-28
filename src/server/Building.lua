@@ -13,6 +13,7 @@ local Inventory = require(script.Parent.Inventory)
 local Quests = require(script.Parent.Quests)
 local Crafting = require(script.Parent.Crafting)
 local Chests = require(script.Parent.Chests)
+local Vehicles = require(script.Parent.Vehicles)
 
 local Building = {}
 
@@ -402,6 +403,15 @@ local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, 
 	if def.chest then
 		model:SetAttribute("Capacity", def.chest)
 		Chests.setup(model, stored)
+	end
+	if def.cart then
+		-- Carts roll: an invisible low-friction skid under the wheels touches the
+		-- ground, the seat sits on the back of the box, and the owner can drive it.
+		local skid = part(model, true, { Name = "Skid", Size = Vector3.new(size.X - 0.4, 0.6, size.Z), CFrame = cf * CFrame.new(0, -size.Y / 2 + 0.3, 0), Transparency = 1 })
+		skid.CustomPhysicalProperties = PhysicalProperties.new(0.7, 0.05, 0, 1, 1)
+		local seatCf = cf * CFrame.new(size.X / 2 - 1.3, size.Y / 2 + 0.25, 0) * CFrame.Angles(0, math.rad(90), 0)
+		Vehicles.rig(model, core, "cart", def.speed or 24, seatCf)
+		model:SetAttribute("Forward", Vector3.new(-1, 0, 0))
 	end
 	model.Parent = workspace.Structures
 	return model

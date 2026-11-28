@@ -1,8 +1,7 @@
 -- Rafts: use a raft item at the shore to put it in the water, sit on it and sail.
 -- W/S row forward and back, A/D turn. The raft can't sail up onto land.
 -- One raft per player: launching another packs the old one back into your bag.
--- The driver's client simulates the raft (network owner) for smooth steering; the
--- server only sets where the constraints push it.
+-- Driving is done by the driver's own client (see Vehicles).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -11,12 +10,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Items = require(Shared.Items)
 local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
+local Vehicles = require(script.Parent.Vehicles)
 
 local Rafts = {}
 
 local SEA_Y = 0 -- the top of the sea (WorldBuilder fills the water up to y = 0)
 local FLOAT = 0.55 -- how high the deck's centre sits above the water
-local TURN = 1.4 -- radians per second at full steer
 
 type Raft = { model: Model, root: BasePart, seat: VehicleSeat, owner: Player, itemId: string, yaw: number, speed: number, vel: LinearVelocity, align: AlignOrientation }
 
@@ -170,30 +169,8 @@ function Rafts.launch(player: Player, itemId: unknown)
 	model:SetAttribute("HP", spec.hp)
 	model:SetAttribute("MaxHP", spec.hp)
 
-	local att = Instance.new("Attachment")
-	att.Parent = raftRoot
-	local hold = Instance.new("AlignPosition")
-	hold.Mode = Enum.PositionAlignmentMode.OneAttachment
-	hold.Attachment0 = att
-	hold.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-	hold.MaxAxesForce = Vector3.new(0, 1e6, 0)
-	hold.Position = spot
-	hold.Responsiveness = 25
-	hold.Parent = raftRoot
-	local align = Instance.new("AlignOrientation")
-	align.Mode = Enum.OrientationAlignmentMode.OneAttachment
-	align.Attachment0 = att
-	align.MaxTorque = 1e7
-	align.Responsiveness = 18
-	align.CFrame = CFrame.Angles(0, yaw, 0)
-	align.Parent = raftRoot
-	local vel = Instance.new("LinearVelocity")
-	vel.Attachment0 = att
-	vel.RelativeTo = Enum.ActuatorRelativeTo.World
-	vel.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-	vel.MaxAxesForce = Vector3.new(4e4, 0, 4e4)
-	vel.VectorVelocity = Vector3.zero
-	vel.Parent = raftRoot
+	local rig = Vehicles.rig(model, raftRoot, "raft", spec.speed, seat.CFrame, { waterY = SEA_Y + FLOAT })
+	local vel, align = rig.vel, rig.align
 
 	-- Pack it up again (owner only, when nobody's aboard).
 	local prompt = Instance.new("ProximityPrompt")
@@ -224,16 +201,6 @@ function Rafts.launch(player: Player, itemId: unknown)
 			pack(r, true)
 		end
 	end)
-	seat:GetPropertyChangedSignal("Occupant"):Connect(function()
-		local occupant = seat.Occupant
-		local driver = occupant and Players:GetPlayerFromCharacter(occupant.Parent)
-		pcall(function()
-			raftRoot:SetNetworkOwner(driver)
-		end)
-		if driver then
-			Remotes.Notify:FireClient(driver, "W/S to row, A/D to turn, Space to hop off")
-		end
-	end)
 	Remotes.Notify:FireClient(player, "Raft launched: sit on it to sail", "good")
 end
 
@@ -246,38 +213,6 @@ end
 
 function Rafts.start()
 	Remotes.Launch.OnServerEvent:Connect(Rafts.launch)
-	local check = 0
-	RunService.Heartbeat:Connect(function(dt)
-		check += dt
-		local probe = check > 0.15
-		if probe then
-			check = 0
-		end
-		for player, r in active do
-			if not r.model.Parent then
-				active[player] = nil
-				continue
-			end
-			local spec = Items.RAFTS[r.itemId]
-			local throttle, steer = r.seat.ThrottleFloat, r.seat.SteerFloat
-			if not r.seat.Occupant then
-				throttle, steer = 0, 0
-			end
-			r.yaw -= steer * TURN * dt * (if throttle < 0 then -1 else 1)
-			r.align.CFrame = CFrame.Angles(0, r.yaw, 0)
-			local target = throttle * spec.speed * (if throttle < 0 then 0.5 else 1)
-			-- Ease towards the target speed, like rowing up to pace.
-			r.speed += (target - r.speed) * math.min(1, dt * 1.6)
-			local forward = Vector3.new(-math.sin(r.yaw), 0, -math.cos(r.yaw))
-			if probe and math.abs(r.speed) > 0.5 then
-				local ahead = r.root.Position + forward * (6 + math.abs(r.speed) * 0.25) * math.sign(r.speed)
-				if not openWater(ahead) then
-					r.speed = 0
-				end
-			end
-			r.vel.VectorVelocity = forward * r.speed
-		end
-	end)
 end
 
 return Rafts

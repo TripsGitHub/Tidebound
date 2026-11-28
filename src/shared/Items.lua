@@ -212,7 +212,7 @@ end
 Items.CARTS = { "wood", "stone", "silver", "gold" }
 for i, t in Items.CARTS do
 	local tier = Tiers.get(t) :: any
-	Items[t .. "_cart"] = { name = tier.name .. " Cart", kind = "placeable", order = 36.5 + i * 0.01, structure = tier.name .. "Cart", tier = t, description = "A cart to keep things in. Better carts hold more." }
+	Items[t .. "_cart"] = { name = tier.name .. " Cart", kind = "placeable", order = 36.5 + i * 0.01, structure = tier.name .. "Cart", tier = t, description = "A cart to keep things in that you can also ride: sit on the back and drive it, faster than walking. Better carts hold more and go faster." }
 end
 
 -- Shields: worn on the off arm, one for every tool tier.
@@ -230,9 +230,9 @@ end
 
 -- Rafts: drop one in the water and ride it.
 Items.RAFTS = {
-	log_raft = { name = "Log Raft", speed = 16, hp = 120, order = 38 },
-	sail_raft = { name = "Sail Raft", speed = 26, hp = 180, order = 38.1 },
-	gold_raft = { name = "Gilded Raft", speed = 36, hp = 320, order = 38.2 },
+	log_raft = { name = "Log Raft", speed = 24, hp = 120, order = 38 },
+	sail_raft = { name = "Sail Raft", speed = 32, hp = 180, order = 38.1 },
+	gold_raft = { name = "Gilded Raft", speed = 42, hp = 320, order = 38.2 },
 }
 for id, r in Items.RAFTS do
 	Items[id] = { name = r.name, kind = "raft", order = r.order, description = "Use it at the shore to put it in the water, then sit on it and sail. Top speed " .. r.speed .. "." }

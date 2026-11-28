@@ -31,7 +31,7 @@ do
 	end
 	for i, t in { "wood", "stone", "silver", "gold" } do
 		local tier = Tiers.get(t) :: any
-		Structures[tier.name .. "Cart"] = { size = Vector3.new(6, 4.4, 4), hp = 200 + i * 150, tier = t, chest = 250 + i * 150, cart = true }
+		Structures[tier.name .. "Cart"] = { size = Vector3.new(8, 5, 5), hp = 200 + i * 150, tier = t, chest = 250 + i * 150, cart = true, speed = 20 + i * 4 }
 	end
 end
 
