@@ -210,40 +210,44 @@ local function shoot(player: Player, itemId: string, item, target: unknown, aim:
 	nextSwing[player] = now + item.cooldown * 0.9
 	Inventory.takeAll(player, { arrow = 1 })
 	local from = root.Position + Vector3.new(0, 1.2, 0)
-	local model = if typeof(target) == "Instance" and (target :: Instance):IsA("Model") then target :: Model else nil
-	local kind = nil
-	if model then
-		if model.Parent == workspace:FindFirstChild("Animals") then
-			kind = "animal"
-		elseif Players:GetPlayerFromCharacter(model) then
-			kind = "player"
-		end
-	end
-	local to: Vector3
-	if kind and model then
-		to = model:GetBoundingBox().Position
-		if (to - from).Magnitude > item.range + 6 then
-			kind = nil
-		else
-			local params = RaycastParams.new()
-			params.FilterType = Enum.RaycastFilterType.Exclude
-			params.FilterDescendantsInstances = { character, workspace:FindFirstChild("Drops") :: Instance }
-			local hit = workspace:Raycast(from, to - from, params)
-			if hit and not hit.Instance:IsDescendantOf(model) then
-				to = hit.Position
-				kind = nil
-			end
-		end
+	-- Aim at the hovered target if there is one, otherwise where the mouse points.
+	-- The arrow then flies dead straight for item.range studs and hits the first
+	-- thing in its way.
+	local aimAt: Vector3? = nil
+	if typeof(target) == "Instance" and (target :: Instance):IsA("Model") then
+		aimAt = (target :: Model):GetBoundingBox().Position
 	elseif typeof(aim) == "Vector3" then
-		to = from + ((aim :: Vector3) - from).Unit * math.min(((aim :: Vector3) - from).Magnitude, item.range)
-	else
-		to = from + root.CFrame.LookVector * item.range
+		aimAt = aim :: Vector3
 	end
-	Remotes.Arrow:FireAllClients(character, from, to, kind ~= nil)
+	local dir = if aimAt and (aimAt - from).Magnitude > 0.5 then (aimAt - from).Unit else root.CFrame.LookVector
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, workspace:FindFirstChild("Drops") :: Instance, workspace:FindFirstChild("Decor") :: Instance }
+	params.IgnoreWater = true
+	local hit = workspace:Raycast(from, dir * item.range, params)
+	local to = if hit then hit.Position else from + dir * item.range
+	local model: Model? = nil
+	local kind = nil
+	if hit then
+		local animals = workspace:FindFirstChild("Animals")
+		local inst: Instance? = hit.Instance
+		while inst and inst ~= workspace do
+			if inst:IsA("Model") and inst.Parent == animals then
+				model, kind = inst, "animal"
+				break
+			elseif inst:IsA("Model") and Players:GetPlayerFromCharacter(inst) then
+				model, kind = inst, "player"
+				break
+			end
+			inst = inst.Parent
+		end
+	end
+	local speed = item.arrowSpeed or 140
+	Remotes.Arrow:FireAllClients(character, from, to, kind ~= nil, speed, hit == nil)
 	if not kind or not model then
 		return
 	end
-	local delay = (to - from).Magnitude / 140
+	local delay = (to - from).Magnitude / speed
 	task.delay(delay, function()
 		if not model.Parent then
 			return

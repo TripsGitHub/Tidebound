@@ -220,13 +220,33 @@ for _, tier in Tiers.list do
 	Items[tier.id .. "_shield"] = { name = tier.name .. " Shield", kind = "armour", slot = "shield", order = 44.5 + tier.rank * 0.01, defense = round(0.03 + 0.012 * tier.rank), tier = tier.id, description = "Blocks a share of every hit while you wear it." }
 end
 
--- Bows shoot arrows (each shot uses one) at anything in sight.
-Items.arrow = { name = "Arrow", kind = "resource", order = 62, description = "Ammunition for bows. Each shot uses one." }
-Items.BOWS = { wood = { 14, 70 }, silver = { 24, 85 }, gold = { 32, 95 }, diamond = { 44, 110 } }
+-- Bows shoot arrows (each shot uses one). An arrow flies dead straight until it hits
+-- something or has gone `range` studs, where it fades out. Better bows shoot faster,
+-- harder arrows; from Diamond up they're crossbows.
+Items.arrow = { name = "Arrow", kind = "resource", order = 62, description = "Ammunition for bows and crossbows. Each shot uses one." }
+-- tier = { damage, range (studs before it fades), arrow speed (studs/s), cooldown }
+Items.BOWS = {
+	wood = { 14, 160, 110, 0.9 },
+	silver = { 22, 180, 130, 0.9 },
+	gold = { 30, 200, 150, 0.85 },
+	sunsteel = { 38, 220, 170, 0.85 },
+	diamond = { 48, 250, 200, 1.0 },
+	fractite = { 58, 270, 220, 1.0 },
+	amethyst = { 68, 290, 240, 0.95 },
+	obsidian = { 80, 310, 260, 0.95 },
+	lunar = { 94, 340, 290, 0.9 },
+}
+Items.CROSSBOW_FROM = 6 -- tier rank where bows become crossbows (Diamond)
 for t, spec in Items.BOWS do
 	local tier = Tiers.get(t) :: any
-	Items[t .. "_bow"] = { name = tier.name .. " Bow", kind = "tool", swing = "shoot", ranged = true, range = spec[2], damage = spec[1], cooldown = 0.9, gather = {}, order = 3.5 + tier.rank * 0.1, tier = t, description = "Shoots arrows up to " .. spec[2] .. " studs. Each shot uses an Arrow." }
+	if tier then
+		local cross = tier.rank >= Items.CROSSBOW_FROM
+		local id = t .. (if cross then "_crossbow" else "_bow")
+		Items[id] = { name = tier.name .. (if cross then " Crossbow" else " Bow"), kind = "tool", swing = "shoot", ranged = true, crossbow = cross, range = spec[2], damage = spec[1], arrowSpeed = spec[3], cooldown = spec[4], gather = {}, order = 3.5 + tier.rank * 0.1, tier = t, description = "Shoots arrows dead straight for " .. spec[2] .. " studs at " .. spec[3] .. " studs/s, " .. spec[1] .. " damage. Each shot uses an Arrow." }
+	end
 end
+-- Old item ids that saved games may still hold, and what they turn into.
+Items.LEGACY = { diamond_bow = "diamond_crossbow" }
 
 -- Rafts: drop one in the water and ride it.
 Items.RAFTS = {

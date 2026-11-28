@@ -235,8 +235,11 @@ function Inventory.load(player: Player, saved: { [string]: any })
 	local items = {}
 	if type(saved.items) == "table" then
 		for itemId, count in saved.items do
+			if type(itemId) == "string" and Items.LEGACY[itemId] then
+				itemId = Items.LEGACY[itemId]
+			end
 			if type(itemId) == "string" and Items[itemId] and type(count) == "number" and count >= 1 then
-				items[itemId] = math.floor(count)
+				items[itemId] = (items[itemId] or 0) + math.floor(count)
 			end
 		end
 	end

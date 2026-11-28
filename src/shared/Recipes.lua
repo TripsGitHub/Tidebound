@@ -100,8 +100,9 @@ for i, ore in Ores do
 	table.insert(Recipes, { id = t .. "_wall", tab = "Buildables", level = L, cost = cost(10, { stone = 6 }) })
 	table.insert(Recipes, { id = t .. "_chest", tab = "Buildables", level = L, cost = cost(8, { log = 8 }) })
 	local Items = require(script.Parent.Items)
-	if Items[t .. "_bow"] then
-		table.insert(Recipes, { id = t .. "_bow", tab = "Tools", level = L, cost = cost(7, { log = 2, leather = 2 }, 2) })
+	local bowId = if Items[t .. "_crossbow"] then t .. "_crossbow" else t .. "_bow"
+	if Items[bowId] then
+		table.insert(Recipes, { id = bowId, tab = "Tools", level = L, cost = cost(if Items[bowId].crossbow then 9 else 7, { log = 2, leather = 2 }, 2) })
 	end
 end
 

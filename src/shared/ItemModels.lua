@@ -688,22 +688,90 @@ for _, tier in Tiers.list do
 	end
 end
 
-for t in Items.BOWS do
-	builders[t .. "_bow"] = function(m)
+-- Bows: a smooth D-shaped arc (the limbs curve forward, away from you) with a
+-- leather grip, tips that flick back and a taut string; the hand holds the grip
+-- (the core), string towards you (+Z). Crossbows: a stock pointing forward (-Z)
+-- with the limbs across the front, a string pulled back to the latch, a trigger
+-- under the grip, and a bolt loaded on top.
+local function arcLimbs(m: Model, plate: Color3, trim: Color3, mat: Enum.Material, half: number, depth: number, axis: string, z0: number)
+	-- An arc through the middle (0, 0) and the tips (+-half, depth), split into short
+	-- segments, each turned along the curve. axis "y" bends a bow, "x" a crossbow.
+	local r = (half * half + depth * depth) / (2 * depth)
+	local theta = math.asin(half / r)
+	local n = 10
+	local tips = {}
+	for i = 0, n - 1 do
+		local a0 = -theta + (2 * theta) * i / n
+		local a1 = -theta + (2 * theta) * (i + 1) / n
+		local p0 = Vector2.new(r * math.sin(a0), r - r * math.cos(a0))
+		local p1 = Vector2.new(r * math.sin(a1), r - r * math.cos(a1))
+		local mid = (p0 + p1) / 2
+		local len = (p1 - p0).Magnitude + 0.04
+		local thick = 0.17 * (1 - math.abs(mid.X) / half * 0.35)
+		local colour = if math.abs(mid.X) > half * 0.8 then trim else plate
+		local cf
+		if axis == "y" then
+			cf = CFrame.lookAt(Vector3.new(0, mid.X, z0 + mid.Y), Vector3.new(0, p1.X, z0 + p1.Y)) * CFrame.Angles(math.rad(90), 0, 0)
+			part(m, Vector3.new(thick, len, thick * 1.3), cf, colour, mat)
+		else
+			cf = CFrame.lookAt(Vector3.new(mid.X, 0, z0 + mid.Y), Vector3.new(p1.X, 0, z0 + p1.Y)) * CFrame.Angles(math.rad(90), 0, 0)
+			part(m, Vector3.new(thick * 1.3, len, thick), cf, colour, mat)
+		end
+		if i == 0 then
+			tips[1] = p0
+		elseif i == n - 1 then
+			tips[2] = p1
+		end
+	end
+	return tips
+end
+
+for t, spec in Items.BOWS do
+	local tier = Tiers.get(t) :: any
+	local cross = tier and tier.rank >= Items.CROSSBOW_FROM
+	local id = t .. (if cross then "_crossbow" else "_bow")
+	builders[id] = function(m)
 		local plate, trim = tierColour(t)
 		local mat = if t == "wood" then Enum.Material.Wood else tierMaterial(t)
-		local core = part(m, Vector3.new(0.22, 0.6, 0.22), CFrame.new(), C.leather, Enum.Material.Fabric)
-		-- Each limb is three short segments bending back, so it reads as a curve.
-		for _, dir in { 1, -1 } do
-			local cf = CFrame.new(0, 0.3 * dir, 0)
-			for i = 1, 3 do
-				local seg = 0.55
-				cf = cf * CFrame.Angles(math.rad(-14 * dir), 0, 0) * CFrame.new(0, seg / 2 * dir, 0)
-				part(m, Vector3.new(0.16, seg, 0.16), cf, if i == 3 then trim else plate, mat)
-				cf = cf * CFrame.new(0, seg / 2 * dir, 0)
+		local str = Color3.fromRGB(236, 230, 214)
+		if not cross then
+			local core = part(m, Vector3.new(0.24, 0.62, 0.3), CFrame.new(), C.leather, Enum.Material.Fabric)
+			local half, depth = 1.35, 0.62
+			local tips = arcLimbs(m, plate, trim, mat, half, depth, "y", 0)
+			-- Tips flick back towards you, and the string runs tip to tip behind the grip.
+			for _, tip in tips do
+				part(m, Vector3.new(0.12, 0.32, 0.12), CFrame.new(0, tip.X + math.sign(tip.X) * 0.08, tip.Y + 0.1) * CFrame.Angles(math.rad(-35 * math.sign(tip.X)), 0, 0), trim, mat)
 			end
+			part(m, Vector3.new(0.035, half * 2 - 0.05, 0.035), CFrame.new(0, 0, depth + 0.1), str, Enum.Material.Fabric)
+			if tier and tier.glow then
+				part(m, Vector3.new(0.27, 0.12, 0.33), CFrame.new(0, 0.2, 0), tier.accent, Enum.Material.Neon)
+				part(m, Vector3.new(0.27, 0.12, 0.33), CFrame.new(0, -0.2, 0), tier.accent, Enum.Material.Neon)
+			end
+			return core
 		end
-		part(m, Vector3.new(0.04, 2.5, 0.04), CFrame.new(0, 0, 0.62), Color3.fromRGB(236, 230, 214), Enum.Material.Fabric)
+		-- Crossbow
+		local core = part(m, Vector3.new(0.26, 0.7, 0.34), CFrame.new(0, -0.3, 0.25) * CFrame.Angles(math.rad(-18), 0, 0), C.woodDark, Enum.Material.Wood)
+		part(m, Vector3.new(0.3, 0.3, 2.4), CFrame.new(0, 0.1, -0.35), C.wood, Enum.Material.Wood)
+		part(m, Vector3.new(0.34, 0.42, 0.7), CFrame.new(0, 0.02, 1.1), C.woodDark, Enum.Material.Wood)
+		part(m, Vector3.new(0.34, 0.12, 2.0), CFrame.new(0, 0.3, -0.45), plate, mat)
+		part(m, Vector3.new(0.06, 0.24, 0.12), CFrame.new(0, -0.12, 0.28), trim, Enum.Material.Metal)
+		local half, depth = 1.15, 0.38
+		local z0 = -1.55
+		local tips = arcLimbs(m, plate, trim, mat, half, depth, "x", z0)
+		part(m, Vector3.new(0.4, 0.36, 0.3), CFrame.new(0, 0.12, z0 + 0.05), trim, Enum.Material.Metal)
+		-- String from each tip back to the latch.
+		local latch = Vector3.new(0, 0.32, 0.05)
+		for _, tip in tips do
+			local a = Vector3.new(tip.X, 0.05, z0 + tip.Y)
+			local d = (latch - a).Magnitude
+			part(m, Vector3.new(0.035, 0.035, d), CFrame.lookAt((a + latch) / 2, latch), str, Enum.Material.Fabric)
+		end
+		-- The loaded bolt.
+		part(m, Vector3.new(0.07, 0.07, 1.7), CFrame.new(0, 0.42, -0.75), C.woodLight, Enum.Material.Wood)
+		part(m, Vector3.new(0.14, 0.14, 0.26), CFrame.new(0, 0.42, -1.65), if tier and tier.glow then tier.accent else trim, if tier and tier.glow then Enum.Material.Neon else Enum.Material.Metal)
+		if tier and tier.glow then
+			part(m, Vector3.new(0.36, 0.06, 1.6), CFrame.new(0, 0.37, -0.45), tier.accent, Enum.Material.Neon)
+		end
 		return core
 	end
 end

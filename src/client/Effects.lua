@@ -449,8 +449,10 @@ function Effects.worldFx(kind: string, a: any, b: any, c: any)
 	end
 end
 
--- An arrow from a bow: flies in a shallow arc, then sticks where it landed for a moment.
-function Effects.arrow(character: Model?, from: Vector3, to: Vector3, hit: boolean)
+-- An arrow from a bow: flies dead straight at the bow's arrow speed. If it hit
+-- nothing it fades away over the end of its range; if it hit the ground or a wall
+-- it sticks there for a few seconds; if it hit a creature it vanishes into it.
+function Effects.arrow(character: Model?, from: Vector3, to: Vector3, hit: boolean, speed: number?, faded: boolean?)
 	if character then
 		Anim.play(character, "shoot")
 	end
@@ -468,21 +470,38 @@ function Effects.arrow(character: Model?, from: Vector3, to: Vector3, hit: boole
 	fletch.Size = Vector3.new(0.04, 0.4, 0.5)
 	fletch.Color = Color3.fromRGB(236, 232, 224)
 	fletch.Material = Enum.Material.Fabric
-	for _, p in { shaft, tip, fletch } do
+	local parts = { shaft, tip, fletch }
+	for _, p in parts do
 		p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
 		p.Parent = arrow
 	end
+	-- A faint streak behind it so a fast arrow is still easy to follow.
+	local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+	a0.Position, a1.Position = Vector3.new(0, 0.05, 1.1), Vector3.new(0, -0.05, 1.1)
+	a0.Parent, a1.Parent = shaft, shaft
+	local trail = Instance.new("Trail")
+	trail.Attachment0, trail.Attachment1 = a0, a1
+	trail.Lifetime = 0.15
+	trail.Color = ColorSequence.new(Color3.fromRGB(255, 250, 230))
+	trail.Transparency = NumberSequence.new(0.5, 1)
+	trail.Parent = shaft
 	arrow.Parent = workspace
 	local dist = (to - from).Magnitude
-	local duration = math.max(0.08, dist / 140)
-	local lift = dist * 0.04
+	local duration = math.max(0.05, dist / (speed or 140))
+	local dir = if dist > 1e-3 then (to - from).Unit else Vector3.zAxis
+	local cf0 = CFrame.lookAt(from, from + dir)
 	local function place(t: number)
-		local pos = from:Lerp(to, t) + Vector3.new(0, math.sin(t * math.pi) * lift, 0)
-		local ahead = from:Lerp(to, math.min(1, t + 0.02)) + Vector3.new(0, math.sin(math.min(1, t + 0.02) * math.pi) * lift, 0)
-		local cf = if (ahead - pos).Magnitude > 1e-3 then CFrame.lookAt(pos, ahead) else CFrame.new(pos)
+		local cf = cf0 + dir * dist * t
 		shaft.CFrame = cf
 		tip.CFrame = cf * CFrame.new(0, 0, -1.3)
 		fletch.CFrame = cf * CFrame.new(0, 0, 1)
+		if faded and t > 0.8 then
+			local fade = (t - 0.8) / 0.2
+			for _, p in parts do
+				p.Transparency = fade
+			end
+			trail.Enabled = fade < 0.6
+		end
 	end
 	place(0)
 	local start = os.clock()
@@ -492,7 +511,8 @@ function Effects.arrow(character: Model?, from: Vector3, to: Vector3, hit: boole
 		place(t)
 		if t >= 1 then
 			conn:Disconnect()
-			if hit then
+			trail.Enabled = false
+			if hit or faded then
 				arrow:Destroy()
 			else
 				Debris:AddItem(arrow, 4)
