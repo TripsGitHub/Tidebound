@@ -35,6 +35,7 @@ local NAMES = {
 	"ChestMove", -- (chestModel, itemId, "put" | "take") move a whole stack
 	"Launch", -- (itemId) put a raft in the water in front of you
 	"AdminRun", -- (commandText) a command from the admin menu, e.g. "tp Tide Isle"
+	"HotbarLayout", -- (text) your pinned hotbar slots, "id,id,,id", saved with your data
 }
 
 local folder: Folder

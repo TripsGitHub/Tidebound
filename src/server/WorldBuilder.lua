@@ -247,7 +247,7 @@ local NODE_MESHES = {
 	FruitPalm = { mesh = "palm", scale = { 1.3, 1.7 } },
 	BananaPalm = { mesh = "palm", scale = { 1.2, 1.6 } },
 	Boulder = { mesh = "boulder", scale = { 1.1, 1.6 } },
-	Bush = { mesh = "bush", scale = { 1, 1.35 } },
+	Bush = { mesh = "bush", scale = { 0.7, 1.6 } },
 	SlimePool = { mesh = "slimepool", scale = { 1, 1 } },
 	CropPatch = { mesh = "crop_patch", scale = { 0.9, 1.3 } },
 }
@@ -464,12 +464,20 @@ function dressFruit(model: Model, nodeType: string, tint: string?)
 		if not colour then
 			return
 		end
+		-- Not every bush is in fruit, and the ones that are carry a few bunches in
+		-- different spots, not one even ring.
+		if rng:NextNumber() < 0.3 then
+			return
+		end
 		local r = (hi - lo) / 2
-		for i = 1, 9 do
-			local a = i / 9 * math.pi * 2 + rng:NextNumber(0, 0.5)
+		for _ = 1, rng:NextInteger(1, 3) do
+			local a = rng:NextNumber(0, math.pi * 2)
 			local y = rng:NextNumber(-0.1, 0.6)
-			local at = mid + Vector3.new(math.cos(a) * r.X * 0.85, y * r.Y, math.sin(a) * r.Z * 0.85)
-			deco(model, { Name = "Berry", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.55, CFrame = CFrame.new(at), Color = colour, Material = Enum.Material.SmoothPlastic })
+			local centre = mid + Vector3.new(math.cos(a) * r.X * 0.85, y * r.Y, math.sin(a) * r.Z * 0.85)
+			for _ = 1, rng:NextInteger(2, 4) do
+				local at = centre + Vector3.new(rng:NextNumber(-0.45, 0.45), rng:NextNumber(-0.35, 0.35), rng:NextNumber(-0.45, 0.45))
+				deco(model, { Name = "Berry", Shape = Enum.PartType.Ball, Size = Vector3.one * rng:NextNumber(0.45, 0.65), CFrame = CFrame.new(at), Color = colour:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.25)), Material = Enum.Material.SmoothPlastic })
+			end
 		end
 		return
 	end
@@ -931,9 +939,9 @@ end
 
 -- Spacing, in studs. Island Tribes keeps trees 20-40 studs apart with open ground
 -- between, so you can always see the next one.
-local CLUMP_SPACING = 30 -- between clumps of trees
-local IN_CLUMP_SPACING = 7 -- between trees in one clump
-local NODE_SPACING = 16 -- between any other nodes
+local CLUMP_SPACING = 36 -- between clumps of trees
+local IN_CLUMP_SPACING = 12 -- between trees in one clump (room to walk between)
+local NODE_SPACING = 18 -- between any other nodes
 
 local function lerpColor(a: Color3, b: Color3, t: number)
 	return a:Lerp(b, t)
@@ -1181,6 +1189,12 @@ local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 		if nodeType == "Tree" or nodeType == "Palm" or nodeType == "Pine" then
 			-- Fewer trees, so islands have open meadows between the groves.
 			count = math.max(1, math.round(count * 0.65))
+		end
+		if nodeType == "Bush" then
+			-- About half as many bushes, in loose groups of one to three, so they don't
+			-- read as the same bush stamped evenly over every meadow.
+			count = math.max(1, math.round(count * 0.5))
+			clump = clump or { 1, 3 }
 		end
 		if Nodes[nodeType] and Nodes[nodeType].ore then
 			-- Ore veins in small seams of two or three rather than dotted evenly about.

@@ -253,6 +253,12 @@ local function bagCard(id: string)
 		rebuildBag()
 	end)
 	Icons.make(id, card, UDim2.fromOffset(74, 74), UDim2.new(0.5, -37, 0, 8))
+	-- Drag the card onto a hotbar slot to put it there.
+	card.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			require(script.Parent.UI).beginDrag(id)
+		end
+	end)
 	local name = label({ Parent = card, Position = UDim2.fromOffset(2, 84), Size = UDim2.new(1, -4, 0, 22), Text = item.name, TextScaled = false, TextSize = 18 })
 	-- A darker strip along the bottom holds the actions.
 	block({ Parent = card, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.cardDark })

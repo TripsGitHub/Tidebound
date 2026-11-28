@@ -94,6 +94,7 @@ local function snapshot(player: Player): { [string]: any }?
 		shells = prog.shells,
 		quests = Quests.export(player),
 		base = Building.export(player),
+		hotbar = player:GetAttribute("HotbarLayout"),
 	}
 end
 
@@ -155,6 +156,9 @@ function Save.load(player: Player): boolean
 		Inventory.load(player, data)
 		Progression.load(player, data)
 		Quests.load(player, data.quests)
+		if type(data.hotbar) == "string" and #data.hotbar < 800 then
+			player:SetAttribute("HotbarLayout", data.hotbar)
+		end
 		if data.base then
 			Building.load(player, data.base)
 		end

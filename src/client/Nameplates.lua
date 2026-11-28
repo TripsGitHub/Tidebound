@@ -217,25 +217,44 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 		local l = new("TextLabel", { Parent = pill, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "0%", TextScaled = true, TextColor3 = rgb(20, 20, 20), FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold), ZIndex = 10 })
 		return l
 	end
-	-- Shield: a rounded top and a point at the bottom (a turned square).
+	-- Island Tribes-style shield badges: a flat-topped heater shield with raised top
+	-- corners, a thick dark outline, crisp corners (nothing rounded), and a two-tone
+	-- fill, lighter on the left like light coming from one side.
+	local function shieldShape(parent: Instance, fill: Color3, edge: Color3)
+		local light = fill:Lerp(Color3.new(1, 1, 1), 0.28)
+		local function twoTone(f: Frame, rot: number)
+			new("UIGradient", {
+				Parent = f,
+				Rotation = rot,
+				Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, light), ColorSequenceKeypoint.new(0.5, light), ColorSequenceKeypoint.new(0.501, fill), ColorSequenceKeypoint.new(1, fill) }),
+			})
+		end
+		-- Outline first (one size up, dark), then the fill on top.
+		for layer = 1, 2 do
+			local pad = if layer == 1 then 3 else 0
+			local col = if layer == 1 then edge else Color3.new(1, 1, 1)
+			local z = 5 + layer
+			local top = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4 - pad / 2), Size = UDim2.fromOffset(26 + pad, 16 + pad), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z })
+			local point = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 19), Size = UDim2.fromOffset(18.5 + pad, 18.5 + pad), Rotation = 45, BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z })
+			-- The raised corners at the top.
+			for side = -1, 1, 2 do
+				local horn = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, side * 10, 0, 4), Size = UDim2.fromOffset(7 + pad, 7 + pad), Rotation = 45, BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z })
+				if layer == 2 then
+					horn.BackgroundColor3 = if side < 0 then light else fill
+				end
+			end
+			if layer == 2 then
+				twoTone(top, 0)
+				twoTone(point, -45)
+			end
+		end
+	end
 	local shield = new("Frame", { Parent = badgeRow, LayoutOrder = 1, Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1 })
-	local blue, blueEdge = rgb(40, 110, 220), rgb(14, 34, 80)
-	new("Frame", { Parent = shield, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 1), Size = UDim2.fromOffset(30, 20), BackgroundColor3 = blue, BorderSizePixel = 0, ZIndex = 7 }, {
-		new("UICorner", { CornerRadius = UDim.new(0, 5) }),
-		new("UIStroke", { Color = blueEdge, Thickness = 2 }),
-	})
-	new("Frame", { Parent = shield, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 19), Size = UDim2.fromOffset(21, 21), Rotation = 45, BackgroundColor3 = blue, BorderSizePixel = 0, ZIndex = 6 }, {
-		new("UIStroke", { Color = blueEdge, Thickness = 2 }),
-	})
+	shieldShape(shield, rgb(38, 112, 226), rgb(12, 30, 72))
 	local vsPlayer = pctLabel(shield)
-	-- Slime: a squat dome with a flat bottom and two little eyes.
-	local slime = new("Frame", { Parent = badgeRow, LayoutOrder = 2, Size = UDim2.fromOffset(36, 34), BackgroundTransparency = 1 })
-	local green, greenEdge = rgb(50, 150, 50), rgb(14, 50, 14)
-	new("Frame", { Parent = slime, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromOffset(36, 30), BackgroundColor3 = green, BorderSizePixel = 0, ZIndex = 7 }, {
-		new("UICorner", { CornerRadius = UDim.new(0.48, 0) }),
-		new("UIStroke", { Color = greenEdge, Thickness = 2 }),
-	})
-	new("Frame", { Parent = slime, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromOffset(34, 8), BackgroundColor3 = green, BorderSizePixel = 0, ZIndex = 8 })
+	-- Against mobs: the same shield in green.
+	local slime = new("Frame", { Parent = badgeRow, LayoutOrder = 2, Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1 })
+	shieldShape(slime, rgb(58, 160, 52), rgb(14, 50, 14))
 	local vsMob = pctLabel(slime)
 	-- Stat add-ons: one round badge per active booster, next to the armour badges.
 	-- Each reads a player attribute holding a percentage; nil or 0 hides it. New
@@ -249,11 +268,14 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 	local boostBadges = {}
 	for i, b in BOOSTS do
 		local holder = new("Frame", { Parent = badgeRow, LayoutOrder = 2 + i, Size = UDim2.fromOffset(32, 34), BackgroundTransparency = 1, Visible = false })
-		local disc = new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = b.fill, BorderSizePixel = 0, ZIndex = 7 }, {
-			new("UICorner", { CornerRadius = UDim.new(1, 0) }),
-			new("UIStroke", { Color = b.edge, Thickness = 2 }),
+		-- A crisp diamond (a turned square) with a dark rim and a lit left half.
+		new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 13), Size = UDim2.fromOffset(23, 23), Rotation = 45, BackgroundColor3 = b.edge, BorderSizePixel = 0, ZIndex = 6 })
+		local gem = new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 13), Size = UDim2.fromOffset(18, 18), Rotation = 45, BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 7 }, {
+			new("UIGradient", { Rotation = -45, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, b.fill:Lerp(Color3.new(1, 1, 1), 0.3)), ColorSequenceKeypoint.new(0.5, b.fill:Lerp(Color3.new(1, 1, 1), 0.3)), ColorSequenceKeypoint.new(0.501, b.fill), ColorSequenceKeypoint.new(1, b.fill) }) }),
 		})
-		new("TextLabel", { Parent = disc, Size = UDim2.fromScale(1, 0.8), BackgroundTransparency = 1, Text = b.glyph, TextScaled = true, TextColor3 = rgb(255, 255, 255), TextStrokeTransparency = 0.3, FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy), ZIndex = 8 })
+		local disc = new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 13), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, ZIndex = 8 })
+		local _ = gem
+		new("TextLabel", { Parent = disc, Size = UDim2.fromScale(1, 0.9), BackgroundTransparency = 1, Text = b.glyph, TextScaled = true, TextColor3 = rgb(255, 255, 255), TextStrokeTransparency = 0.3, FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy), ZIndex = 8 })
 		local pill = pctLabel(holder)
 		pill.Parent.Position = UDim2.fromScale(0.5, 0.82)
 		boostBadges[i] = { holder = holder, label = pill, spec = b }

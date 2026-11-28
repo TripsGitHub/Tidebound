@@ -69,34 +69,123 @@ function UI.hotbarSize(): number
 	return Config.hotbarSlotsFor(Players.LocalPlayer:GetAttribute("Level") or 1)
 end
 
--- Starred items first (any kind, armour included, in the order you starred
--- them), then tools, food, placeables and crates fill the remaining slots.
-function UI.hotbarIds(): { string }
+-- Slot -> item for the bar. Your slots stay where you put them (see Favourites.lua):
+-- drag from the bag or between slots to arrange them; new tools, food, buildables and
+-- crates drop into the first empty slot and stay there.
+function UI.hotbarIds(): { [number]: string }
 	local size = UI.hotbarSize()
-	local out, used = {}, {}
-	for _, id in Favourites.list() do
-		if #out < size and (state.items[id] or 0) > 0 and Items[id] then
-			table.insert(out, id)
-			used[id] = true
-		end
-	end
 	local ids = {}
 	for id, count in state.items do
 		local kind = Items[id] and Items[id].kind
-		if count > 0 and not used[id] and (kind == "tool" or kind == "food" or kind == "placeable" or kind == "crate") then
+		if count > 0 and (kind == "tool" or kind == "food" or kind == "placeable" or kind == "crate") then
 			table.insert(ids, id)
 		end
 	end
 	table.sort(ids, function(a, b)
 		return Items[a].order < Items[b].order
 	end)
-	for _, id in ids do
-		if #out >= size then
-			break
+	return Favourites.layout(size, function(id)
+		return (state.items[id] or 0) > 0 and Items[id] ~= nil
+	end, ids)
+end
+
+-- Dragging an item onto the bar ---------------------------------------------------
+local slotButtons: { [number]: GuiObject } = {}
+local drag: { id: string, start: Vector2, ghost: GuiObject?, from: number? }? = nil
+local dragEndedAt = 0
+
+function UI.hotbarSlotAt(pos: Vector2): number?
+	for i, b in slotButtons do
+		if b.Parent then
+			local p, sz = b.AbsolutePosition, b.AbsoluteSize
+			if pos.X >= p.X - 4 and pos.X <= p.X + sz.X + 4 and pos.Y >= p.Y - 10 and pos.Y <= p.Y + sz.Y + 4 then
+				return i
+			end
 		end
-		table.insert(out, id)
 	end
-	return out
+	return nil
+end
+
+-- Start dragging an item (from a bag card or a slot); it follows the mouse once it
+-- has moved a little, and lands in whichever slot you let go over.
+function UI.beginDrag(id: string, _start: Vector2?, from: number?)
+	local inset = game:GetService("GuiService"):GetGuiInset()
+	drag = { id = id, start = UserInputService:GetMouseLocation() - inset, from = from }
+end
+
+function UI.justDragged(): boolean
+	return os.clock() - dragEndedAt < 0.15
+end
+
+UserInputService.InputChanged:Connect(function(input)
+	local d = drag
+	if not d or input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+	local pos = Vector2.new(input.Position.X, input.Position.Y)
+	if not d.ghost and (pos - d.start).Magnitude > 8 and gui then
+		local g = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(58, 58), BackgroundColor3 = C.panel, BackgroundTransparency = 0.25, ZIndex = 50 }, { UIKit.round(), stroke(C.star, 2) })
+		local vf = Icons.make(d.id, g, UDim2.fromScale(0.85, 0.85), UDim2.fromScale(0.075, 0.075))
+		vf.ZIndex = 51
+		d.ghost = g
+	end
+	if d.ghost then
+		d.ghost.Position = UDim2.fromOffset(pos.X, pos.Y)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	local d = drag
+	if not d or input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+	drag = nil
+	if d.ghost then
+		d.ghost:Destroy()
+		dragEndedAt = os.clock()
+		local at = UI.hotbarSlotAt(Vector2.new(input.Position.X, input.Position.Y))
+		if at then
+			Favourites.place(d.id, at)
+		end
+	end
+end)
+
+-- The selected slot's background shows what the item is made of: wood glows warm,
+-- stone breathes grey, metal has a shine sweeping across it, crystal sparkles, and
+-- the glowing tiers pulse in their own colour.
+local Tiers = require(Shared.Tiers)
+local function tierFx(slot: GuiObject, id: string)
+	local tier = Tiers.split(id)
+	local fx = new("Frame", { Parent = slot, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.9, 0.9), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 0 }, { UIKit.round() })
+	if not tier then
+		local glow = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = C.star, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
+		TweenService:Create(glow, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.93 }):Play()
+		return
+	end
+	local base = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = tier.plate, BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
+	if tier.style == "wood" or tier.style == "stone" then
+		TweenService:Create(base, TweenInfo.new(if tier.style == "wood" then 1.1 else 1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.8 }):Play()
+	elseif tier.style == "metal" then
+		-- A bright band that sweeps across every couple of seconds.
+		local band = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0, BorderSizePixel = 0, ZIndex = 0 })
+		local grad = new("UIGradient", {
+			Parent = band,
+			Rotation = 25,
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1) }),
+			Offset = Vector2.new(-1, 0),
+		})
+		TweenService:Create(grad, TweenInfo.new(1.4, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, 0.9), { Offset = Vector2.new(1, 0) }):Play()
+	else
+		-- Crystal: little four-point stars twinkling in and out.
+		for k = 1, 6 do
+			local star = label({ Parent = fx, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.15 + ((k * 0.37) % 0.7), 0.15 + ((k * 0.61) % 0.7)), Size = UDim2.fromOffset(14, 14), Text = "✦", TextColor3 = tier.trim:Lerp(Color3.new(1, 1, 1), 0.6), TextScaled = true, TextTransparency = 1, TextStrokeTransparency = 1, ZIndex = 0 })
+			TweenService:Create(star, TweenInfo.new(0.5 + (k % 3) * 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true, k * 0.17), { TextTransparency = 0.05, Rotation = 45 }):Play()
+		end
+	end
+	if tier.glow then
+		local halo = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = tier.accent, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
+		TweenService:Create(halo, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.95 }):Play()
+	end
 end
 
 local lastSelected: { [string]: boolean } = {}
@@ -110,7 +199,8 @@ local function rebuildHotbar()
 		end
 	end
 	local ids = UI.hotbarIds()
-	for i = 1, math.max(UI.hotbarSize(), #ids) do
+	table.clear(slotButtons)
+	for i = 1, UI.hotbarSize() do
 		local id = ids[i]
 		local item = id and Items[id]
 		local worn = item ~= nil and item.kind == "armour" and state.armour[item.slot] == id
@@ -130,6 +220,7 @@ local function rebuildHotbar()
 			Text = "",
 			AutoButtonColor = id ~= nil,
 		}, { UIKit.round(), stroke(if selected then C.star else C.rim, if selected then 3 else 2) })
+		slotButtons[i] = slot
 		if id then
 			local icon = Icons.make(id, slot, UDim2.fromScale(0.82, 0.82), UDim2.fromScale(0.09, 0.05))
 			if selected then
@@ -137,8 +228,7 @@ local function rebuildHotbar()
 				-- warm glow that breathes in and out.
 				spinSince[id] = spinSince[id] or os.clock()
 				Icons.spin(icon, nil, spinSince[id])
-				local glow = new("Frame", { Parent = slot, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.86, 0.86), BackgroundColor3 = C.star, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
-				TweenService:Create(glow, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.93, Size = UDim2.fromScale(0.96, 0.96) }):Play()
+				tierFx(slot, id)
 			end
 			-- Long names shrink to fit the slot so neighbours never overlap.
 			local name = label({ Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, -2, 0, 16), ZIndex = if selected then 3 else 1, Text = Items[id].name, TextScaled = true, TextStrokeTransparency = 0.4, TextColor3 = if selected then C.star else C.text })
@@ -150,7 +240,12 @@ local function rebuildHotbar()
 				label({ Parent = slot, Position = UDim2.fromOffset(2, 0), Size = UDim2.fromOffset(14, 14), Text = "★", TextColor3 = C.star, TextScaled = false, TextSize = 13, ZIndex = 3 })
 			end
 			slot.MouseButton1Click:Connect(function()
-				callbacks.onSlot(i)
+				if not UI.justDragged() then
+					callbacks.onSlot(i)
+				end
+			end)
+			slot.MouseButton1Down:Connect(function(x, y)
+				UI.beginDrag(id, Vector2.new(x, y), i)
 			end)
 			-- Pop: the slot you just picked jumps up and settles.
 			if selected and not lastSelected[id] then
@@ -169,7 +264,7 @@ local function rebuildHotbar()
 		end
 	end
 	lastSelected = {}
-	for _, id in ids do
+	for _, id in pairs(ids) do
 		local item = Items[id]
 		if id == state.equipped or (item.kind == "armour" and state.armour[item.slot] == id) then
 			lastSelected[id] = true

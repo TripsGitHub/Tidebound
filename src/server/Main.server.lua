@@ -149,6 +149,11 @@ Remotes.Eat.OnServerEvent:Connect(function(player, itemId)
 	end
 end)
 Remotes.Place.OnServerEvent:Connect(Building.onPlace)
+Remotes.HotbarLayout.OnServerEvent:Connect(function(player, text)
+	if type(text) == "string" and #text < 800 then
+		player:SetAttribute("HotbarLayout", text)
+	end
+end)
 Remotes.CancelBuild.OnServerEvent:Connect(Crafting.cancelBuild)
 Remotes.ClaimQuest.OnServerEvent:Connect(Quests.claim)
 Remotes.Buy.OnServerEvent:Connect(Shop.onBuy)
