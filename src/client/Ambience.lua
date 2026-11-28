@@ -342,6 +342,16 @@ function Ambience.start()
 		clouds.Color, clouds.Cover = look.clouds, look.cover
 		terrain.WaterColor = look.water
 
+		-- Down in the caves: a soft cool ambient so the rock always reads (torches and
+		-- crystals do the rest), whatever the time of day up top.
+		local camY = camera.CFrame.Position.Y
+		local depth = math.clamp((-camY - 12) / 30, 0, 1)
+		if depth > 0 and not underwater then
+			Lighting.Ambient = look.ambient:Lerp(rgb(92, 86, 104), depth)
+			Lighting.OutdoorAmbient = look.outdoor:Lerp(rgb(70, 66, 80), depth)
+			Lighting.ExposureCompensation = look.exposure + 0.35 * depth
+		end
+
 		if underwater then
 			atmosphere.Color, atmosphere.Decay = rgb(40, 120, 140), rgb(14, 60, 90)
 			atmosphere.Density, atmosphere.Offset, atmosphere.Haze, atmosphere.Glare = 0.62, 0, 2.5, 0
@@ -350,7 +360,7 @@ function Ambience.start()
 			rays.Intensity = 0
 		else
 			atmosphere.Color, atmosphere.Decay = look.atmoColor, look.atmoDecay
-			atmosphere.Density, atmosphere.Offset, atmosphere.Haze, atmosphere.Glare = look.density, 0.1, look.haze, look.glare
+			atmosphere.Density, atmosphere.Offset, atmosphere.Haze, atmosphere.Glare = look.density * (1 - depth * 0.6), 0.1, look.haze * (1 - depth), look.glare
 			underGrade.Enabled, underBlur.Enabled = false, false
 		end
 

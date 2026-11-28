@@ -25,7 +25,7 @@ local player = Players.LocalPlayer
 local SIZE = 210 -- on screen, pixels
 local SURFACE_PX = 1.6 -- pixels per land cell above ground
 local CAVE_ZOOM = 0.55 -- pixels per stud underground
-local REVEAL = 55 -- studs: how far your light reaches on the cave map
+local REVEAL = 90 -- studs: how far your light reaches on the cave map
 local SHOW_DEPTH = 40 -- studs: tunnels this far above or below you aren't drawn
 
 -- Soft, muted colours, like an old sea chart: olive land, sandy beaches, a dark
@@ -57,6 +57,9 @@ local cell, x0, z0 = 32, 0, 0
 
 local segments = {} -- { a: Vector2, b: Vector2, y: number, r: number, frame: Frame? }
 local rooms = {} -- { p: Vector2, r: number, y: number, frame: Frame? }
+local marks = {} -- { kind, p: Vector3, label, icon: Frame? } boss lairs, gates, the Maw, ways out
+local markLayer: Frame
+local placeMarks: (Vector3) -> ()
 local underground = false
 local diving = false
 -- Zoom: scroll over the map (or tap + / -). The view eases toward the target so
@@ -242,6 +245,15 @@ local function loadCaves(data: Folder)
 			end
 		end
 	end
+	local markValue = data:FindFirstChild("CaveMarks") :: StringValue?
+	if markValue then
+		for _, s in string.split(markValue.Value, ";") do
+			local n = string.split(s, "|")
+			if #n == 5 then
+				table.insert(marks, { kind = n[1], p = Vector3.new(tonumber(n[2]) :: number, tonumber(n[4]) :: number, tonumber(n[3]) :: number), label = n[5] })
+			end
+		end
+	end
 	local roomValue = data:FindFirstChild("Rooms") :: StringValue?
 	if roomValue then
 		for _, s in string.split(roomValue.Value, ";") do
@@ -301,13 +313,13 @@ local function segmentFrame(s)
 	local d = s.b - s.a
 	local rot = math.deg(math.atan2(d.Y, d.X))
 	local col = caveColour(s.y)
-	s.rim = capsule(mid, d.Magnitude, s.r * 2 + RIM * 2, rot, col:Lerp(rgb(8, 6, 10), 0.7), 1)
+	s.rim = capsule(mid, d.Magnitude, s.r * 2 + RIM * 2, rot, rgb(240, 230, 200), 1)
 	s.frame = capsule(mid, d.Magnitude, s.r * 2, rot, col, 2)
 end
 
 local function roomFrame(rm)
 	local col = caveColour(rm.y)
-	rm.rim = capsule(rm.p, 0, rm.r * 2 + RIM * 2, 0, col:Lerp(rgb(8, 6, 10), 0.7), 1)
+	rm.rim = capsule(rm.p, 0, rm.r * 2 + RIM * 2, 0, rgb(240, 230, 200), 1)
 	rm.frame = capsule(rm.p, 0, rm.r * 2, 0, col, 2)
 end
 
@@ -324,9 +336,10 @@ local function reveal(pos: Vector3)
 			end
 		end
 		if s.frame then
-			local t = if math.abs(s.y - pos.Y) > SHOW_DEPTH then 0.75 else 0
-			s.frame.BackgroundTransparency = t
-			s.rim.BackgroundTransparency = t
+			-- Your own level stands out with a pale outline; other levels sink back.
+			local off = math.abs(s.y - pos.Y) > SHOW_DEPTH
+			s.frame.BackgroundTransparency = if off then 0.8 else 0
+			s.rim.BackgroundTransparency = if off then 1 else 0.15
 		end
 	end
 	for _, rm in rooms do
@@ -334,9 +347,58 @@ local function reveal(pos: Vector3)
 			roomFrame(rm)
 		end
 		if rm.frame then
-			local t = if math.abs(rm.y - pos.Y) > SHOW_DEPTH then 0.75 else 0
-			rm.frame.BackgroundTransparency = t
-			rm.rim.BackgroundTransparency = t
+			local off = math.abs(rm.y - pos.Y) > SHOW_DEPTH
+			rm.frame.BackgroundTransparency = if off then 0.8 else 0
+			rm.rim.BackgroundTransparency = if off then 1 else 0.15
+		end
+	end
+end
+
+-- Cave map icons. Boss lairs always show (pinned to the edge of the map when they're
+-- off it, with how far down they are), so players can find them; gates, the Maw and
+-- ways out show once you've been near them.
+local MARK_STYLE = {
+	boss = { colour = rgb(200, 50, 46), glyph = "☠", size = 22 },
+	gate = { colour = rgb(214, 140, 52), glyph = "⛓", size = 18 },
+	maw = { colour = rgb(150, 90, 220), glyph = "◉", size = 20 },
+	exit = { colour = rgb(88, 186, 74), glyph = "▲", size = 16 },
+}
+placeMarks = function(pos: Vector3)
+	local half = SIZE / 2
+	for _, mk in marks do
+		local style = MARK_STYLE[mk.kind] or MARK_STYLE.exit
+		local seen = mk.kind == "boss" or mk.seen
+		if not seen and (Vector2.new(mk.p.X - pos.X, mk.p.Z - pos.Z)).Magnitude < REVEAL * 1.3 and math.abs(mk.p.Y - pos.Y) < REVEAL then
+			mk.seen = true
+			seen = true
+		end
+		if not seen then
+			continue
+		end
+		if not mk.icon then
+			local icon = new("Frame", { Parent = markLayer, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(style.size, style.size), BackgroundColor3 = style.colour, ZIndex = 7 }, {
+				new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+				new("UIStroke", { Color = rgb(255, 245, 220), Thickness = 1.5 }),
+			})
+			new("TextLabel", { Parent = icon, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = style.glyph, TextColor3 = rgb(255, 255, 255), TextScaled = true, FontFace = UIKit.FontFace, ZIndex = 8 })
+			if mk.kind == "boss" then
+				mk.tag = new("TextLabel", { Parent = markLayer, AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(110, 14), BackgroundTransparency = 1, Text = mk.label, TextColor3 = rgb(255, 220, 210), TextStrokeTransparency = 0.2, TextSize = 12, FontFace = UIKit.FontFace, ZIndex = 8 })
+			end
+			mk.icon = icon
+		end
+		local d = Vector2.new(mk.p.X - pos.X, mk.p.Z - pos.Z) * CAVE_ZOOM * zoom
+		local edge = half - style.size / 2 - 4
+		local pinned = d.Magnitude > edge
+		if pinned then
+			d = d.Unit * edge
+		end
+		mk.icon.Position = UDim2.fromOffset(half + d.X, half + d.Y)
+		mk.icon.BackgroundTransparency = if pinned then 0.25 else 0
+		if mk.tag then
+			mk.tag.Visible = not pinned
+			mk.tag.Position = UDim2.fromOffset(half + d.X, half + d.Y + style.size / 2)
+			local below = math.floor(pos.Y - mk.p.Y)
+			mk.tag.Text = mk.label .. (if math.abs(below) > 15 then (if below > 0 then "  ↓" else "  ↑") .. math.abs(below) else "")
 		end
 	end
 end
@@ -468,19 +530,22 @@ function Minimap.init(parent: ScreenGui)
 	caveLayer.Visible = false
 
 	-- The flashlight: soft dark rings round the edge of the cave map.
-	local light = new("Frame", { Parent = caveLayer, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(SIZE * 0.62, SIZE * 0.62), BackgroundTransparency = 1, ZIndex = 5 }, {
+	local light = new("Frame", { Parent = caveLayer, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(SIZE * 0.82, SIZE * 0.82), BackgroundTransparency = 1, ZIndex = 5 }, {
 		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
 	})
 	for k = 1, 6 do
 		local ring = new("Frame", { Parent = light, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, k * 12, 1, k * 12), BackgroundTransparency = 1, ZIndex = 5 }, {
 			new("UICorner", { CornerRadius = UDim.new(1, 0) }),
 		})
-		new("UIStroke", { Parent = ring, Color = rgb(6, 5, 8), Thickness = 7, Transparency = 0.9 - k * 0.14 })
+		new("UIStroke", { Parent = ring, Color = rgb(6, 5, 8), Thickness = 5, Transparency = 0.94 - k * 0.1 })
 	end
 	local outer = new("Frame", { Parent = light, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 84, 1, 84), BackgroundTransparency = 1, ZIndex = 5 }, {
 		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
 	})
 	new("UIStroke", { Parent = outer, Color = rgb(6, 5, 8), Thickness = 160, Transparency = 0 })
+
+	-- Icons over the cave map (above the flashlight ring), placed every frame.
+	markLayer = new("Frame", { Parent = caveLayer, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6 })
 
 	darkness = new("Frame", { Parent = root, Size = UDim2.fromScale(1, 1), BackgroundColor3 = rgb(6, 8, 14), BackgroundTransparency = 1, ZIndex = 8 })
 	ripple = new("Frame", { Parent = root, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), BackgroundTransparency = 1, Visible = false, ZIndex = 9 }, {
@@ -536,6 +601,7 @@ function Minimap.init(parent: ScreenGui)
 			end
 			if underground then
 				reveal(pos)
+				placeMarks(pos)
 				depthLabel.Text = depthName(pos.Y) .. "  ·  " .. math.floor(-pos.Y) .. " down"
 			end
 		end

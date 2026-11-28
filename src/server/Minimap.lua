@@ -137,6 +137,31 @@ function Minimap.publish(islands: { any }, network, groundAt)
 		table.insert(rooms, string.format("%d,%d,%d,%d;", room.pos.X, room.pos.Z, math.max(room.size.X, room.size.Z) / 2, room.pos.Y))
 	end
 	value(data, "Rooms", table.concat(rooms))
+	-- Marks on the cave map: boss lairs (always shown, so players can find them), boss
+	-- gates, the Maw, and the ways in and out. "kind|x|z|y|label;"
+	local marks = {}
+	local function mark(kind: string, pos: Vector3, label: string)
+		table.insert(marks, string.format("%s|%d|%d|%d|%s;", kind, pos.X, pos.Z, pos.Y, ((label:gsub("[|;]", " "):gsub("(%l)(%u)", "%1 %2"))))))
+	end
+	for _, room in network.bossRooms or {} do
+		mark("boss", room.pos, tostring(room.boss))
+	end
+	for _, b in network.barriers or {} do
+		local boss = string.match(b.kind, "^gate_(.+)$")
+		if boss then
+			mark("gate", b.pos, boss .. " gate")
+		end
+	end
+	if network.hub then
+		mark("maw", network.hub.pos, "The Maw")
+	end
+	for _, e in network.entrances or {} do
+		mark("exit", e.pos, "Way out")
+	end
+	for _, e in network.exits or {} do
+		mark("exit", e.pos, "Way out")
+	end
+	value(data, "CaveMarks", table.concat(marks))
 
 	-- Names
 	local places = {}

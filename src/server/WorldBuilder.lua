@@ -1446,20 +1446,22 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 	for n, t in tunnels do
 		if t.kind ~= "ravine" then
 			local pts = Caves.samples(t.points)
-			local every = if t.kind == "hall" then rng:NextInteger(8, 13) else rng:NextInteger(7, 11) -- samples (3 studs each)
+			local every = if t.kind == "hall" then rng:NextInteger(6, 8) else rng:NextInteger(5, 7) -- samples (3 studs each)
 			local sinceOre = 0
 			for i = 1, #pts - 1, every do
 				local p, q = pts[i], pts[i + 1]
 				local tier = Caves.tierAt(p.Y)
 				local dir = Vector3.new(q.X - p.X, 0, q.Z - p.Z)
-				local lit = tier == "upper" or (tier == "lower" and (i // every) % 2 == 0)
+				-- Torches all through the upper and lower caves, every other beat deeper down
+				-- (crystals light the beats between).
+				local lit = tier == "upper" or tier == "lower" or (i // every) % 2 == 0
 				if lit and dir.Magnitude > 0 then
 					local side = Vector3.new(-dir.Z, 0, dir.X).Unit * (if (i // every) % 2 == 0 then 1 else -1)
 					local hit = workspace:Raycast(p, side * (t.r + 6), params)
 					if hit then
 						torch(decor, hit.Position, hit.Normal)
 					end
-				elseif tier ~= "lower" and rng:NextNumber() < 0.3 then
+				elseif rng:NextNumber() < 0.85 then
 					-- Not on a beat: some stretches get two clusters, some none.
 					for _ = 1, (if rng:NextNumber() < 0.3 then 2 else 1) do
 						local hit = workspace:Raycast(p, surfaceDir() * (t.r + 6), params)
@@ -1511,10 +1513,19 @@ local function dressCaves(nodeFolder: Folder, chambers: { any }, tunnels: { any 
 	for _, c in chambers do
 		if c.tier ~= "pocket" then
 			local f, r = c.pos, c.r
-			for i = 1, 6 do
-				local a = i / 6 * math.pi * 2
+			-- A soft glow filling the chamber, so the middle isn't a black hole.
+			local glowPart = part(decor, { Name = "ChamberGlow", Size = Vector3.one, CFrame = CFrame.new(f + Vector3.new(0, math.min(r * 0.4, 14), 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false })
+			local fill = Instance.new("PointLight")
+			fill.Color = if c.tier == "upper" or c.tier == "lower" then Color3.fromRGB(255, 190, 130) else Color3.fromRGB(170, 160, 255)
+			fill.Range = math.clamp(r * 1.1, 20, 60)
+			fill.Brightness = 0.6
+			fill.Shadows = false
+			fill.Parent = glowPart
+			local ringN = math.clamp(math.round(r / 4), 8, 14)
+			for i = 1, ringN do
+				local a = i / ringN * math.pi * 2
 				local x, z = f.X + math.cos(a) * r * 0.75, f.Z + math.sin(a) * r * 0.75
-				if c.tier == "upper" or c.tier == "lower" then
+				if c.tier == "upper" or c.tier == "lower" or i % 2 == 0 then
 					local from = f + Vector3.new(0, 5, 0)
 					local hit = workspace:Raycast(from, Vector3.new(x - f.X, 0, z - f.Z).Unit * (r + 6), params)
 					if hit then
