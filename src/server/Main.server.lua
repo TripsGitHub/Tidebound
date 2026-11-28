@@ -22,6 +22,7 @@ local Drops = require(Systems.Drops)
 local Save = require(Systems.Save)
 local Events = require(Systems.Events)
 local Oxygen = require(Systems.Oxygen)
+local Avatar = require(Systems.Avatar)
 local Admin = require(Systems.Admin)
 
 -- Characters are spawned by hand (see onPlayerAdded), once the world exists and the
@@ -56,6 +57,7 @@ Drops.setPickupCallback(function(player, itemId, amount)
 end)
 
 local function onCharacterAdded(player: Player, character: Model)
+	task.spawn(Avatar.dress, player, character)
 	Survival.reset(player)
 	if Inventory.count(player, "rock") == 0 then
 		Inventory.add(player, "rock", 1, true)
@@ -92,7 +94,7 @@ local function onCharacterAdded(player: Player, character: Model)
 		Death.onDied(player, character)
 		task.delay(Players.RespawnTime, function()
 			if player.Parent and player.Character == character then
-				player:LoadCharacter()
+				Avatar.load(player)
 			end
 		end)
 	end)
@@ -113,7 +115,7 @@ local function onPlayerAdded(player: Player)
 	if player.Character then
 		task.spawn(onCharacterAdded, player, player.Character)
 	else
-		player:LoadCharacter()
+		Avatar.load(player)
 	end
 	task.delay(1, function()
 		Inventory.sync(player)

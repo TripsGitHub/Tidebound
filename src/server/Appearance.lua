@@ -129,6 +129,7 @@ function Appearance.setArmour(player: Player, armour: { [string]: string })
 	end
 	folder = Instance.new("Folder")
 	folder.Name = "Armour"
+	require(script.Parent.Avatar).hideUnder(character, armour)
 	for slot, itemId in armour do
 		-- Real armour meshes, fitted to each body part (R15 only).
 		local pieces = ArmourModels.wear(itemId, character)
