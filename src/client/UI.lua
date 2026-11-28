@@ -808,6 +808,7 @@ end
 -- beasts and from other players (the same sums the server uses), with a toast when
 -- it changes, like "+8% vs mobs".
 local armourBadges: { mob: TextLabel?, player: TextLabel? } = {}
+local armourRowRef: Frame? = nil
 local lastDefense: { mob: number, player: number }? = nil
 local function defenseFor(vs: string): number
 	local total = 0
@@ -825,6 +826,10 @@ local function updateArmour()
 	if armourBadges.mob then
 		armourBadges.mob.Text = math.floor(mob * 100 + 0.5) .. "%"
 		armourBadges.player.Text = math.floor(plr * 100 + 0.5) .. "%"
+	end
+	-- Only worth showing once you're wearing something.
+	if armourRowRef then
+		armourRowRef.Visible = mob > 0 or plr > 0
 	end
 	if lastDefense then
 		local dm = math.floor((mob - lastDefense.mob) * 100 + 0.5)
@@ -936,6 +941,8 @@ function UI.init(cb)
 	local armourRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -128), Size = UDim2.fromOffset(268, 28), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
+	armourRowRef = armourRow
+	armourRow.Visible = false
 	for i, spec in { { "mob", "Mobs", Color3.fromRGB(120, 170, 90) }, { "player", "Players", Color3.fromRGB(200, 110, 90) } } do
 		local pill = UIKit.panel({ Parent = armourRow, LayoutOrder = i, Size = UDim2.fromOffset(128, 28) })
 		local shield = new("Frame", { Parent = pill, Position = UDim2.fromOffset(5, 4), Size = UDim2.fromOffset(18, 20), BackgroundColor3 = spec[3] }, {

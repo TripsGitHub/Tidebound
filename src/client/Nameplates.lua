@@ -17,7 +17,7 @@ local Nameplates = {}
 -- Plates keep a fixed pixel size on screen by default, so when you zoom out they
 -- dwarf the character. Shrink them with camera distance instead: full size up
 -- close, down to about 40% far away.
-local W, H = 230, 66
+local W, H = 230, 100
 local plates: { [BillboardGui]: { head: BasePart, scale: UIScale } } = {}
 local function plateScale(dist: number): number
 	return math.clamp(24 / math.max(dist, 1), 0.4, 1)
@@ -65,7 +65,7 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 		Name = "TideboundNameplate",
 		Adornee = head,
 		Size = UDim2.fromOffset(W, H),
-		StudsOffsetWorldSpace = Vector3.new(0, 3, 0),
+		StudsOffsetWorldSpace = Vector3.new(0, 3.6, 0),
 		AlwaysOnTop = false,
 		MaxDistance = 160,
 		LightInfluence = 0,
@@ -204,7 +204,53 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 	end
 	refresh()
 	restyle()
+	-- Armour badges over the plate, seen by everyone: a blue shield for how much of a
+	-- player's hit it blocks and a green slime for a mob's. Hidden with no armour on.
+	local badgeRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(150, 34), BackgroundTransparency = 1, Visible = false }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 26), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local function pctLabel(parent: Instance)
+		local pill = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(34, 14), BackgroundColor3 = rgb(236, 236, 236), BorderSizePixel = 0, ZIndex = 9 }, {
+			new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+			new("UIStroke", { Color = rgb(30, 30, 30), Thickness = 1.5 }),
+		})
+		local l = new("TextLabel", { Parent = pill, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "0%", TextScaled = true, TextColor3 = rgb(20, 20, 20), FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold), ZIndex = 10 })
+		return l
+	end
+	-- Shield: a rounded top and a point at the bottom (a turned square).
+	local shield = new("Frame", { Parent = badgeRow, LayoutOrder = 1, Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1 })
+	local blue, blueEdge = rgb(40, 110, 220), rgb(14, 34, 80)
+	new("Frame", { Parent = shield, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 1), Size = UDim2.fromOffset(30, 20), BackgroundColor3 = blue, BorderSizePixel = 0, ZIndex = 7 }, {
+		new("UICorner", { CornerRadius = UDim.new(0, 5) }),
+		new("UIStroke", { Color = blueEdge, Thickness = 2 }),
+	})
+	new("Frame", { Parent = shield, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 19), Size = UDim2.fromOffset(21, 21), Rotation = 45, BackgroundColor3 = blue, BorderSizePixel = 0, ZIndex = 6 }, {
+		new("UIStroke", { Color = blueEdge, Thickness = 2 }),
+	})
+	local vsPlayer = pctLabel(shield)
+	-- Slime: a squat dome with a flat bottom and two little eyes.
+	local slime = new("Frame", { Parent = badgeRow, LayoutOrder = 2, Size = UDim2.fromOffset(36, 34), BackgroundTransparency = 1 })
+	local green, greenEdge = rgb(50, 150, 50), rgb(14, 50, 14)
+	new("Frame", { Parent = slime, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromOffset(36, 30), BackgroundColor3 = green, BorderSizePixel = 0, ZIndex = 7 }, {
+		new("UICorner", { CornerRadius = UDim.new(0.48, 0) }),
+		new("UIStroke", { Color = greenEdge, Thickness = 2 }),
+	})
+	new("Frame", { Parent = slime, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromOffset(34, 8), BackgroundColor3 = green, BorderSizePixel = 0, ZIndex = 8 })
+	local vsMob = pctLabel(slime)
+	local function armour()
+		local m, p = plr:GetAttribute("DefMob") or 0, plr:GetAttribute("DefPlayer") or 0
+		badgeRow.Visible = not npc and (m > 0 or p > 0)
+		local function fmt(n: number)
+			return (if n == math.floor(n) then tostring(n) else string.format("%.1f", n)) .. "%"
+		end
+		vsPlayer.Text, vsMob.Text = fmt(p), fmt(m)
+	end
+	armour()
+	over.Position = UDim2.new(0.5, 0, 0, 36)
+
 	local conns = {
+		plr:GetAttributeChangedSignal("DefMob"):Connect(armour),
+		plr:GetAttributeChangedSignal("DefPlayer"):Connect(armour),
 		plr:GetAttributeChangedSignal("Level"):Connect(refresh),
 		plr:GetAttributeChangedSignal("Nameplate"):Connect(restyle),
 		plr:GetAttributeChangedSignal("Title"):Connect(restyle),

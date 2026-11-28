@@ -55,6 +55,9 @@ function Inventory.sync(player: Player)
 		Remotes.Inventory:FireClient(player, d.items, d.equipped, d.armour, Inventory.bagSize(player))
 		player:SetAttribute("BagUsed", Inventory.used(player))
 		player:SetAttribute("BagSize", Inventory.bagSize(player))
+		-- Armour %s for the badges over everyone's nameplate.
+		player:SetAttribute("DefMob", math.floor(Inventory.defense(player, "mob") * 1000 + 0.5) / 10)
+		player:SetAttribute("DefPlayer", math.floor(Inventory.defense(player, "player") * 1000 + 0.5) / 10)
 	end
 end
 
