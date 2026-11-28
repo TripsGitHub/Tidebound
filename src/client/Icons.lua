@@ -4,6 +4,27 @@ local ItemModels = require(ReplicatedStorage:WaitForChild("Shared").ItemModels)
 
 local Icons = {}
 
+-- Building an item model is slow (meshes are put together from many parts), so each
+-- item is built once, posed for its picture, and cloned for every icon after that.
+local templates: { [string]: { model: Model, distance: number } } = {}
+local FOV = 30
+
+local function template(itemId: string)
+	local t = templates[itemId]
+	if t then
+		return t
+	end
+	local model = ItemModels.build(itemId)
+	local cf, extents = model:GetBoundingBox()
+	-- Tilt it a little so it reads as 3D.
+	local tilt = CFrame.Angles(math.rad(-20), math.rad(35), 0)
+	model:PivotTo(tilt * (cf:Inverse() * model:GetPivot()))
+	local radius = extents.Magnitude / 2
+	t = { model = model, distance = radius / math.tan(math.rad(FOV / 2)) * 1.05 }
+	templates[itemId] = t
+	return t
+end
+
 function Icons.make(itemId: string, parent: GuiObject, size: UDim2?, position: UDim2?): ViewportFrame
 	local vf = Instance.new("ViewportFrame")
 	vf.Name = "Icon"
@@ -14,22 +35,65 @@ function Icons.make(itemId: string, parent: GuiObject, size: UDim2?, position: U
 	vf.LightColor = Color3.fromRGB(255, 250, 235)
 	vf.LightDirection = Vector3.new(-1, -2, -1)
 
-	local model = ItemModels.build(itemId)
-	local cf, extents = model:GetBoundingBox()
-	-- Tilt it a little so it reads as 3D.
-	local tilt = CFrame.Angles(math.rad(-20), math.rad(35), 0)
-	model:PivotTo(tilt * (cf:Inverse() * model:GetPivot()))
-	model.Parent = vf
+	local t = template(itemId)
+	t.model:Clone().Parent = vf
 
 	local camera = Instance.new("Camera")
-	camera.FieldOfView = 30
-	local radius = extents.Magnitude / 2
-	local distance = radius / math.tan(math.rad(camera.FieldOfView / 2)) * 1.05
-	camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, distance), Vector3.zero)
+	camera.FieldOfView = FOV
+	camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, t.distance), Vector3.zero)
 	camera.Parent = vf
 	vf.CurrentCamera = camera
 	vf.Parent = parent
 	return vf
+end
+
+-- Slowly turns an icon's item round, with a gentle bob and a little tilt that rocks as
+-- it turns (the selected hotbar item). Stops by itself when the icon goes away.
+-- `since` (an os.clock time) keeps the turn going from where it was when the icon is
+-- rebuilt, so a slot redrawn after eating or picking up doesn't snap back to the start.
+function Icons.spin(vf: ViewportFrame, speed: number?, since: number?)
+	local camera = vf.CurrentCamera
+	if not camera then
+		return
+	end
+	local dist = camera.CFrame.Position.Magnitude
+	local t0 = since or os.clock()
+	local conn
+	conn = game:GetService("RunService").RenderStepped:Connect(function()
+		if not vf.Parent then
+			conn:Disconnect()
+			return
+		end
+		local t = os.clock() - t0
+		local a = t * (speed or 1.1)
+		local pitch = math.rad(8 + math.sin(t * 1.7) * 6)
+		local eye = Vector3.new(math.sin(a) * math.cos(pitch), math.sin(pitch), math.cos(a) * math.cos(pitch)) * dist
+		local bob = Vector3.new(0, math.sin(t * 2.4) * dist * 0.03, 0)
+		camera.CFrame = CFrame.lookAt(eye + bob, bob)
+	end)
+end
+
+-- A smooth little shake for the held item: it rocks side to side and bobs, always
+-- facing you (so a flat sword never turns edge-on and vanishes).
+function Icons.wobble(vf: ViewportFrame, since: number?)
+	local camera = vf.CurrentCamera
+	if not camera then
+		return
+	end
+	local home = camera.CFrame
+	local t0 = since or os.clock()
+	local conn
+	conn = game:GetService("RunService").RenderStepped:Connect(function()
+		if not vf.Parent then
+			conn:Disconnect()
+			return
+		end
+		local t = os.clock() - t0
+		local roll = math.sin(t * 5.5) * math.rad(9)
+		local yaw = math.sin(t * 2.3) * math.rad(14)
+		local dist = home.Position.Magnitude
+		camera.CFrame = CFrame.Angles(0, yaw, 0) * CFrame.lookAt(Vector3.new(0, math.sin(t * 3.1) * dist * 0.025, dist), Vector3.zero) * CFrame.Angles(0, 0, roll)
+	end)
 end
 
 return Icons

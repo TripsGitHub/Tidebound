@@ -14,11 +14,13 @@ local UI = require(Client.UI)
 local InventoryScreen = require(Client.InventoryScreen)
 local Effects = require(Client.Effects)
 local BuildMode = require(Client.BuildMode)
+local Tutorial = require(Client.Tutorial)
 local Pointer = require(Client.Pointer)
 local Hover = require(Client.Hover)
 local Anim = require(Client.Anim)
-local Gates = require(Client.Gates)
+local Locks = require(Client.Locks)
 local Nameplates = require(Client.Nameplates)
+local Minimap = require(Client.Minimap)
 
 local player = Players.LocalPlayer
 local equipped: string? = nil
@@ -33,7 +35,21 @@ end
 
 local function equipSlot(index: number)
 	local id = UI.hotbarIds()[index]
-	if id then
+	local item = id and Items[id]
+	if not item then
+		return
+	end
+	if item.kind == "armour" then
+		-- Armour on the hotbar: click to put it on or take it off.
+		Remotes.Wear:FireServer(id)
+	elseif item.kind == "raft" then
+		Remotes.Eat:FireServer(id) -- launches it at the shore
+	elseif item.kind == "food" or item.kind == "crate" then
+		-- Food heals straight from the hotbar; crates open.
+		Remotes.Eat:FireServer(id)
+		Tutorial.flag("ate")
+		Anim.play(player.Character, "eat")
+	else
 		hold(if id == equipped then nil else id)
 	end
 end
@@ -46,11 +62,14 @@ UI.init({
 	onBuy = function(id)
 		Remotes.Buy:FireServer(id)
 	end,
+	onChestMove = function(model, id, dir)
+		Remotes.ChestMove:FireServer(model, id, dir)
+	end,
 	onInventory = function()
 		InventoryScreen.toggle()
 	end,
 	onCancelBuild = function()
-		hold(nil)
+		Remotes.CancelBuild:FireServer()
 	end,
 	onPickupDrop = function(target)
 		Remotes.PickUp:FireServer(target)
@@ -62,6 +81,7 @@ UI.init({
 		UI.selectDrop(nil)
 	end,
 })
+task.spawn(Tutorial.start, UI.root :: ScreenGui)
 InventoryScreen.init(UI.root :: ScreenGui, {
 	onCraft = function(id)
 		Remotes.Craft:FireServer(id)
@@ -72,16 +92,30 @@ InventoryScreen.init(UI.root :: ScreenGui, {
 	onHold = hold,
 	onEat = function(id)
 		Remotes.Eat:FireServer(id)
-		Anim.play(player.Character, "eat")
+		if Items[id] and Items[id].kind ~= "raft" then
+			Tutorial.flag("ate")
+			Anim.play(player.Character, "eat")
+		end
 	end,
 	onDrop = function(id)
 		Remotes.Drop:FireServer(id)
 	end,
 })
 Hover.start()
+require(script.Parent.Prompts).start()
+require(script.Parent.Sea).start()
+require(script.Parent.Ambience).start()
+require(script.Parent.Wildlife).start()
+require(script.Parent.Vehicles).start()
 Anim.start()
-task.spawn(Gates.start)
+task.spawn(Locks.start)
 Nameplates.start()
+Minimap.init(UI.root :: ScreenGui)
+require(script.Parent.BossBar).init(UI.root :: ScreenGui)
+require(script.Parent.PlayerList).init(UI.root :: ScreenGui)
+require(script.Parent.Markers).start()
+require(script.Parent.AdminMenu).init(UI.root :: ScreenGui)
+require(script.Parent.CrateOpen).init()
 Effects.startAmbient()
 
 -- Swinging -----------------------------------------------------------------------
@@ -97,6 +131,20 @@ local function trySwing()
 	end
 	nextSwing = now + item.cooldown
 	local info = Hover.get()
+	if item.ranged then
+		local target = if info.target and (info.kind == "animal" or info.kind == "player") then info.target else nil
+		local exclude: { Instance } = { workspace.CurrentCamera }
+		if player.Character then
+			table.insert(exclude, player.Character)
+		end
+		local hit = Pointer.cast(exclude, 400)
+		local ray = Pointer.ray()
+		Remotes.Hit:FireServer(target, if hit then hit.Position else ray.Origin + ray.Direction * 400)
+		if target then
+			UI.targetHit(target)
+		end
+		return
+	end
 	if info.target and info.kind ~= "drop" and info.inRange then
 		Remotes.Hit:FireServer(info.target)
 		UI.targetHit(info.target)
@@ -114,11 +162,15 @@ local function primaryAction()
 	if item.kind == "tool" then
 		holdingClick = true
 		trySwing()
-	elseif item.kind == "food" then
+	elseif item.kind == "raft" then
 		Remotes.Eat:FireServer(equipped)
+	elseif item.kind == "food" or item.kind == "crate" then
+		Remotes.Eat:FireServer(equipped)
+		Tutorial.flag("ate")
 		Anim.play(player.Character, "eat")
 	elseif item.kind == "placeable" then
 		BuildMode.tryPlace()
+		Tutorial.flag("placed")
 	end
 end
 
@@ -130,8 +182,8 @@ local function tryPickup()
 		return
 	end
 	nextPickup = now + 0.15
-	local info = Hover.get()
-	local target = if info.kind == "drop" and info.inRange then info.target else Hover.nearestDrop()
+	-- Whatever's under the mouse first; with nothing there, the nearest thing in reach.
+	local target = Hover.dropUnderMouse() or Hover.nearestDrop()
 	if target then
 		Remotes.PickUp:FireServer(target)
 	end
@@ -159,6 +211,8 @@ local KEYS = {
 	[Enum.KeyCode.Six] = 6,
 	[Enum.KeyCode.Seven] = 7,
 	[Enum.KeyCode.Eight] = 8,
+	[Enum.KeyCode.Nine] = 9,
+	[Enum.KeyCode.Zero] = 10,
 }
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -188,6 +242,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		tryEatDrop()
 	elseif input.KeyCode == Enum.KeyCode.R then
 		BuildMode.rotate()
+	elseif input.KeyCode == Enum.KeyCode.RightBracket then
+		BuildMode.resize(1)
+	elseif input.KeyCode == Enum.KeyCode.LeftBracket then
+		BuildMode.resize(-1)
+	elseif input.KeyCode == Enum.KeyCode.X and BuildMode.current() then
+		Remotes.CancelBuild:FireServer()
 	elseif input.KeyCode == Enum.KeyCode.Escape then
 		InventoryScreen.close()
 		UI.closePanels()
@@ -219,13 +279,37 @@ end)
 -- From the server -------------------------------------------------------------------
 
 Remotes.Inventory.OnClientEvent:Connect(function(items, newEquipped, armour, bagSize)
+	-- Just crafted a buildable: close the bag so you can place it straight away.
+	if newEquipped and newEquipped ~= equipped and Items[newEquipped] and Items[newEquipped].kind == "placeable" and InventoryScreen.isOpen() then
+		InventoryScreen.close()
+	end
 	equipped = newEquipped
 	UI.setInventory(items, newEquipped, armour, bagSize)
 	InventoryScreen.set(items, newEquipped, armour)
+	Tutorial.update(items, newEquipped)
 	BuildMode.setItem(newEquipped)
 	UI.setBuild(BuildMode.current())
 end)
 Remotes.Notify.OnClientEvent:Connect(UI.notify)
+-- World events (eruptions, meteors, boss gates and kills) also go in the chat for everyone.
+-- Each kind of event gets its own colour and tag, so you can tell them apart at a glance.
+local EVENT_STYLE = {
+	eruption = { "#FF7A3C", "Eruption", "#FFD2B8" },
+	meteor = { "#B98CFF", "Meteor", "#E4D4FF" },
+	boss = { "#FF4D5E", "Boss", "#FFC9CE" },
+	lair = { "#E8B04A", "Lair", "#FFE9BF" },
+	world = { "#F6C848", "World", "#FFFFFF" },
+}
+Remotes.WorldEvent.OnClientEvent:Connect(function(text: string, kind: string?)
+	local TextChatService = game:GetService("TextChatService")
+	local channels = TextChatService:FindFirstChild("TextChannels")
+	local general = channels and channels:FindFirstChild("RBXGeneral") :: TextChannel?
+	if general then
+		local style = EVENT_STYLE[kind or "world"] or EVENT_STYLE.world
+		local safe = string.gsub(string.gsub(string.gsub(text, "&", "&amp;"), "<", "&lt;"), ">", "&gt;")
+		general:DisplaySystemMessage(string.format('<font color="%s"><b>[%s]</b></font> <font color="%s">%s</font>', style[1], style[2], style[3], safe))
+	end
+end)
 Remotes.PickedUp.OnClientEvent:Connect(function(itemId, amount)
 	UI.pickup(itemId, amount)
 	Effects.sound("Pickup")
@@ -234,11 +318,22 @@ Remotes.PickedUp.OnClientEvent:Connect(function(itemId, amount)
 	end
 end)
 Remotes.HitFeedback.OnClientEvent:Connect(Effects.hit)
+Remotes.WorldFx.OnClientEvent:Connect(Effects.worldFx)
 Remotes.QuestState.OnClientEvent:Connect(UI.setQuests)
+Remotes.ChestState.OnClientEvent:Connect(function(model, contents, cap)
+	if model and contents then
+		InventoryScreen.close()
+	end
+	UI.showChest(model, contents, cap)
+end)
 Remotes.OpenPanel.OnClientEvent:Connect(function(name)
 	InventoryScreen.close()
 	UI.openPanel(name)
+	if name == "quests" then
+		Tutorial.flag("quests")
+	end
 end)
+Remotes.Arrow.OnClientEvent:Connect(Effects.arrow)
 Remotes.Swing.OnClientEvent:Connect(function(character)
 	if character then
 		task.spawn(Effects.swing, character)

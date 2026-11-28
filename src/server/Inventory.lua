@@ -55,6 +55,22 @@ function Inventory.sync(player: Player)
 		Remotes.Inventory:FireClient(player, d.items, d.equipped, d.armour, Inventory.bagSize(player))
 		player:SetAttribute("BagUsed", Inventory.used(player))
 		player:SetAttribute("BagSize", Inventory.bagSize(player))
+		-- Armour %s for the badges over everyone's nameplate.
+		player:SetAttribute("DefMob", math.floor(Inventory.defense(player, "mob") * 1000 + 0.5) / 10)
+		player:SetAttribute("DefPlayer", math.floor(Inventory.defense(player, "player") * 1000 + 0.5) / 10)
+		-- The tier most of your armour is made of (chestplate wins a tie), so the
+		-- shield badge can be drawn in that material.
+		local votes, best, bestN = {}, nil, 0
+		for slot, id in d.armour do
+			local t = string.match(id, "^(.-)_") 
+			if t and slot ~= "bag" then
+				votes[t] = (votes[t] or 0) + (if slot == "body" then 1.5 else 1)
+				if votes[t] > bestN then
+					best, bestN = t, votes[t]
+				end
+			end
+		end
+		player:SetAttribute("ArmourTier", best)
 	end
 end
 
@@ -197,16 +213,62 @@ function Inventory.toggleWear(player: Player, itemId: string)
 end
 
 -- Total damage reduction from worn armour (0 to 0.9).
-function Inventory.defense(player: Player): number
+-- How much of a hit the player's armour blocks (0..0.9). `vs` is what's hitting them:
+-- "mob" (animals, bosses) or "player"; each set is better against one or the other.
+function Inventory.defense(player: Player, vs: string?): number
 	local d = data[player]
 	if not d then
 		return 0
 	end
 	local total = 0
 	for _, itemId in d.armour do
-		total += Items[itemId].defense or 0
+		local item = Items[itemId]
+		local mult = if vs == "mob" then item.vsMob elseif vs == "player" then item.vsPlayer else 1
+		total += (item.defense or 0) * (mult or 1)
 	end
 	return math.min(total, 0.9)
+end
+
+-- A copy of what the player has, for saving. Plain tables only (DataStore-safe).
+function Inventory.export(player: Player): { items: { [string]: number }, armour: { [string]: string }, equipped: string? }?
+	local d = data[player]
+	if not d then
+		return nil
+	end
+	return { items = table.clone(d.items), armour = table.clone(d.armour), equipped = d.equipped }
+end
+
+-- Restores saved items. Anything that no longer exists in Items.lua is dropped, and
+-- armour only goes back on if the player still has it and it fits that slot.
+function Inventory.load(player: Player, saved: { [string]: any })
+	local d = data[player]
+	if not d or type(saved) ~= "table" then
+		return
+	end
+	local items = {}
+	if type(saved.items) == "table" then
+		for itemId, count in saved.items do
+			if type(itemId) == "string" and Items.LEGACY[itemId] then
+				itemId = Items.LEGACY[itemId]
+			end
+			if type(itemId) == "string" and Items[itemId] and type(count) == "number" and count >= 1 then
+				items[itemId] = (items[itemId] or 0) + math.floor(count)
+			end
+		end
+	end
+	local armour = {}
+	if type(saved.armour) == "table" then
+		for slot, itemId in saved.armour do
+			local item = type(itemId) == "string" and Items[itemId]
+			if item and item.kind == "armour" and item.slot == slot and items[itemId] then
+				armour[slot] = itemId
+			end
+		end
+	end
+	d.items = items
+	d.armour = armour
+	d.equipped = if type(saved.equipped) == "string" and items[saved.equipped] then saved.equipped else nil
+	Inventory.sync(player)
 end
 
 function Inventory.reapplyAppearance(player: Player)

@@ -34,7 +34,44 @@ local function findPart(character: Model, names: { string }): BasePart?
 	return nil
 end
 
+-- Lunar (Moonstone) gear is heavy: every worn piece, and a held Lunar tool, slows you
+-- and lowers your jump a little. Speeds are recomputed whenever armour or the held
+-- tool changes.
+local HEAVY = { lunar = { walk = 0.6, jump = 2.2 } } -- per piece: walk speed and jump power lost
+local worn: { [Player]: { [string]: string } } = {}
+local held: { [Player]: string? } = {}
+local function updateWeight(player: Player)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local walk, jump = 0, 0
+	local function add(id: string?)
+		local tier = id and string.match(id, "^(%a+)_")
+		local heavy = tier and HEAVY[tier]
+		if heavy then
+			walk += heavy.walk
+			jump += heavy.jump
+		end
+	end
+	for _, id in worn[player] or {} do
+		add(id)
+	end
+	add(held[player])
+	humanoid.UseJumpPower = true
+	humanoid.WalkSpeed = 16 - walk
+	humanoid.JumpPower = 50 - jump
+	player:SetAttribute("Heavy", if walk > 0 then math.floor(walk / 16 * 100 + 0.5) else nil)
+end
+
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+	worn[player] = nil
+	held[player] = nil
+end)
+
 function Appearance.setTool(player: Player, itemId: string?)
+	held[player] = itemId
+	updateWeight(player)
 	local character = player.Character
 	if not character then
 		return
@@ -54,8 +91,14 @@ function Appearance.setTool(player: Player, itemId: string?)
 	model:ScaleTo(Config.HeldScale) -- scales around the grip
 	model.Name = "HeldItem"
 	model:SetAttribute("ItemId", itemId)
-	-- Grip at the bottom of the fist, tool pointing forward and slightly up.
-	model:PivotTo(hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 + 0.1, 0) * CFrame.Angles(math.rad(-90), 0, 0))
+	-- Grip at the bottom of the fist. Axes and harvesters stand up out of the fist;
+	-- swords and clubs lean forward, blade out in front at about 40 degrees.
+	local slash = Items[itemId].swing == "slash"
+	local tilt = if slash then -55 elseif Items[itemId].swing == "shoot" then 0 else -90
+	-- Blades are modelled with their edges left and right; the strike comes down from
+	-- overhead, so turn the blade a quarter round its length to lead with the edge.
+	local edge = if slash then CFrame.Angles(0, math.rad(90), 0) else CFrame.identity
+	model:PivotTo(hand.CFrame * CFrame.new(0, -hand.Size.Y / 2 + 0.1, 0) * CFrame.Angles(math.rad(tilt), 0, 0) * edge)
 	weldModel(model, hand)
 	model.Parent = character
 end
@@ -73,6 +116,7 @@ local SLOT_PARTS = {
 		{ names = { "RightFoot", "Right Leg" }, offset = CFrame.new(0, 0, -0.1), scale = 1, half = "right", foot = true },
 	},
 	bag = { { names = { "UpperTorso", "Torso" }, offset = CFrame.new(0, 0.1, 0.95), scale = 1 } },
+	shield = { { names = { "LeftLowerArm", "Left Arm" }, offset = CFrame.new(-0.85, 0.15, 0), scale = 1 } },
 }
 
 local function simplePiece(itemId: string, attach: BasePart, spec): Model
@@ -81,7 +125,11 @@ local function simplePiece(itemId: string, attach: BasePart, spec): Model
 	local model = ItemModels.build(itemId)
 	local color = model.PrimaryPart.Color
 	local material = model.PrimaryPart.Material
-	if item.slot ~= "bag" then
+	if item.slot == "shield" then
+		-- Strapped to the outside of the forearm, facing out to the side.
+		model:ScaleTo(1.25) -- worn big, like Island Tribes'
+		model:PivotTo(attach.CFrame * spec.offset * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(0, 0, math.rad(-8)))
+	elseif item.slot ~= "bag" then
 		model:ClearAllChildren()
 		local shell = Instance.new("Part")
 		shell.Color = color
@@ -108,6 +156,8 @@ local function simplePiece(itemId: string, attach: BasePart, spec): Model
 end
 
 function Appearance.setArmour(player: Player, armour: { [string]: string })
+	worn[player] = table.clone(armour)
+	updateWeight(player)
 	local character = player.Character
 	if not character then
 		return
@@ -118,6 +168,7 @@ function Appearance.setArmour(player: Player, armour: { [string]: string })
 	end
 	folder = Instance.new("Folder")
 	folder.Name = "Armour"
+	require(script.Parent.Avatar).hideUnder(character, armour)
 	for slot, itemId in armour do
 		-- Real armour meshes, fitted to each body part (R15 only).
 		local pieces = ArmourModels.wear(itemId, character)

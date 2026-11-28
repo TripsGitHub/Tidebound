@@ -1,6 +1,6 @@
 import bpy, glob, os, math
 bpy.ops.wm.read_factory_settings(use_empty=True)
-files = sorted(glob.glob('/tmp/models/out/*.obj') + glob.glob('/tmp/models/out2/*.obj') + glob.glob('/tmp/models/out3/*.obj'))
+files = sorted(glob.glob('/tmp/models/out/*.obj') + glob.glob('/tmp/models/out2/*.obj') + glob.glob('/tmp/models/out3/*.obj') + glob.glob('/tmp/models/out4/*.obj'))
 seen = set(); i = 0
 for f in files:
     name = os.path.splitext(os.path.basename(f))[0]
@@ -45,4 +45,9 @@ for i, l in enumerate(lines):
         g = l[2:]; h = (len(g) - 1) // 2
         if len(g) % 2 == 1 and g[:h] == g[h + 1:] and g[h] == '_':
             lines[i] = 'g ' + g[:h]
+# Blender numbers repeated names (Leg, Leg.001, ...); the game wants them all called "Leg".
+import re as _re
+for i, l in enumerate(lines):
+    if l.startswith('g '):
+        lines[i] = _re.sub(r'\.\d+$', '', l)
 open(path, 'w').write('\n'.join(lines))

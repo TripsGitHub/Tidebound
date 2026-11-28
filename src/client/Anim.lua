@@ -4,14 +4,12 @@
 -- frame, just before physics runs. That works for both kinds of R15 joint: classic
 -- Motor6Ds and the AnimationConstraints that Roblox's Avatar Joint Upgrade swaps in
 -- (their C0/C1 are read-only, so writing C0 silently did nothing on new avatars).
--- The default Roblox Animate script is replaced by an empty one
--- (src/character/Animate.client.lua), so this module owns the whole body:
---   1. Locomotion: idle breathing, a walk/run cycle driven by how fast the character
---      really moves, a jump/fall pose in the air, and a squash when landing.
---   2. Holding a tool keeps the right arm out in front.
---   3. One-off actions (Anim.play): chop, slash, eat, place, pick up, drawing and
+-- Idle, jump, swim and climb use Roblox's default animations; running on the ground is
+-- our own (runPose). On top
+-- of them this module only drives:
+--   1. Holding a tool keeps the right arm out in front.
+--   2. One-off actions (Anim.play): chop, slash, eat, place, pick up, drawing and
 --      stowing a tool, and putting on each piece of armour.
---   4. Reactions on top of everything: landing and flinching when hurt.
 --
 -- Angles are in degrees, as (x, y, z) rotations of each joint:
 --   Shoulder/Hip x+ swings the limb forward, Elbow x+ bends the forearm forward,
@@ -71,16 +69,23 @@ local ANIMS: { [string]: { Key } } = {
 		{ t = 0.24, pose = { RightShoulder = V(22, 0, 6), RightElbow = V(12, 0, 0), Waist = V(-6, 5, 0), Neck = V(-3, 0, 0) } },
 		{ t = 0.4 },
 	},
-	-- Weapon slash (clubs and swords): the arm winds out to the right with the
-	-- weapon pointing sideways, then twists across so it sweeps flat in front, and
-	-- the body turns with it. The swing trail is drawn during the sweep (see
-	-- Effects.swing). About 0.42s, the same rhythm as the chop.
+	-- Weapon strike (clubs and swords): raise the blade up over the shoulder, then
+	-- bring it down forward in front of you with a small lunge, and recover. The
+	-- swing trail is drawn during the strike (see Effects.swing). About 0.45s.
 	slash = {
 		{ t = 0 },
-		{ t = 0.1, pose = { RightShoulder = V(45, -70, 40), RightElbow = V(20, 0, 0), Waist = V(0, -24, 0), Neck = V(0, 8, 0) } },
-		{ t = 0.18, pose = { RightShoulder = V(55, 55, -30), RightElbow = V(8, 0, 0), Waist = V(-5, 24, 0), Neck = V(-3, -8, 0) } },
-		{ t = 0.26, pose = { RightShoulder = V(48, 62, -38), RightElbow = V(16, 0, 0), Waist = V(-3, 18, 0), Neck = V(-2, -5, 0) } },
-		{ t = 0.42 },
+		{ t = 0.12, pose = { RightShoulder = V(172, 0, -10), RightElbow = V(34, 0, 0), Waist = V(8, -10, 0), Neck = V(5, 0, 0), RootPos = V(0, 0.05, 0) } },
+		{ t = 0.2, pose = { RightShoulder = V(62, 0, 2), RightElbow = V(0, 0, 0), Waist = V(-16, 6, 0), Neck = V(-8, 0, 0), Root = V(-4, 0, 0), RootPos = V(0, -0.12, -0.25) } },
+		{ t = 0.28, pose = { RightShoulder = V(44, 0, 4), RightElbow = V(8, 0, 0), Waist = V(-11, 4, 0), Neck = V(-5, 0, 0), RootPos = V(0, -0.08, -0.15) } },
+		{ t = 0.45 },
+	},
+	-- Bow: raise it level, draw the string back to the cheek, loose.
+	shoot = {
+		{ t = 0 },
+		{ t = 0.12, pose = { RightShoulder = V(90, 0, 0), RightElbow = V(10, 0, 0), Waist = V(0, -30, 0), Neck = V(0, 25, 0) } },
+		{ t = 0.3, pose = { RightShoulder = V(90, 0, 0), RightElbow = V(18, 0, 0), Waist = V(0, -34, 0), Neck = V(0, 28, 0), RootPos = V(0, 0, 0.06) } },
+		{ t = 0.36, pose = { RightShoulder = V(96, 0, 0), RightElbow = V(4, 0, 0), Waist = V(0, -30, 0), Neck = V(0, 25, 0) } },
+		{ t = 0.6 },
 	},
 	-- Bring food to the mouth and chew twice.
 	eat = {
@@ -201,6 +206,7 @@ type State = {
 	armour: { [string]: string }?,
 	armourFolder: Instance?,
 	born: number,
+	run: number?, -- 0..1 how much of our own run is showing
 }
 
 local states: { [Model]: State } = setmetatable({}, { __mode = "k" }) :: any
@@ -291,6 +297,35 @@ local function walkPose(phase: number, run: number): Pose
 	}
 end
 
+-- Tidebound's own run (replaces Roblox's default run on the ground): a springy,
+-- cartoon jog with the chest leaning into it, bent arms pumping hard against the
+-- legs, high knees on the forward leg, a little hop at each footfall and the head
+-- held up and steady.
+local function runPose(phase: number): Pose
+	local s, c = math.sin(phase), math.cos(phase)
+	local fwdR = math.max(0, c) -- right leg coming through
+	local fwdL = math.max(0, -c)
+	local hop = math.abs(math.sin(phase)) -- 0 at each footfall, 1 mid-stride
+	return {
+		Root = V(-12, 7 * s, 0),
+		Waist = V(-4 - 2 * hop, -13 * s, 0),
+		Neck = V(10 + 2 * hop, 6 * s, 0),
+		RightHip = V(52 * s + 6, 0, 0),
+		LeftHip = V(-52 * s + 6, 0, 0),
+		RightKnee = V(-14 - 78 * fwdR - 22 * fwdL, 0, 0),
+		LeftKnee = V(-14 - 78 * fwdL - 22 * fwdR, 0, 0),
+		RightAnkle = V(18 * s - 6 * fwdL, 0, 0),
+		LeftAnkle = V(-18 * s - 6 * fwdR, 0, 0),
+		RightShoulder = V(-58 * s + 8, 0, 8),
+		LeftShoulder = V(58 * s + 8, 0, -8),
+		RightElbow = V(82 + 14 * math.max(0, s), 0, 0),
+		LeftElbow = V(82 + 14 * math.max(0, -s), 0, 0),
+		RightWrist = V(-10, 0, 0),
+		LeftWrist = V(-10, 0, 0),
+		RootPos = V(0, 0.32 * hop - 0.22, 0),
+	}
+end
+
 local function airPose(rising: boolean): Pose
 	if rising then
 		return {
@@ -305,6 +340,33 @@ local function airPose(rising: boolean): Pose
 		RightAnkle = V(8, 0, 0), LeftAnkle = V(8, 0, 0),
 		RightShoulder = V(14, 0, 58), LeftShoulder = V(14, 0, -58), RightElbow = V(18, 0, 0), LeftElbow = V(18, 0, 0),
 		Waist = V(4, 0, 0), Neck = V(6, 0, 0),
+	}
+end
+
+-- Gliding: arms spread wide like wings, body tipped forward, legs trailing.
+local function glidePose(t: number): Pose
+	local sway = math.sin(t * 2.2) * 6
+	return {
+		Root = V(-38, 0, sway * 0.5), Waist = V(-8, 0, 0), Neck = V(24, 0, 0),
+		RightShoulder = V(0, 0, 88 + sway), LeftShoulder = V(0, 0, -88 + sway),
+		RightElbow = V(6, 0, 0), LeftElbow = V(6, 0, 0),
+		RightHip = V(-14, 0, 6), LeftHip = V(-10, 0, -6), RightKnee = V(-18, 0, 0), LeftKnee = V(-12, 0, 0),
+		RightAnkle = V(-30, 0, 0), LeftAnkle = V(-30, 0, 0),
+	}
+end
+
+-- Swimming: lying flat in the water, front crawl arms and a flutter kick; treading
+-- water upright-ish when not moving.
+local function swimPose(t: number, moving: number): Pose
+	local stroke = t * 5
+	local kick = math.sin(t * 10) * 22
+	local lie = -20 - 62 * moving
+	return {
+		Root = V(lie, 0, math.sin(stroke) * 8 * moving), Neck = V(30 * moving, 0, 0),
+		RightShoulder = V(90 + math.sin(stroke) * 90 * moving, 0, 10 + 30 * (1 - moving)), LeftShoulder = V(90 + math.sin(stroke + math.pi) * 90 * moving, 0, -10 - 30 * (1 - moving)),
+		RightElbow = V(20 + math.max(0, math.cos(stroke)) * 40, 0, 0), LeftElbow = V(20 + math.max(0, math.cos(stroke + math.pi)) * 40, 0, 0),
+		RightHip = V(kick, 0, 0), LeftHip = V(-kick, 0, 0), RightKnee = V(-10 - math.max(0, kick) * 0.6, 0, 0), LeftKnee = V(-10 - math.max(0, -kick) * 0.6, 0, 0),
+		RightAnkle = V(-40, 0, 0), LeftAnkle = V(-40, 0, 0),
 	}
 end
 
@@ -355,9 +417,13 @@ local function jointFrame(motor: any): CFrame
 	return if a then a.CFrame else CFrame.identity
 end
 
-local function apply(character: Model, pose: Pose)
+local function apply(character: Model, pose: Pose, weight: number?)
 	local rootPos = get(pose, "RootPos")
 	for joint, motor in motorsOf(character) do
+		-- Only the joints this pose moves: the rest keep Roblox's own animation.
+		if pose[joint] == nil and not (joint == "Root" and pose.RootPos) then
+			continue
+		end
 		local base = baseC0[motor]
 		if not base then
 			base = jointFrame(motor)
@@ -368,6 +434,10 @@ local function apply(character: Model, pose: Pose)
 		if joint == "Root" then
 			-- RootPos is in the parent part's space; Transform works in the joint's frame.
 			cf = CFrame.new(base:VectorToObjectSpace(rootPos)) * cf
+		end
+		if weight and weight < 1 then
+			-- Blend from whatever Roblox's animation wrote this frame.
+			cf = motor.Transform:Lerp(cf, weight)
 		end
 		motor.Transform = cf
 	end
@@ -487,20 +557,36 @@ local function step(player: Player, character: Model, s: State, now: number, dt:
 
 	watchEquipment(character, s, now)
 
-	-- 1. Locomotion: idle -> walk -> run, blended by real speed.
-	local walk = math.clamp(s.speed / 10, 0, 1)
-	local run = math.clamp((s.speed - 17) / 8, 0, 1)
-	local stride = 7 + 3 * run -- studs per full cycle (two steps)
-	s.phase = (s.phase + dt * math.max(s.speed, 2) / stride * math.pi * 2) % (math.pi * 2)
-	local pose = mix(idlePose(now), walkPose(s.phase, run), smooth(walk))
-	if s.air > 0.01 then
-		pose = mix(pose, airPose(vel.Y > 2), smooth(s.air))
+	-- Running on the ground is our own (runPose); idle, jumping, swimming and climbing
+	-- stay Roblox's default animations. The run fades in and out over Roblox's pose.
+	local state = humanoid:GetState()
+	local grounded = not s.airborne and state ~= Enum.HumanoidStateType.Swimming and state ~= Enum.HumanoidStateType.Climbing and state ~= Enum.HumanoidStateType.Seated
+	local runTarget = if grounded and s.speed > 1.5 then math.clamp((s.speed - 1.5) / 5, 0, 1) else 0
+	s.run = (s.run or 0) + (runTarget - (s.run or 0)) * math.min(1, dt * 10)
+	if s.run > 0.01 then
+		-- About one full stride (two steps) per 7.5 studs.
+		s.phase += dt * math.max(s.speed, 6) / 7.5 * math.pi * 2
+		apply(character, runPose(s.phase), s.run)
 	end
 
-	-- 2. Holding a tool: the right arm stays out, with a little of the walk swing.
+	-- Falling for a while spreads your arms (pose only: the fall speed is untouched).
+	local falling = s.airborne and now - s.airSince > 0.55 and vel.Y < -10 and state == Enum.HumanoidStateType.Freefall
+	s.glide = (s.glide or 0) + ((if falling then 1 else 0) - (s.glide or 0)) * math.min(1, dt * 6)
+	if s.glide > 0.01 then
+		apply(character, glidePose(now), s.glide)
+	end
+	-- Swimming: lie flat and crawl.
+	local swimming = state == Enum.HumanoidStateType.Swimming
+	s.swim = (s.swim or 0) + ((if swimming then 1 else 0) - (s.swim or 0)) * math.min(1, dt * 5)
+	if s.swim > 0.01 then
+		apply(character, swimPose(now, math.clamp(s.speed / 8, 0, 1)), s.swim)
+	end
+
+	-- The tool-holding arm and one-off actions go on top, on just the joints they use.
+	local pose: Pose = {}
 	if character:FindFirstChild("HeldItem") then
 		for joint, v in HOLD do
-			pose[joint] = v + get(pose, joint) * 0.25
+			pose[joint] = v
 		end
 	end
 
@@ -511,17 +597,6 @@ local function step(player: Player, character: Model, s: State, now: number, dt:
 		local out, done = sample(keys, pose, now - a.start)
 		if done then
 			s.action = nil
-		else
-			pose = out
-		end
-	end
-
-	-- 4. Reaction on top.
-	local r = s.react
-	if r then
-		local out, done = sample(REACTS[r.name], pose, now - r.start, r.scale, true)
-		if done then
-			s.react = nil
 		else
 			pose = out
 		end

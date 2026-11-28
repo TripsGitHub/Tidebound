@@ -25,17 +25,30 @@ local LIST: { Tier } = {
 	{ id = "gold", name = "Gold", style = "metal", plate = rgb(236, 192, 72), trim = rgb(150, 104, 40), accent = rgb(200, 40, 48), strap = rgb(88, 58, 38), glow = false },
 	{ id = "sunsteel", name = "Sunsteel", style = "metal", plate = rgb(186, 44, 40), trim = rgb(240, 180, 60), accent = rgb(255, 150, 40), strap = rgb(60, 36, 30), glow = true },
 	{ id = "diamond", name = "Diamond", style = "crystal", plate = rgb(170, 236, 240), trim = rgb(60, 70, 86), accent = rgb(230, 252, 255), strap = rgb(52, 44, 52), glow = false },
-	{ id = "fractite", name = "Fractite", style = "crystal", plate = rgb(70, 220, 230), trim = rgb(30, 60, 70), accent = rgb(170, 255, 255), strap = rgb(40, 40, 48), glow = true },
 	{ id = "amethyst", name = "Amethyst", style = "crystal", plate = rgb(150, 80, 220), trim = rgb(50, 34, 70), accent = rgb(230, 180, 255), strap = rgb(44, 36, 52), glow = true },
-	{ id = "obsidian", name = "Obsidian", style = "crystal", plate = rgb(34, 30, 42), trim = rgb(90, 40, 110), accent = rgb(200, 90, 255), strap = rgb(30, 26, 34), glow = true },
-	{ id = "lunar", name = "Lunar", style = "metal", plate = rgb(214, 222, 250), trim = rgb(110, 120, 170), accent = rgb(160, 200, 255), strap = rgb(60, 60, 80), glow = true },
+	-- Obsidian: dark navy-charcoal plates with hot orange inlays.
+	{ id = "obsidian", name = "Obsidian", style = "crystal", plate = rgb(36, 44, 58), trim = rgb(22, 26, 36), accent = rgb(255, 104, 36), strap = rgb(26, 28, 36), glow = true },
+	-- Lunar: clean teal crystal with pale moon-yellow inlays.
+	{ id = "lunar", name = "Lunar", style = "crystal", plate = rgb(34, 150, 146), trim = rgb(18, 98, 100), accent = rgb(250, 240, 150), strap = rgb(20, 70, 72), glow = true },
+	-- Tidecaller (Mythic): deep sea blue and gold with glowing foam-green inlays. Made
+	-- only from the Mythic crate materials (Star Shard, Abyss Pearl, Ancient Rune).
+	{ id = "tidecaller", name = "Tidecaller", style = "metal", plate = rgb(28, 64, 150), trim = rgb(232, 190, 80), accent = rgb(120, 255, 220), strap = rgb(30, 34, 60), glow = true, mythic = true },
 } :: any
 
 local Tiers = { list = LIST }
+-- Side sets that aren't part of the tool ladder (no sword or harvester): armour only.
+-- They're found by Tiers.get / Tiers.split but never appear in Tiers.list.
+local EXTRA = {
+	{ id = "slime", name = "Slime", style = "wood", plate = rgb(122, 200, 88), trim = rgb(70, 130, 52), accent = rgb(200, 255, 150), strap = rgb(60, 96, 40), glow = false, rank = 3 },
+}
+Tiers.extra = EXTRA
 local byId: { [string]: Tier } = {}
 for i, t in LIST do
 	t.rank = i
 	byId[t.id] = t
+end
+for _, t in EXTRA do
+	byId[t.id] = t :: any
 end
 
 function Tiers.get(id: string): Tier?
@@ -68,12 +81,14 @@ function Tiers.paint(model: Model, tier: Tier)
 		if role == "Plate" then
 			d.Color = tier.plate
 			d.Material = PLATE_MATERIAL[tier.style]
-			d.Reflectance = if tier.style == "crystal" then 0.15 else 0
+			-- Metal and crystal catch the light (Island Tribes-style shine).
+			d.Reflectance = if tier.style == "crystal" then 0.35 elseif tier.style == "metal" then 0.28 else 0
 		elseif role == "Trim" then
 			d.Color = tier.trim
 			d.Material = if tier.style == "wood" then Enum.Material.Fabric
 				elseif tier.style == "stone" then Enum.Material.Leather
 				else Enum.Material.Metal
+			d.Reflectance = if tier.style == "metal" or tier.style == "crystal" then 0.2 else 0
 		elseif role == "Accent" then
 			d.Color = tier.accent
 			d.Material = if tier.glow then Enum.Material.Neon else Enum.Material.SmoothPlastic

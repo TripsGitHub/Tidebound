@@ -6,13 +6,14 @@ local QuestList = require(Shared.Quests)
 local Remotes = require(Shared.Remotes)
 local Progression = require(script.Parent.Progression)
 
-type QuestData = { progress: { [string]: number }, claimed: { [string]: boolean } }
+type QuestData = { progress: { [string]: number }, claimed: { [string]: boolean }, path: number, pathProgress: number }
 
 local Quests = {}
 local data: { [Player]: QuestData } = {}
+local catchUp: (Player, QuestData) -> () -- defined below payPath
 
 function Quests.init(player: Player)
-	data[player] = { progress = {}, claimed = {} }
+	data[player] = { progress = {}, claimed = {}, path = 1, pathProgress = 0 }
 end
 
 function Quests.removePlayer(player: Player)
@@ -22,18 +23,79 @@ end
 function Quests.sync(player: Player)
 	local d = data[player]
 	if d then
-		Remotes.QuestState:FireClient(player, d.progress, d.claimed)
+		catchUp(player, d)
+		Remotes.QuestState:FireClient(player, d.progress, d.claimed, { index = d.path, progress = d.pathProgress })
 	end
 end
 
--- kind is "gather", "craft", "build" or "hunt".
+-- Pays out a Tribe Path step: XP, Shells and any items, straight away.
+local function payPath(player: Player, step)
+	local Inventory = require(script.Parent.Inventory)
+	local Items = require(Shared.Items)
+	local got = {}
+	for id, n in step.items or {} do
+		if Items[id] then
+			Inventory.add(player, id, n, true)
+			Remotes.PickedUp:FireClient(player, id, n)
+			table.insert(got, n .. " " .. Items[id].name)
+		end
+	end
+	Progression.addShells(player, step.reward or 0)
+	local text = "Path done: " .. step.title .. "!  +" .. (step.xp or 0) .. " XP, +" .. (step.reward or 0) .. " Shells"
+	if #got > 0 then
+		text ..= ", " .. table.concat(got, ", ")
+	end
+	Remotes.Notify:FireClient(player, text, "good")
+	Progression.addXp(player, step.xp or 0)
+end
+
+-- A new step can already be done: ore you mined before you reached the Silver step,
+-- or a sword you crafted early. Count what's in your bag (and gear you already have)
+-- so the path never gets stuck asking for something you're holding.
+function catchUp(player: Player, d: QuestData)
+	local Inventory = require(script.Parent.Inventory)
+	for _ = 1, #QuestList.PATH do
+		local step = QuestList.PATH[d.path]
+		if not step or not step.item then
+			return
+		end
+		local have = 0
+		if step.type == "gather" or step.type == "craft" then
+			have = Inventory.count(player, step.item)
+		end
+		if have <= d.pathProgress then
+			return
+		end
+		d.pathProgress = math.min(step.amount, have)
+		if d.pathProgress < step.amount then
+			return
+		end
+		d.path += 1
+		d.pathProgress = 0
+		payPath(player, step)
+	end
+end
+
+-- kind is "gather", "craft", "build", "hunt" or "smelt".
 function Quests.record(player: Player, kind: string, itemId: string?, amount: number)
 	local d = data[player]
 	if not d then
 		return
 	end
 	local changed = false
-	for _, quest in QuestList do
+	-- The Tribe Path: only the current step counts.
+	local step = QuestList.PATH[d.path]
+	if step and step.type == kind and (step.item == nil or step.item == itemId) then
+		d.pathProgress = math.min(step.amount, d.pathProgress + amount)
+		changed = true
+		if d.pathProgress >= step.amount then
+			d.path += 1
+			d.pathProgress = 0
+			payPath(player, step)
+			catchUp(player, d)
+		end
+	end
+	for _, quest in ipairs(QuestList) do
 		if quest.type == kind and (quest.item == nil or quest.item == itemId) and not d.claimed[quest.id] then
 			local current = d.progress[quest.id] or 0
 			if current < quest.amount then
@@ -55,16 +117,56 @@ function Quests.claim(player: Player, questId: unknown)
 	if not d or type(questId) ~= "string" then
 		return
 	end
-	for _, quest in QuestList do
+	for _, quest in ipairs(QuestList) do
 		if quest.id == questId then
 			if d.claimed[questId] or (d.progress[questId] or 0) < quest.amount then
 				return
 			end
 			d.claimed[questId] = true
 			Progression.addShells(player, quest.reward)
-			Remotes.Notify:FireClient(player, "+" .. quest.reward .. " Shells", "good")
+			Remotes.Notify:FireClient(player, "+" .. quest.reward .. " Shells, +" .. (quest.xp or 0) .. " XP", "good")
+			Progression.addXp(player, quest.xp or 0)
 			Quests.sync(player)
 			return
+		end
+	end
+end
+
+-- For saving: progress and which quests were claimed (so rewards can't be claimed twice).
+function Quests.export(player: Player): QuestData?
+	local d = data[player]
+	return if d then { progress = table.clone(d.progress), claimed = table.clone(d.claimed), path = d.path, pathProgress = d.pathProgress } else nil
+end
+
+function Quests.load(player: Player, saved: any)
+	local d = data[player]
+	if not d or type(saved) ~= "table" then
+		return
+	end
+	local known = {}
+	for _, quest in ipairs(QuestList) do
+		known[quest.id] = quest
+	end
+	if type(saved.progress) == "table" then
+		for id, n in saved.progress do
+			if known[id] and type(n) == "number" then
+				d.progress[id] = math.clamp(n, 0, known[id].amount)
+			end
+		end
+	end
+	if type(saved.path) == "number" then
+		d.path = math.clamp(math.floor(saved.path), 1, #QuestList.PATH + 1)
+		local step = QuestList.PATH[d.path]
+		d.pathProgress = if step and type(saved.pathProgress) == "number" then math.clamp(saved.pathProgress, 0, step.amount) else 0
+	elseif (player:GetAttribute("Level") or 1) > 12 then
+		-- Players from before the Tribe Path: skip the early steps they're past.
+		d.path = 8
+	end
+	if type(saved.claimed) == "table" then
+		for id, v in saved.claimed do
+			if known[id] and v == true then
+				d.claimed[id] = true
+			end
 		end
 	end
 end

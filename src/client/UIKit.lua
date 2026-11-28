@@ -19,13 +19,16 @@ UIKit.Colors = {
 	good = Color3.fromRGB(88, 186, 74), -- "Trade", have-enough counts
 	bad = Color3.fromRGB(232, 86, 80), -- close X, missing counts
 	warn = Color3.fromRGB(236, 140, 60),
-	health = Color3.fromRGB(200, 98, 112), -- muted red-pink
-	hunger = Color3.fromRGB(212, 146, 154), -- dusty pink
-	bag = Color3.fromRGB(122, 170, 204), -- muted light blue
-	barBack = Color3.fromRGB(80, 70, 56), -- dark brown behind stat bars
-	xp = Color3.fromRGB(122, 214, 92), -- green, like the XP orbs
+	health = Color3.fromRGB(158, 62, 66), -- deep red, not neon
+	hunger = Color3.fromRGB(176, 112, 64), -- muted amber
+	bag = Color3.fromRGB(78, 116, 146), -- slate blue
+	barBack = Color3.fromRGB(52, 44, 34), -- dark brown behind stat bars
+	xp = Color3.fromRGB(96, 168, 72), -- green, like the XP orbs
 	gold = Color3.fromRGB(246, 200, 72),
 	star = Color3.fromRGB(250, 214, 90),
+	wood = Color3.fromRGB(78, 52, 30), -- driftwood frame round every panel
+	plank = Color3.fromRGB(140, 98, 60), -- title planks
+	brass = Color3.fromRGB(214, 172, 86), -- rivets and nails
 }
 
 -- Merriweather everywhere: a sturdy serif that reads like an old adventure game
@@ -187,7 +190,7 @@ function UIKit.button(props, onClick: () -> ())
 		props.TextScaled = true
 	end
 	props.AutoButtonColor = true
-	local b = UIKit.shadowText(UIKit.new("TextButton", props, { UIKit.corner(6) }))
+	local b = UIKit.shadowText(UIKit.new("TextButton", props, { UIKit.corner(6), UIKit.new("UIStroke", { Color = UIKit.Colors.wood, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }) }))
 	b.MouseButton1Click:Connect(onClick)
 	return b
 end
@@ -211,11 +214,45 @@ function UIKit.keyCap(parent: Instance, key: string, action: string, order: numb
 	return row
 end
 
--- A flat tan panel with a thin cream rim.
+-- Tidebound's own frame: a sailcloth panel lashed into a driftwood frame. A thick
+-- dark-wood edge, a thin cream stitch line set in from it, and a brass rivet in
+-- each corner. The decoration is drawn by non-layout children (ZIndex below the
+-- content), so put list/grid layouts in an inner frame, not on the panel itself.
+local function rivet(parent: Instance, ax: number, ay: number)
+	UIKit.new("Frame", {
+		Parent = parent,
+		Name = "Rivet",
+		AnchorPoint = Vector2.new(ax, ay),
+		Position = UDim2.new(ax, if ax == 0 then 4 else -4, ay, if ay == 0 then 4 else -4),
+		Size = UDim2.fromOffset(7, 7),
+		BackgroundColor3 = UIKit.Colors.brass,
+		ZIndex = 0,
+	}, { UIKit.round(), UIKit.new("UIStroke", { Color = UIKit.Colors.wood, Thickness = 1 }) })
+end
+
+function UIKit.frame(parent: Instance)
+	local stitch = UIKit.new("Frame", {
+		Parent = parent,
+		Name = "Stitch",
+		Position = UDim2.fromOffset(4, 4),
+		Size = UDim2.new(1, -8, 1, -8),
+		BackgroundTransparency = 1,
+		ZIndex = 0,
+	}, { UIKit.corner(4), UIKit.new("UIStroke", { Color = UIKit.Colors.rim, Thickness = 1, Transparency = 0.35 }) })
+	for _, c in { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } } do
+		rivet(parent, c[1], c[2])
+	end
+	return stitch
+end
+
 function UIKit.panel(props)
 	props.BackgroundColor3 = props.BackgroundColor3 or UIKit.Colors.panel
 	props.BackgroundTransparency = props.BackgroundTransparency or UIKit.PANEL_ALPHA
-	return UIKit.new("Frame", props, { UIKit.corner(8), UIKit.stroke(UIKit.Colors.rim, 2) })
+	local f = UIKit.new("Frame", props, { UIKit.corner(6), UIKit.stroke(UIKit.Colors.wood, 3) })
+	if props.Size and props.Size.Y.Offset >= 40 or (props.Size and props.Size.Y.Scale > 0) then
+		UIKit.frame(f)
+	end
+	return f
 end
 
 -- A darker block inside a panel (cards, icon squares). No rim.
@@ -226,8 +263,114 @@ function UIKit.block(props)
 end
 
 -- A window title in big outlined text.
+-- It sits on a driftwood plank nailed across the top edge of the panel.
 function UIKit.title(parent: Instance, text: string, y: number?)
-	return UIKit.label({ Parent = parent, Position = UDim2.fromOffset(0, y or 6), Size = UDim2.new(1, 0, 0, 30), Text = text, TextScaled = false, TextSize = 30 })
+	local plank = UIKit.new("Frame", {
+		Parent = parent,
+		Name = "TitlePlank",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, (y or 6) - 20),
+		Size = UDim2.fromOffset(0, 38),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = UIKit.Colors.plank,
+		ZIndex = 2,
+	}, {
+		UIKit.corner(4),
+		UIKit.new("UIStroke", { Color = UIKit.Colors.wood, Thickness = 3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+		UIKit.new("UIPadding", { PaddingLeft = UDim.new(0, 22), PaddingRight = UDim.new(0, 22) }),
+	})
+	-- grain lines and two nail heads
+	for _, gy in { 0.3, 0.72 } do
+		UIKit.new("Frame", { Parent = plank, Name = "Grain", Position = UDim2.new(0, -14, gy, 0), Size = UDim2.new(1, 28, 0, 1), BackgroundColor3 = UIKit.Colors.wood, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 2 })
+	end
+	for _, nx in { 0, 1 } do
+		UIKit.new("Frame", { Parent = plank, Name = "Nail", AnchorPoint = Vector2.new(nx, 0.5), Position = UDim2.new(nx, if nx == 0 then -14 else 14, 0.5, 0), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = UIKit.Colors.brass, ZIndex = 3 }, { UIKit.round() })
+	end
+	local l = UIKit.label({ Parent = plank, Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 28, ZIndex = 4 })
+	return l
+end
+
+-- Screen scaling: every HUD size is in pixels tuned for a ~1280x720 window, so
+-- one UIScale on the ScreenGui shrinks it on small windows and phones and grows
+-- it a little on big monitors.
+local screenScale = 1
+function UIKit.screenScale(): number
+	return screenScale
+end
+function UIKit.fitScreen(gui: ScreenGui)
+	local scale = Instance.new("UIScale")
+	scale.Name = "ScreenFit"
+	scale.Parent = gui
+	local function fit()
+		local cam = workspace.CurrentCamera
+		if not cam then
+			return
+		end
+		local v = cam.ViewportSize
+		screenScale = math.clamp(math.min(v.X / 1280, v.Y / 720), 0.75, 1.3)
+		scale.Scale = screenScale
+	end
+	fit()
+	local function hook()
+		if workspace.CurrentCamera then
+			workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit)
+		end
+		fit()
+	end
+	hook()
+	workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(hook)
+end
+
+-- Slides a bar's fill to `ratio` (0..1) instead of jumping. A paler "chip" bar behind
+-- the fill shows what was just lost: it waits a moment, then drains down to meet the
+-- fill. When the bar goes up, the fill grows smoothly into the new amount.
+local TweenService = game:GetService("TweenService")
+local chips: { [Frame]: Frame } = setmetatable({}, { __mode = "k" }) :: any
+local lastRatio: { [Frame]: number } = setmetatable({}, { __mode = "k" }) :: any
+function UIKit.slideBar(fill: Frame, ratio: number)
+	ratio = math.clamp(ratio, 0, 1)
+	local last = lastRatio[fill]
+	if last and math.abs(last - ratio) < 0.0005 then
+		return
+	end
+	lastRatio[fill] = ratio
+	local chip = chips[fill]
+	if not chip and fill.Parent then
+		chip = fill:Clone()
+		chip:ClearAllChildren()
+		local round = fill:FindFirstChildOfClass("UICorner")
+		if round then
+			round:Clone().Parent = chip
+		end
+		chip.Name = "Chip"
+		chip.BackgroundColor3 = Color3.fromRGB(255, 244, 214)
+		chip.BackgroundTransparency = 0.25
+		-- Lift the fill (and anything drawn over it) one step so the chip sits behind.
+		local z = fill.ZIndex
+		for _, sib in (fill.Parent :: Instance):GetChildren() do
+			if sib:IsA("GuiObject") and sib ~= fill and sib.ZIndex >= z then
+				sib.ZIndex += 1
+			end
+		end
+		fill.ZIndex = z + 1
+		chip.ZIndex = z
+		chip.Parent = fill.Parent
+		chips[fill] = chip
+	end
+	local target = UDim2.new(ratio, 0, fill.Size.Y.Scale, fill.Size.Y.Offset)
+	if not last or ratio < last then
+		-- Loss: the fill snaps down quickly, the chip lingers then drains.
+		TweenService:Create(fill, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = target }):Play()
+		if chip then
+			TweenService:Create(chip, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0, false, 0.35), { Size = target }):Play()
+		end
+	else
+		-- Gain: the chip jumps ahead and the fill grows into it.
+		if chip then
+			chip.Size = target
+		end
+		TweenService:Create(fill, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = target }):Play()
+	end
 end
 
 return UIKit

@@ -10,6 +10,9 @@ local ItemModels = require(Shared.ItemModels)
 local Remotes = require(Shared.Remotes)
 local Inventory = require(script.Parent.Inventory)
 
+local Ores = require(Shared.Ores)
+local Tiers = require(Shared.Tiers)
+
 local Drops = {}
 local onPickedUp: ((Player, string, number) -> ())? = nil
 
@@ -31,7 +34,22 @@ function Drops.spawn(itemId: string, amount: number, position: Vector3, directio
 	model:PivotTo(CFrame.new(position) * spin)
 
 	-- Physics: the main part collides so it lands on the ground; the rest is welded on.
+	-- Small items get an invisible box round them to land on instead, so they never
+	-- slip through the terrain.
 	local primary = model.PrimaryPart :: BasePart
+	local boxCf, boxSize = model:GetBoundingBox()
+	if math.min(primary.Size.X, primary.Size.Y, primary.Size.Z) < 1.6 then
+		local box = Instance.new("Part")
+		box.Name = "Collider"
+		box.Transparency = 1
+		box.Size = Vector3.new(math.max(boxSize.X, 1.8), math.max(boxSize.Y, 1.8), math.max(boxSize.Z, 1.8))
+		box.CFrame = boxCf
+		box.CanTouch = false
+		box.Parent = model
+		primary.CanCollide = false
+		model.PrimaryPart = box
+		primary = box
+	end
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") then
 			p.Anchored = false
@@ -74,6 +92,68 @@ function Drops.spawn(itemId: string, amount: number, position: Vector3, directio
 	return model
 end
 
+-- Loot priority: when something dies, whoever did the most damage to it gets first
+-- pick of what it dropped for 5-10 seconds (longer the rarer the item); after that
+-- anyone can take it.
+local oreRank = {}
+for i, ore in Ores do
+	oreRank[ore.item] = i
+end
+local tierRank = {}
+for i, tier in Tiers.list do
+	tierRank[tier.id] = i
+end
+local RARE = { key_fragment = 4, maw_key = 5, queen_fang = 5, warden_core = 5, golem_heart = 5, supply_crate = 2, rare_crate = 3, epic_crate = 4, mythic_crate = 5, star_shard = 5, abyss_pearl = 5, ancient_rune = 5 }
+
+function Drops.prioritySeconds(itemId: string): number
+	local item = Items[itemId]
+	local bonus = RARE[itemId] or 0
+	if oreRank[itemId] then
+		bonus = math.max(bonus, math.ceil(oreRank[itemId] * 5 / #Ores))
+	end
+	if item and (item.kind == "tool" or item.kind == "armour") then
+		local tier = string.match(itemId, "^(%a+)_")
+		bonus = math.max(bonus, 1 + math.ceil((tierRank[tier or ""] or 1) * 4 / #Tiers.list))
+	end
+	return 5 + math.clamp(bonus, 0, 5)
+end
+
+-- Reserves a drop for `player` (no-op when player is nil).
+function Drops.reserve(model: Model?, player: Player?)
+	if not model or not player then
+		return
+	end
+	local itemId = model:GetAttribute("ItemId") :: string
+	model:SetAttribute("OwnerId", player.UserId)
+	model:SetAttribute("OwnerName", player.DisplayName)
+	model:SetAttribute("OwnerUntil", workspace:GetServerTimeNow() + Drops.prioritySeconds(itemId))
+end
+
+-- Who did the most damage, from a { [Player]: number } tally.
+function Drops.topDamager(tally: { [Player]: number }?): Player?
+	local best, most = nil, 0
+	for p, d in tally or {} do
+		if p.Parent and d > most then
+			best, most = p, d
+		end
+	end
+	return best
+end
+
+local function reservedFor(player: Player, model: Model): boolean
+	local owner = model:GetAttribute("OwnerId")
+	local untilT = model:GetAttribute("OwnerUntil")
+	if not owner or owner == player.UserId or not untilT then
+		return false
+	end
+	local left = untilT - workspace:GetServerTimeNow()
+	if left <= 0 then
+		return false
+	end
+	Remotes.Notify:FireClient(player, string.format("%s has first pick for %ds", model:GetAttribute("OwnerName") or "Someone", math.ceil(left)), "warn")
+	return true
+end
+
 local function validDrop(player: Player, drop: unknown): Model?
 	if typeof(drop) ~= "Instance" or not (drop :: Instance):IsA("Model") then
 		return nil
@@ -86,6 +166,12 @@ local function validDrop(player: Player, drop: unknown): Model?
 	if not root then
 		return nil
 	end
+	-- Dead players can't grab anything (not even what they just dropped): only once
+	-- they've respawned, like everyone else.
+	local hum = player.Character:FindFirstChildOfClass("Humanoid")
+	if not hum or hum.Health <= 0 or hum:GetState() == Enum.HumanoidStateType.Dead then
+		return nil
+	end
 	if (model:GetPivot().Position - root.Position).Magnitude > Config.PickupRange then
 		return nil
 	end
@@ -94,7 +180,7 @@ end
 
 function Drops.pickUp(player: Player, drop: unknown)
 	local model = validDrop(player, drop)
-	if not model then
+	if not model or reservedFor(player, model) then
 		return
 	end
 	local itemId = model:GetAttribute("ItemId") :: string
@@ -119,7 +205,7 @@ end
 -- Eat food straight off the ground.
 function Drops.eat(player: Player, drop: unknown, eatFn: (Player, string) -> boolean)
 	local model = validDrop(player, drop)
-	if not model then
+	if not model or reservedFor(player, model) then
 		return
 	end
 	local itemId = model:GetAttribute("ItemId") :: string
@@ -149,11 +235,14 @@ function Drops.dropFromBag(player: Player, itemId: unknown)
 	if count <= 0 then
 		return
 	end
-	-- Tools/armour drop one at a time; resources drop the whole stack.
-	local kind = Items[itemId].kind
-	local amount = if kind == "resource" or kind == "food" then count else 1
-	if Inventory.take(player, itemId, amount) then
-		Drops.spawn(itemId, amount, root.Position + root.CFrame.LookVector * 3, root.CFrame.LookVector)
+	-- Everything drops one at a time (click again for the next), each landing a
+	-- little apart so they don't pile into one spot.
+	if Inventory.take(player, itemId, 1) then
+		local side = root.CFrame.RightVector * (math.random() - 0.5) * 2.4
+		local model = Drops.spawn(itemId, 1, root.Position + root.CFrame.LookVector * 3 + side, root.CFrame.LookVector)
+		if model then
+			model:SetAttribute("DroppedBy", player.UserId) -- smelting XP goes to whoever dropped it in
+		end
 	end
 end
 

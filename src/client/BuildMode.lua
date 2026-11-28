@@ -20,6 +20,8 @@ local outline: SelectionBox? = nil
 local currentItem: string? = nil
 local rotation = 0
 local valid = false
+local tiles = 1 -- floors: lay n x n in one go ([ and ] to change)
+local snappedTo: Vector3? = nil -- where the ghost snapped to a neighbour, if it did
 
 function BuildMode.current(): string?
 	return currentItem
@@ -33,7 +35,6 @@ function BuildMode.setItem(itemId: string?)
 		end
 		BuildMode.setItem(nil)
 		currentItem = itemId
-		local def = Structures[item.structure]
 		local g = Instance.new("Part")
 		g.Name = "BuildGhost"
 		g.Anchored = true
@@ -42,7 +43,7 @@ function BuildMode.setItem(itemId: string?)
 		g.CanTouch = false
 		g.Material = Enum.Material.SmoothPlastic
 		g.Transparency = 0.65
-		g.Size = def.size
+		g.Size = Structures.sizeFor(item.structure, tiles)
 		g.Parent = workspace.CurrentCamera
 		local box = Instance.new("SelectionBox")
 		box.Adornee = g
@@ -62,9 +63,24 @@ function BuildMode.rotate()
 	rotation = (rotation + 90) % 360
 end
 
+function BuildMode.resize(step: number)
+	local item = currentItem and Items[currentItem]
+	if not item or not Structures.isFloor(item.structure) or not ghost then
+		return
+	end
+	tiles = math.clamp(tiles + step, 1, Structures.MAX_TILES)
+	ghost.Size = Structures.sizeFor(item.structure, tiles)
+end
+
+function BuildMode.tiles(): number
+	return tiles
+end
+
 function BuildMode.tryPlace()
 	if ghost and currentItem and valid then
-		Remotes.Place:FireServer(currentItem, ghost.Position, rotation)
+		local bottom = ghost.Position - Vector3.new(0, ghost.Size.Y / 2, 0)
+		local _, ry = ghost.CFrame:ToOrientation()
+		Remotes.Place:FireServer(currentItem, bottom, math.deg(ry), tiles)
 		Anim.play(Players.LocalPlayer.Character, "place")
 	end
 end
@@ -98,8 +114,105 @@ RunService.RenderStepped:Connect(function()
 	end
 	local size = ghost.Size
 	local snapped = Structures.snap(hit.Position)
-	ghost.CFrame = CFrame.new(snapped.X, hit.Position.Y + size.Y / 2, snapped.Z) * CFrame.Angles(0, math.rad(rotation), 0)
-	valid = (ghost.Position - root.Position).Magnitude <= Config.BuildRange and hit.Material ~= Enum.Material.Water
+	local cf = CFrame.new(snapped.X, hit.Position.Y + size.Y / 2, snapped.Z) * CFrame.Angles(0, math.rad(rotation), 0)
+	local item = Items[currentItem :: string]
+	local floor = Structures.isFloor(item.structure)
+	local def = Structures[item.structure]
+	local wall = def.wall == true or def.gate == true
+	local piece = def.tile == true or def.roof == true
+	-- Walls on your base: near its rim they line up along the nearest edge; further in
+	-- they can stand anywhere on top of it.
+	local structures = workspace:FindFirstChild("Structures")
+	if structures and wall then
+		local best, bestDist = nil, math.huge
+		for _, m in structures:GetChildren() do
+			local st = m:GetAttribute("StructureType")
+			if st and Structures.isFloor(st) and m:IsA("Model") and m.PrimaryPart then
+				local d = (m.PrimaryPart.Position - hit.Position) * Vector3.new(1, 0, 1)
+				local reach = m.PrimaryPart.Size.X / 2 + (if floor then size.X / 2 + 4 else 3)
+				if math.abs(d.X) < reach + 4 and math.abs(d.Z) < reach + 4 and d.Magnitude < bestDist then
+					best, bestDist = m, d.Magnitude
+				end
+			end
+		end
+		if best then
+			local core = best.PrimaryPart :: BasePart
+			local half = core.Size.X / 2
+			local top = core.Position.Y + core.Size.Y / 2
+			local baseCf = CFrame.new(core.Position) * (core.CFrame - core.CFrame.Position)
+			local rel = baseCf:PointToObjectSpace(hit.Position)
+			local _, ry = baseCf:ToOrientation()
+			if floor then
+				-- Which side are we off? Put the new floor flush against it.
+				local off = size.X / 2 + half
+				local local_ = if math.abs(rel.X) > math.abs(rel.Z) then Vector3.new(math.sign(rel.X) * off, 0, 0) else Vector3.new(0, 0, math.sign(rel.Z) * off)
+				if math.abs(rel.X) > half or math.abs(rel.Z) > half then
+					local p = baseCf:PointToWorldSpace(local_)
+					cf = CFrame.new(p.X, core.Position.Y + 0.15, p.Z) * CFrame.Angles(0, ry, 0)
+				end
+			elseif math.abs(rel.X) <= half - 3.5 and math.abs(rel.Z) <= half - 3.5 then
+				-- Well inside the base: stand the wall anywhere on top of it, on a grid
+				-- lined up with the base, turned with R (for rooms and inner walls).
+				local g = Config.GridSize
+				local lx = math.clamp(math.round(rel.X / g) * g, -half + 1, half - 1)
+				local lz = math.clamp(math.round(rel.Z / g) * g, -half + 1, half - 1)
+				local p = baseCf:PointToWorldSpace(Vector3.new(lx, 0, lz))
+				cf = CFrame.new(p.X, top + size.Y / 2, p.Z) * CFrame.Angles(0, ry + math.rad(rotation), 0)
+			elseif math.abs(rel.X) <= half + 3 and math.abs(rel.Z) <= half + 3 then
+				-- Near the rim: snap to the nearest edge, sliding along it in wall-width steps.
+				local w = size.X
+				local along, edge
+				if half - math.abs(rel.X) < half - math.abs(rel.Z) then
+					edge = Vector3.new(math.sign(rel.X) * half, 0, 0)
+					along = math.clamp(math.round((rel.Z + half - w / 2) / w) * w - half + w / 2, -half + w / 2, half - w / 2)
+					local p = baseCf:PointToWorldSpace(edge + Vector3.new(0, 0, along))
+					cf = CFrame.new(p.X, top + size.Y / 2, p.Z) * CFrame.Angles(0, ry + math.pi / 2, 0)
+				else
+					edge = Vector3.new(0, 0, math.sign(rel.Z) * half)
+					along = math.clamp(math.round((rel.X + half - w / 2) / w) * w - half + w / 2, -half + w / 2, half - w / 2)
+					local p = baseCf:PointToWorldSpace(edge + Vector3.new(along, 0, 0))
+					cf = CFrame.new(p.X, top + size.Y / 2, p.Z) * CFrame.Angles(0, ry, 0)
+				end
+			end
+		end
+	end
+	-- Floor tiles and roofs: aimed at the top of a wall or gate, the tile sits on it
+	-- with one edge along the wall's middle, on whichever side of the wall you aim
+	-- (an upper floor, or a roof over the room). Aimed at another tile or roof, it
+	-- goes flush beside it at the same height.
+	if structures and piece then
+		local m = hit.Instance
+		while m and m.Parent and m.Parent ~= structures do
+			m = m.Parent
+		end
+		local st = m and m.Parent == structures and m:GetAttribute("StructureType")
+		local sdef = st and Structures[st]
+		local core = m and m:IsA("Model") and m.PrimaryPart
+		if sdef and core then
+			local wcf = CFrame.new(core.Position) * (core.CFrame - core.CFrame.Position)
+			local _, ry = wcf:ToOrientation()
+			local top = core.Position.Y + core.Size.Y / 2
+			local rel = wcf:PointToObjectSpace(hit.Position)
+			if (sdef.wall or sdef.gate) and hit.Position.Y > top - 1.2 then
+				local sideZ = math.sign(rel.Z)
+				if sideZ == 0 then
+					sideZ = if wcf:PointToObjectSpace(root.Position).Z > 0 then -1 else 1
+				end
+				local p = wcf:PointToWorldSpace(Vector3.new(0, 0, sideZ * size.Z / 2))
+				cf = CFrame.new(p.X, top + size.Y / 2, p.Z) * CFrame.Angles(0, ry, 0)
+			elseif (sdef.tile or sdef.roof) and hit.Position.Y > top - 0.6 then
+				local half = core.Size.X / 2
+				local off = if math.abs(rel.X) > math.abs(rel.Z) then Vector3.new(math.sign(rel.X) * (half + size.X / 2), 0, 0) else Vector3.new(0, 0, math.sign(rel.Z) * (half + size.Z / 2))
+				if math.abs(rel.X) > half * 0.5 or math.abs(rel.Z) > half * 0.5 then
+					local p = wcf:PointToWorldSpace(off)
+					local bottom = core.Position.Y - core.Size.Y / 2
+					cf = CFrame.new(p.X, bottom + size.Y / 2, p.Z) * CFrame.Angles(0, ry, 0)
+				end
+			end
+		end
+	end
+	ghost.CFrame = cf
+	valid = (ghost.Position - root.Position).Magnitude <= Config.BuildRange + size.X / 2 and hit.Material ~= Enum.Material.Water
 	local color = if valid then Color3.fromRGB(90, 220, 90) else Color3.fromRGB(230, 70, 60)
 	ghost.Transparency = 0.65
 	ghost.Color = color

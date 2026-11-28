@@ -11,6 +11,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local MeshColors = require(script.Parent.MeshColors)
+-- Hand-tuned colours that win over the ones exported from Blender (MeshColors is
+-- generated, so tweaks live here): calmer greens for the softer daytime look.
+local RECOLOUR: { [string]: Color3 } = {
+	["palm__Leaves"] = Color3.fromRGB(104, 152, 78),
+}
 
 local Meshes = {}
 
@@ -19,10 +24,36 @@ local LOOKS: { [string]: { material: Enum.Material?, transparency: number? } } =
 	Ember = { material = Enum.Material.Neon },
 	SlimeGoo = { material = Enum.Material.Glass, transparency = 0.15 },
 	SlimeLight = { material = Enum.Material.Glass, transparency = 0.1 },
+	Lava = { material = Enum.Material.Neon },
+	CrawlerGlow = { material = Enum.Material.Neon },
+	QueenGlow = { material = Enum.Material.Neon },
+	CrystalGlow = { material = Enum.Material.Neon },
+	Crystal = { material = Enum.Material.Glass, transparency = 0.15 },
+	SlimeCore = { material = Enum.Material.Glass, transparency = 0.2 },
+	SkullBone = { material = Enum.Material.Limestone },
+	SkullShade = { material = Enum.Material.Limestone },
+	TentHide = { material = Enum.Material.Fabric },
+	TentHideDark = { material = Enum.Material.Fabric },
+	TentStripe = { material = Enum.Material.Fabric },
+	SignBoard = { material = Enum.Material.Wood },
+	SignPost = { material = Enum.Material.Wood },
+	WardenStone = { material = Enum.Material.Slate },
+	GolemRock = { material = Enum.Material.Basalt },
+	GolemDark = { material = Enum.Material.Basalt },
+	GolemAsh = { material = Enum.Material.Slate },
+	LavaHot = { material = Enum.Material.Neon },
+	TeepeeHide = { material = Enum.Material.Fabric },
+	TeepeeBand = { material = Enum.Material.Fabric },
+	TeepeeDoor = { material = Enum.Material.Fabric },
+	TeepeePole = { material = Enum.Material.Wood },
+	Soil = { material = Enum.Material.Ground },
+	SoilDark = { material = Enum.Material.Mud },
+	Seaweed = { material = Enum.Material.SmoothPlastic, transparency = 0.05 },
+	SeaweedLight = { material = Enum.Material.SmoothPlastic, transparency = 0.05 },
 }
 
 -- Thin or soft parts you can walk through.
-local SOFT = { "Leaf", "Leaves", "Frond", "Needle", "Berr", "Coconut", "Ember", "Moss" }
+local SOFT = { "Leaf", "Leaves", "Frond", "Needle", "Berr", "Coconut", "Ember", "Moss", "Blade", "Root" }
 
 local sets: { [string]: { MeshPart } }? = nil
 
@@ -136,7 +167,8 @@ function Meshes.build(name: string, options: Options?): Model?
 		p.CFrame = CFrame.new((src.Position - origin) * k) * rot
 		local colour = MeshColors[src.Name]
 		if colour then
-			p.Color = colour[1]
+			p.Color = RECOLOUR[src.Name] or colour[1]
+			p:SetAttribute("Mat", colour[2]) -- the Blender material name, for tints
 			local look = LOOKS[colour[2]]
 			if look then
 				p.Material = look.material or Enum.Material.SmoothPlastic
