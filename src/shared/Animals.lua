@@ -23,7 +23,7 @@ local Animals = {
 		runSpeed = 14,
 		xp = 6,
 		respawn = 45,
-		loot = { { "raw_meat", 1, 1 }, { "stone", 0, 2 }, { "supply_crate", 1, 1, 0.01 } },
+		loot = { { "raw_meat", 1, 1 }, { "raw_fish", 0, 1 }, { "stone", 0, 2 }, { "supply_crate", 1, 1, 0.01 } },
 	},
 	-- Mountain goats on the Crags and the Mesa. Skittish; butts back if cornered.
 	Goat = {
@@ -47,7 +47,7 @@ local Animals = {
 		runSpeed = 5,
 		xp = 12,
 		respawn = 90,
-		loot = { { "raw_meat", 2, 3 }, { "leather", 1, 2 }, { "supply_crate", 1, 1, 0.05 } },
+		loot = { { "raw_meat", 1, 2 }, { "raw_fish", 1, 2 }, { "leather", 1, 2 }, { "supply_crate", 1, 1, 0.05 } },
 	},
 	-- Frost Isle and the Silver Crags. Hunts in packs: comes for you if you get close.
 	Wolf = {

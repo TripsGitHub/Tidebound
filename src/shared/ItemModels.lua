@@ -289,6 +289,83 @@ function builders.sunfruit(m)
 	return fruit
 end
 
+-- A curved banana from a few short segments bending round, green-tipped at each end.
+function builders.banana(m)
+	local core
+	local yellow = Color3.fromRGB(250, 214, 70)
+	for i = -2, 2 do
+		local a = i * 0.28
+		local seg = part(m, Vector3.new(0.34, 0.36, 0.36), CFrame.new(math.sin(a) * 0.9, -math.cos(a) * 0.9 + 0.9, 0) * CFrame.Angles(0, 0, a), yellow, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+		seg.Size = Vector3.new(0.36, 0.36, 0.36)
+		if i == 0 then
+			core = seg
+		end
+	end
+	for _, side in { -1, 1 } do
+		local a = side * 0.7
+		part(m, Vector3.new(0.18, 0.18, 0.18), CFrame.new(math.sin(a) * 0.9, -math.cos(a) * 0.9 + 0.9, 0), Color3.fromRGB(90, 70, 40), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	end
+	return core
+end
+
+function builders.mango(m)
+	local fruit = part(m, Vector3.new(1.0, 1.2, 0.9), CFrame.new(), Color3.fromRGB(240, 150, 50), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	part(m, Vector3.new(0.6, 0.7, 0.6), CFrame.new(-0.22, 0.25, 0.12), Color3.fromRGB(220, 70, 60), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	part(m, Vector3.new(0.5, 0.1, 0.25), CFrame.new(0.15, 0.62, 0) * CFrame.Angles(0, 0, -0.5), Color3.fromRGB(70, 150, 60), Enum.Material.SmoothPlastic)
+	return fruit
+end
+
+local function mushroomModel(m: Model, cap: Color3): BasePart
+	local stem = part(m, Vector3.new(0.35, 0.7, 0.35), CFrame.new(0, -0.15, 0), Color3.fromRGB(236, 226, 200), Enum.Material.SmoothPlastic)
+	part(m, Vector3.new(1.1, 0.45, 1.1), CFrame.new(0, 0.3, 0), cap, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	for _, o in { Vector3.new(0.25, 0.5, 0.1), Vector3.new(-0.2, 0.48, -0.2), Vector3.new(0.05, 0.52, 0.3) } do
+		part(m, Vector3.new(0.14, 0.08, 0.14), CFrame.new(o), Color3.fromRGB(250, 244, 230), Enum.Material.SmoothPlastic)
+	end
+	return stem
+end
+
+function builders.mushroom(m)
+	return mushroomModel(m, Color3.fromRGB(200, 60, 50))
+end
+
+function builders.roast_mushroom(m)
+	return mushroomModel(m, Color3.fromRGB(130, 70, 40))
+end
+
+local function fish(m: Model, body: Color3, belly: Color3): BasePart
+	local core = part(m, Vector3.new(1.4, 0.55, 0.4), CFrame.new(), body, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	part(m, Vector3.new(1.0, 0.3, 0.36), CFrame.new(0.05, -0.12, 0), belly, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	part(m, Vector3.new(0.1, 0.55, 0.45), CFrame.new(0.78, 0, 0) * CFrame.Angles(0.785, 0, 0), body, Enum.Material.SmoothPlastic)
+	part(m, Vector3.new(0.08, 0.08, 0.08), CFrame.new(-0.5, 0.08, 0.17), Color3.fromRGB(20, 20, 20), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	return core
+end
+
+function builders.raw_fish(m)
+	return fish(m, Color3.fromRGB(110, 150, 190), Color3.fromRGB(220, 230, 235))
+end
+
+function builders.cooked_fish(m)
+	return fish(m, Color3.fromRGB(176, 110, 60), Color3.fromRGB(220, 170, 110))
+end
+
+function builders.fruit_salad(m)
+	local bowl = part(m, Vector3.new(1.4, 0.5, 1.4), CFrame.new(0, -0.15, 0), Color3.fromRGB(150, 100, 60), Enum.Material.Wood, Enum.PartType.Cylinder)
+	bowl.CFrame = CFrame.new(0, -0.15, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	bowl.Size = Vector3.new(0.5, 1.4, 1.4)
+	for i, c in { Color3.fromRGB(250, 214, 70), Color3.fromRGB(240, 150, 50), Color3.fromRGB(150, 40, 80), Color3.fromRGB(110, 200, 80), Color3.fromRGB(250, 214, 70) } do
+		local a = i / 5 * math.pi * 2
+		part(m, Vector3.new(0.38, 0.38, 0.38), CFrame.new(math.cos(a) * 0.35, 0.18, math.sin(a) * 0.35), c, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	end
+	return bowl
+end
+
+function builders.banana_bread(m)
+	local loaf = part(m, Vector3.new(1.4, 0.7, 0.8), CFrame.new(), Color3.fromRGB(170, 110, 60), Enum.Material.SmoothPlastic)
+	part(m, Vector3.new(1.3, 0.3, 0.7), CFrame.new(0, 0.42, 0), Color3.fromRGB(120, 72, 38), Enum.Material.SmoothPlastic)
+	part(m, Vector3.new(0.08, 0.5, 0.6), CFrame.new(-0.3, 0.1, 0), Color3.fromRGB(230, 200, 140), Enum.Material.SmoothPlastic)
+	return loaf
+end
+
 function builders.coconut(m)
 	return part(m, Vector3.new(1, 1, 1), CFrame.new(), C.coconut, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
 end

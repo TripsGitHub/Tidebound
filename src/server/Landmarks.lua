@@ -285,8 +285,8 @@ function BUILDERS.skull(m: Model, c: Vector3, groundAt)
 	return "Skull Rock", 40
 end
 
--- Sunfruit Isle: the Sunfruit Giant, a palm ten times the size of any other, bent over
--- the island with a crown of huge fronds and a heavy cluster of glowing fruit.
+-- Banana Isle: the Banana Giant, a palm ten times the size of any other, bent over
+-- the island with a crown of huge fronds and great hanging hands of bananas.
 function BUILDERS.fruit(m: Model, c: Vector3, groundAt)
 	local bark, barkDark = Color3.fromRGB(176, 124, 70), Color3.fromRGB(140, 96, 54)
 	local base = c + Vector3.new(14, 0, 0)
@@ -307,17 +307,22 @@ function BUILDERS.fruit(m: Model, c: Vector3, groundAt)
 		local mid = (top + tip) / 2
 		Props.part(m, { Class = "WedgePart", Name = "Frond", Size = Vector3.new(0.6, 3, (tip - top).Magnitude), CFrame = CFrame.lookAt(mid, tip) * CFrame.Angles(0, 0, math.pi / 2), Color = if i % 2 == 0 then Color3.fromRGB(110, 180, 60) else Color3.fromRGB(140, 200, 70), Material = Enum.Material.Grass, CanCollide = false })
 	end
-	for i = 1, 9 do
-		local fruit = Props.part(m, { Name = "Sunfruit", Shape = Enum.PartType.Ball, Size = Vector3.one * rng:NextNumber(2.4, 3.4), CFrame = CFrame.new(top + Vector3.new(rng:NextNumber(-3, 3), rng:NextNumber(-5, -2), rng:NextNumber(-3, 3))), Color = if i % 3 == 0 then Color3.fromRGB(255, 200, 60) else Color3.fromRGB(255, 140, 40), Material = Enum.Material.Neon, CanCollide = false })
-		if i == 1 then
-			local light = Instance.new("PointLight")
-			light.Color = Color3.fromRGB(255, 180, 80)
-			light.Range = 30
-			light.Brightness = 1.4
-			light.Parent = fruit
+	-- Three hands of bananas hanging under the crown: rings of curved fingers.
+	for h = 0, 2 do
+		local a = h / 3 * math.pi * 2 + 0.4
+		local hang = top + Vector3.new(math.cos(a) * 3, -4 - h * 0.8, math.sin(a) * 3)
+		Props.part(m, { Name = "Trunk", Size = Vector3.new(0.6, 5, 0.6), CFrame = CFrame.new(hang + Vector3.new(0, 1.5, 0)), Color = Color3.fromRGB(110, 140, 60), Material = Enum.Material.Wood, CanCollide = false })
+		for row = 0, 2 do
+			for k = 0, 7 do
+				local b = k / 8 * math.pi * 2
+				local out = Vector3.new(math.cos(b), 0, math.sin(b))
+				local at = hang + Vector3.new(0, -row * 1.3, 0) + out * 1.2
+				local ripe = (h + row + k) % 5 ~= 0
+				Props.part(m, { Name = "Banana", Size = Vector3.new(0.7, 2.6, 0.7), CFrame = CFrame.lookAt(at, at + out) * CFrame.Angles(-0.9, 0, 0), Color = if ripe then Color3.fromRGB(250, 214, 70) else Color3.fromRGB(170, 200, 70), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+			end
 		end
 	end
-	return "The Sunfruit Giant", (top - c).Y + 6
+	return "The Banana Giant", (top - c).Y + 6
 end
 
 -- Maw Rock: a huge jaw of black stone teeth round a dark hollow, the sign that the

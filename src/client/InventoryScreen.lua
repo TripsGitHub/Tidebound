@@ -51,6 +51,7 @@ local CRAFT_TABS = {
 	{ name = "Tools", icon = "wood_harvester" },
 	{ name = "Armour", icon = "wood_helmet" },
 	{ name = "Buildables", icon = "wood_wall" },
+	{ name = "Food", icon = "fruit_salad" },
 }
 local BAG_TABS = {
 	{ name = "All" },

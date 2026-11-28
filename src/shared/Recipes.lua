@@ -22,6 +22,10 @@ local Recipes = {
 	{ id = "hide_pack", tab = "Armour", level = 8, cost = { leather = 10, sticky_slime = 3 } },
 	{ id = "explorer_pack", tab = "Armour", level = 14, cost = { leather = 16, gold_bar = 4, sticky_slime = 4 } },
 
+	-- Food: mix what you forage into something more filling.
+	{ id = "fruit_salad", tab = "Food", level = 3, cost = { berries = 4, banana = 1, mango = 1 } },
+	{ id = "banana_bread", tab = "Food", level = 5, cost = { banana = 3, coconut = 1, roast_mushroom = 1 } },
+
 	-- Cave and boss gear (levels on the 1-20 scale like the rest)
 	{ id = "maw_key", tab = "Tools", level = 9, cost = { key_fragment = 3, gold_bar = 4 } },
 	{ id = "fang_blade", tab = "Tools", level = 19, cost = { queen_fang = 1, diamond = 6, leather = 6 } },

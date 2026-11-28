@@ -117,10 +117,11 @@ local Nodes = {
 		xp = 400,
 		drops = { { item = "stone", min = 10, max = 14 }, { item = "amethyst", min = 0, max = 1 } },
 	},
-	-- The Sunfruit Giant on Sunfruit Isle: a huge palm you can chop down for a pile of
-	-- fruit and logs. Takes a long time to grow back.
+	-- The Banana Giant on Banana Isle: a huge banana palm you can chop down for a pile
+	-- of fruit and logs. Takes a long time to grow back. (Id kept from the old Sunfruit
+	-- Giant so saves and the bake still line up.)
 	SunfruitGiant = {
-		name = "Sunfruit Giant",
+		name = "Banana Giant",
 		material = "wood",
 		hp = 260,
 		respawn = 1800,
@@ -128,7 +129,7 @@ local Nodes = {
 		drops = {
 			{ item = "log", min = 12, max = 16 },
 			{ item = "leaves", min = 6, max = 8 },
-			{ item = "sunfruit", min = 14, max = 20 },
+			{ item = "banana", min = 14, max = 20 },
 		},
 	},
 	-- Sunfruit Isle's palms: heavy with fruit.
@@ -142,6 +143,19 @@ local Nodes = {
 			{ item = "log", min = 3, max = 4 },
 			{ item = "leaves", min = 1, max = 2 },
 			{ item = "sunfruit", min = 2, max = 3 },
+		},
+	},
+	-- Banana Isle's palms: heavy bunches of bananas.
+	BananaPalm = {
+		name = "Banana Palm",
+		material = "wood",
+		hp = 12,
+		respawn = 90,
+		xp = 12,
+		drops = {
+			{ item = "log", min = 3, max = 4 },
+			{ item = "leaves", min = 1, max = 2 },
+			{ item = "banana", min = 2, max = 4 },
 		},
 	},
 	Boulder = {
@@ -164,6 +178,7 @@ local Nodes = {
 			{ item = "leaves", min = 2, max = 3 },
 			{ item = "berries", min = 1, max = 3 },
 			{ item = "stick", min = 0, max = 1 },
+			{ item = "mushroom", min = 0, max = 1 },
 		},
 	},
 	-- A patch of wild crops on bare soil: forage for food and leaves.
@@ -177,6 +192,7 @@ local Nodes = {
 			{ item = "berries", min = 2, max = 4 },
 			{ item = "leaves", min = 1, max = 3 },
 			{ item = "sunfruit", min = 0, max = 1 },
+			{ item = "mango", min = 0, max = 1 },
 		},
 	},
 	SlimePool = {

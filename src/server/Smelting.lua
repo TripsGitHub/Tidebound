@@ -16,6 +16,8 @@ Smelting.RECIPES = {
 	gold_ore = { out = "gold_bar", time = 5 },
 	sunstone = { out = "sunsteel_bar", time = 6 },
 	raw_meat = { out = "cooked_meat", time = 3 },
+	raw_fish = { out = "cooked_fish", time = 2.5 },
+	mushroom = { out = "roast_mushroom", time = 2 },
 }
 -- Seconds of burning each fuel adds.
 Smelting.FUEL = { log = 40, stick = 12, leaves = 5, coconut = 8 }

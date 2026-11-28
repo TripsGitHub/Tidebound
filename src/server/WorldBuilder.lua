@@ -201,6 +201,7 @@ local NODE_MESHES = {
 	Pine = { mesh = "pine", scale = { 1.25, 1.7 } },
 	Palm = { mesh = "palm", scale = { 1.2, 1.6 } },
 	FruitPalm = { mesh = "palm", scale = { 1.3, 1.7 } },
+	BananaPalm = { mesh = "palm", scale = { 1.2, 1.6 } },
 	Boulder = { mesh = "boulder", scale = { 1.1, 1.6 } },
 	Bush = { mesh = "bush", scale = { 1, 1.35 } },
 	SlimePool = { mesh = "slimepool", scale = { 1, 1 } },
@@ -308,6 +309,7 @@ local TINTS = {
 	bare = { Moss = rgbc(120, 116, 110) },
 	lush = { Frond = rgbc(110, 190, 70) },
 	sunfruit = { Coconut = rgbc(255, 150, 40) },
+	banana = { Coconut = rgbc(250, 214, 70), Frond = rgbc(96, 170, 60) },
 }
 local VARIANTS = {
 	Pine = {
@@ -328,6 +330,7 @@ local VARIANTS = {
 	},
 	Palm = { default = { { nil, 3 }, { "lush", 1 } } },
 	FruitPalm = { default = { { "sunfruit", 1 } } },
+	BananaPalm = { default = { { "banana", 1 } } },
 }
 local currentBiome = "default" -- set by populate while it fills an island
 
@@ -438,7 +441,7 @@ local ISLANDS: { Island } = {
 	{ name = "Old Ruins", x = 0, z = -370, r = 72, biome = "ruins" }, -- far north, past Ember
 	{ name = "Skull Key", x = 480, z = 330, r = 34, biome = "skull", ring = false },
 	{ name = "Gull Rock", x = -480, z = 330, r = 28, biome = "rockcay", ring = false },
-	{ name = "Sunfruit Isle", x = -340, z = 270, r = 66, biome = "fruit" }, -- fruit palms and ponds, near the start
+	{ name = "Banana Isle", x = -340, z = 270, r = 66, biome = "fruit" }, -- banana palms and ponds, near the start
 	{ name = "Maw Rock", x = 0, z = 160, r = 58, biome = "maw", ring = false, hub = true }, -- the way down to the Maw
 	-- Nameless islands: no name on the map, no cave, one hand-built outpost each
 	-- (see Outposts.lua). Always after the named ones.
@@ -494,8 +497,8 @@ local ISLANDS: { Island } = {
 	{ name = "Cluster 24", x = 441, z = 294, r = 22, biome = "islet7", nameless = true }, -- off Skull Key
 	{ name = "Cluster 25", x = -431, z = 330, r = 22, biome = "islet3", nameless = true }, -- off Gull Rock
 	{ name = "Cluster 26", x = -511, z = 302, r = 12, biome = "islet9", nameless = true }, -- off Gull Rock
-	{ name = "Cluster 27", x = -269, z = 270, r = 14, biome = "islet11", nameless = true }, -- off Sunfruit Isle
-	{ name = "Cluster 28", x = -396, z = 219, r = 20, biome = "islet1", nameless = true }, -- off Sunfruit Isle
+	{ name = "Cluster 27", x = -269, z = 270, r = 14, biome = "islet11", nameless = true }, -- off Banana Isle
+	{ name = "Cluster 28", x = -396, z = 219, r = 20, biome = "islet1", nameless = true }, -- off Banana Isle
 }
 -- Built MapScale.H times bigger than the shapes above, and MapScale.Spread further apart.
 for _, isl in ISLANDS do
@@ -618,8 +621,8 @@ local BIOME_NODES = {
 		{ "Boulder", 4, zone = "*" },
 		{ "Palm", 2, { 1, 1 }, zone = "shore" },
 	},
-	fruit = { -- food: groves of fruit palms, berry bushes round the ponds
-		{ "FruitPalm", 18, { 2, 4 }, zone = "inland" },
+	fruit = { -- Banana Isle: groves of banana palms, berry bushes round the ponds
+		{ "BananaPalm", 18, { 2, 4 }, zone = "inland" },
 		{ "Palm", 6, { 1, 2 }, zone = "shore" },
 		{ "Bush", 10, zone = "inland" },
 		{ "Boulder", 3, zone = "*" },
@@ -2017,12 +2020,12 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		return findSpot(isl, {}, 0, Vector3.new(isl.x, 0, isl.z), isl.r * 0.4, "*")
 	end)
 	-- The Sunfruit Giant can be chopped down: its trunk, fronds and fruit become a node.
-	local giantLandmark = workspace.Landmarks:FindFirstChild("The Sunfruit Giant")
+	local giantLandmark = workspace.Landmarks:FindFirstChild("The Banana Giant")
 	if giantLandmark then
 		local giant = Instance.new("Model")
 		giant.Name = "SunfruitGiant"
 		for _, p in giantLandmark:GetDescendants() do
-			if p:IsA("BasePart") and (p.Name == "Trunk" or p.Name == "Frond" or p.Name == "Sunfruit") then
+			if p:IsA("BasePart") and (p.Name == "Trunk" or p.Name == "Frond" or p.Name == "Banana") then
 				if not p.CanCollide then
 					p:SetAttribute("BaseCollide", false)
 				end
@@ -2120,7 +2123,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	}
 	local CAMP_AT = {
 		["Pine Hills"] = { "fort", "Hilltop Fort", Props.CLOTH[1], 52 },
-		["Sunfruit Isle"] = { "homestead", "Sunfruit Farm", Color3.fromRGB(255, 160, 60), 40 },
+		["Banana Isle"] = { "homestead", "Banana Farm", Color3.fromRGB(250, 210, 70), 40 },
 		["Coral Atoll"] = { "teepees", "Reef Camp", Props.CLOTH[2], 34 },
 		["Stone Shelf"] = { "quarry", "Quarry Yard", Props.CLOTH[4], 40 },
 	}
@@ -2255,7 +2258,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	local MOBS = {
 		["Clover Island"] = { { "Crab", 2, 3, "palms" } },
 		["Coral Atoll"] = { { "Crab", 4, 3, "shore" }, { "Boar", 1, 3, "inland" }, { "Turtle", 3, 2, "shore" } },
-		["Sunfruit Isle"] = { { "Boar", 2, 3, "inland" }, { "Turtle", 2, 2, "shore" }, { "Crab", 2, 3, "shore" } },
+		["Banana Isle"] = { { "Boar", 2, 3, "inland" }, { "Turtle", 2, 2, "shore" }, { "Crab", 2, 3, "shore" } },
 		["Pine Hills"] = { { "Boar", 1, 4, "forest" } },
 		["Silver Crags"] = { { "Wolf", 2, 3, "inland" }, { "Goat", 2, 3, "peak" } },
 		["Frost Isle"] = { { "Wolf", 3, 3, "slopes" } },
