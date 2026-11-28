@@ -987,10 +987,10 @@ function Caves.fixWindows(result: Result)
 	-- leaves the same round window in its roof.
 	local nt = #result.tunnels
 	for ci, c in result.chambers do
-		table.insert(balls, { p = c.pos + Vector3.new(0, c.r * 0.45, 0), r = c.r, zone = c.zone, t = nt + ci, i = 0, solo = true })
+		table.insert(balls, { p = c.pos + Vector3.new(0, c.r * 0.45, 0), r = c.r, zone = c.zone, t = nt + ci, i = 0, solo = true, centre = c.pos, realR = c.r })
 	end
 	for li, l in result.lobes do
-		table.insert(balls, { p = l.pos, r = l.r, zone = l.zone, t = nt + #result.chambers + li, i = 0, solo = true })
+		table.insert(balls, { p = l.pos, r = l.r, zone = l.zone, t = nt + #result.chambers + li, i = 0, solo = true, centre = l.pos, realR = l.r })
 	end
 	local grid = {}
 	for n, b in balls do
@@ -1061,6 +1061,17 @@ function Caves.fixWindows(result: Result)
 				end
 			elseif nearJoin(a, b) then
 				return
+			end
+			-- A cavern only gets a window filled in its roof: a tunnel running into its
+			-- side or floor is a way in, never a wall to fill (that sealed passages off).
+			local solo, other = if a.solo then a else (if b.solo then b else nil), if a.solo then b else a
+			if solo and not other.solo then
+				local off = other.p - solo.centre
+				if off.Magnitude < solo.realR + other.r * 0.75 or off.Y < solo.realR * 0.35 then
+					return
+				end
+			elseif solo then
+				return -- two caverns side by side: leave them be
 			end
 			local mid = (a.p + b.p) / 2
 			local cell = math.floor(mid.X / 8) .. "," .. math.floor(mid.Y / 8) .. "," .. math.floor(mid.Z / 8)
@@ -1298,6 +1309,7 @@ end
 -- deep terrain caves that walk fine.
 function Caves.verify(terrain: Terrain, result: Result)
 	local solid, total = 0, 0
+	local blocked = {} -- where the walkable paths are solid rock, to go and look
 	-- The walk from the first island's entrance down to its root and on to the
 	-- middle island, as "x,y,z;..." so a test client (and /tp route) can walk it.
 	local route = {}
@@ -1322,6 +1334,9 @@ function Caves.verify(terrain: Terrain, result: Result)
 			local mats, occ = terrain:ReadVoxels(region, 4)
 			if mats[1][1][1] ~= M.Air and mats[1][1][1] ~= M.Water and occ[1][1][1] > 0.5 then
 				solid += 1
+				if solid <= 40 then
+					table.insert(blocked, string.format("%d,%d,%d", p.X, p.Y, p.Z))
+				end
 			end
 		end
 		if n % 4 == 0 then
@@ -1342,6 +1357,7 @@ function Caves.verify(terrain: Terrain, result: Result)
 		#result.crystalCaves
 	)
 	workspace:SetAttribute("CaveCheck", summary)
+	workspace:SetAttribute("CaveBlocked", table.concat(blocked, ";"))
 	print("[Caves] " .. summary)
 end
 
