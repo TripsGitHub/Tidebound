@@ -37,8 +37,9 @@ local Favourites = require(script.Parent.Favourites)
 local state = { items = {}, equipped = nil, armour = {} }
 local callbacks: any = {}
 
-local PANEL_W = 318
-local CARD = UDim2.fromOffset(144, 110)
+local PANEL_W = 488 -- three cards across, like a proper survival-game bag
+local CARD = UDim2.fromOffset(150, 114)
+local BAG_CARD = UDim2.fromOffset(150, 150)
 local TOP = 100 -- below the XP bar, compass and target bar
 local BOTTOM = 112 -- above the hotbar
 
@@ -113,15 +114,15 @@ local function hoverable(card: GuiObject, id: string)
 end
 
 local function tabRow(parent: Instance, tabs, store: { [string]: Frame }, onPick: (string) -> ())
-	local row = new("Frame", { Parent = parent, Position = UDim2.fromOffset(8, 6), Size = UDim2.new(1, -16, 0, 34), BackgroundTransparency = 1 }, {
-		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
+	local row = new("Frame", { Parent = parent, Position = UDim2.fromOffset(8, 6), Size = UDim2.new(1, -16, 0, 48), BackgroundTransparency = 1 }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	for i, tab in tabs do
-		local holder = block({ Parent = row, LayoutOrder = i, Size = UDim2.fromOffset(if tab.icon then 34 else 46, 34), BackgroundTransparency = 1 })
+		local holder = block({ Parent = row, LayoutOrder = i, Size = UDim2.fromOffset(if tab.icon then 48 else 64, 48), BackgroundTransparency = 1 })
 		if tab.icon then
-			Icons.make(tab.icon, holder, UDim2.fromOffset(28, 28), UDim2.fromOffset(3, 3))
+			Icons.make(tab.icon, holder, UDim2.fromOffset(42, 42), UDim2.fromOffset(3, 3))
 		end
-		textButton({ Parent = holder, Size = UDim2.fromScale(1, 1), Text = if tab.icon then "" else tab.name, TextScaled = false, TextSize = 24, ZIndex = 2 }, function()
+		textButton({ Parent = holder, Size = UDim2.fromScale(1, 1), Text = if tab.icon then "" else tab.name, TextScaled = false, TextSize = 32, ZIndex = 2 }, function()
 			onPick(tab.name)
 		end)
 		store[tab.name] = holder
@@ -135,18 +136,18 @@ local function styleTabs(store: { [string]: Frame }, active: string)
 	end
 end
 
-local function grid(parent: Instance): ScrollingFrame
+local function grid(parent: Instance, cell: UDim2?): ScrollingFrame
 	return new("ScrollingFrame", {
 		Parent = parent,
-		Position = UDim2.fromOffset(8, 46),
-		Size = UDim2.new(1, -12, 1, -52),
+		Position = UDim2.fromOffset(8, 60),
+		Size = UDim2.new(1, -12, 1, -66),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 5,
 		ScrollBarImageColor3 = C.rim,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
-	}, { new("UIGridLayout", { CellSize = CARD, CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }) })
+	}, { new("UIGridLayout", { CellSize = cell or CARD, CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }) })
 end
 
 local rebuildBag: () -> ()
@@ -247,18 +248,20 @@ local function bagCard(id: string)
 	local ring = UIKit.stroke(C.star, 2)
 	ring.Parent = card
 	hoverable(card, id)
-	local star = textButton({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(20, 20), Text = "☆", TextColor3 = C.star, TextScaled = false, TextSize = 20, ZIndex = 3 }, function()
+	local star = textButton({ Parent = card, Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(26, 26), Text = "☆", TextColor3 = C.star, TextScaled = false, TextSize = 26, ZIndex = 3 }, function()
 		Favourites.toggle(id)
 		rebuildBag()
 	end)
-	Icons.make(id, card, UDim2.fromOffset(52, 52), UDim2.new(0.5, -26, 0, 4))
-	local name = label({ Parent = card, Position = UDim2.fromOffset(2, 58), Size = UDim2.new(1, -4, 0, 18), Text = item.name, TextScaled = false, TextSize = 15 })
+	Icons.make(id, card, UDim2.fromOffset(74, 74), UDim2.new(0.5, -37, 0, 8))
+	local name = label({ Parent = card, Position = UDim2.fromOffset(2, 84), Size = UDim2.new(1, -4, 0, 22), Text = item.name, TextScaled = false, TextSize = 18 })
+	-- A darker strip along the bottom holds the actions.
+	block({ Parent = card, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = C.cardDark })
 
-	local actions = new("Frame", { Parent = card, Position = UDim2.fromOffset(4, 80), Size = UDim2.new(1, -8, 0, 24), BackgroundTransparency = 1 }, {
+	local actions = new("Frame", { Parent = card, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 4, 1, -5), Size = UDim2.new(1, -8, 0, 28), BackgroundTransparency = 1, ZIndex = 3 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	local function act(order: number, text: string, fn: () -> ()): TextButton
-		return textButton({ Parent = actions, LayoutOrder = order, Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 19 }, fn)
+		return textButton({ Parent = actions, LayoutOrder = order, Size = UDim2.fromOffset(0, 28), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 21, ZIndex = 3 }, fn)
 	end
 	local primary
 	if item.kind == "armour" then
@@ -494,7 +497,17 @@ function Screen.init(parent: ScreenGui, cb)
 		bagTab = name
 		rebuildBag()
 	end)
-	bagGrid = grid(bagPanel)
+	bagGrid = grid(bagPanel, BAG_CARD)
+
+	-- On smaller screens shrink the whole screen to fit rather than overlap.
+	local fit = new("UIScale", { Parent = root })
+	local function refit()
+		local sc = math.clamp(parent.AbsoluteSize.X / (PANEL_W * 2 + 440), 0.6, 1)
+		fit.Scale = sc
+		root.Size = UDim2.fromScale(1 / sc, 1 / sc)
+	end
+	parent:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
+	task.defer(refit)
 
 	-- Red X in the gap above the hotbar
 	UIKit.closeButton({ Parent = root, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -BOTTOM + 6), TextScaled = false, TextSize = 22 }, function()
