@@ -28,19 +28,21 @@ local CAVE_ZOOM = 0.55 -- pixels per stud underground
 local REVEAL = 55 -- studs: how far your light reaches on the cave map
 local SHOW_DEPTH = 40 -- studs: tunnels this far above or below you aren't drawn
 
+-- Soft, muted colours, like an old sea chart: olive land, sandy beaches, a dark
+-- green-teal sea. Easy on the eyes and islands still stand out.
 local LAND_COLOURS = {
-	s = rgb(236, 220, 160),
-	g = rgb(150, 184, 70),
-	f = rgb(116, 150, 60),
-	r = rgb(130, 126, 120),
-	n = rgb(240, 246, 250),
-	i = rgb(170, 216, 236),
-	m = rgb(96, 110, 66),
-	d = rgb(140, 110, 76),
-	b = rgb(64, 60, 66),
-	l = rgb(240, 110, 40),
+	s = rgb(196, 182, 128),
+	g = rgb(126, 146, 74),
+	f = rgb(98, 122, 60),
+	r = rgb(128, 124, 112),
+	n = rgb(206, 214, 214),
+	i = rgb(160, 190, 196),
+	m = rgb(90, 98, 62),
+	d = rgb(132, 108, 78),
+	b = rgb(72, 66, 66),
+	l = rgb(196, 104, 52),
 }
-local SEA = rgb(36, 92, 140)
+local SEA = rgb(44, 66, 60)
 
 local root: Frame
 local surfaceLayer: Frame
@@ -93,9 +95,9 @@ local function cellColour(rows: { string }, cols: number, nrows: number, c: numb
 	if ch == "." then
 		-- Shallows near land are pale turquoise, open sea a deep blue.
 		local t = math.clamp(v / 30, 0, 1)
-		return rgb(120, 206, 214):Lerp(rgb(36, 92, 140), t ^ 0.7)
+		return rgb(92, 124, 108):Lerp(SEA, t ^ 0.6)
 	elseif ch == "w" then
-		return rgb(86, 170, 210)
+		return rgb(84, 118, 112)
 	end
 	local base = LAND_COLOURS[ch] or LAND_COLOURS.g
 	local function h(cc: number, rr: number): number
@@ -110,7 +112,7 @@ local function cellColour(rows: { string }, cols: number, nrows: number, c: numb
 	end
 	local slope = (h(c - 1, r - 1) - h(c + 1, r + 1)) * 0.06
 	local lift = math.clamp(v / 50, 0, 0.35)
-	local col = base:Lerp(rgb(255, 250, 230), lift * 0.5)
+	local col = base:Lerp(rgb(236, 230, 200), lift * 0.4)
 	if slope > 0 then
 		col = col:Lerp(rgb(255, 255, 240), math.clamp(slope, 0, 0.35))
 	else
@@ -175,7 +177,7 @@ local function drawLand(data: Folder)
 			else
 				local parts = string.split(key, ",")
 				local c0, c1 = tonumber(parts[1]) :: number, tonumber(parts[2]) :: number
-				local colour = if parts[3] == "w" then rgb(86, 170, 210) else LAND_COLOURS[parts[3]] or LAND_COLOURS.g
+				local colour = if parts[3] == "w" then rgb(84, 118, 112) else LAND_COLOURS[parts[3]] or LAND_COLOURS.g
 				local frame = new("Frame", {
 					Parent = surfaceWorld,
 					Position = UDim2.fromOffset((c0 - 1) * SURFACE_PX, (r - 1) * SURFACE_PX),
