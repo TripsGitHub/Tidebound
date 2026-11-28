@@ -1,13 +1,13 @@
 -- Damage markers, like Island Tribes: every time something takes a hit a marker pops up
--- and floats away. A red badge with your tool's icon when you hit something, a red heart
--- when you're hurt, a green heart when you heal, each with the number on a white pill.
+-- and floats away. Red crossed swords when you hit something, a red heart when you're
+-- hurt, a green heart when you heal, each with the number on a white pill, and a green
+-- "XP" orb with "+N Xp" whenever you earn XP.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
-local Icons = require(script.Parent.Icons)
 
 local Markers = {}
 
@@ -53,6 +53,96 @@ local function heart(parent: Instance, size: number, colour: Color3, z: number)
 	return holder
 end
 
+-- Two crossed swords, drawn flat: red blades with dark edges, gold guards and grips.
+local function swords(parent: Instance, size: number, z: number)
+	local holder = Instance.new("Frame")
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	holder.Position = UDim2.fromScale(0.5, 0.42)
+	holder.Size = UDim2.fromOffset(size, size)
+	holder.ZIndex = z
+	holder.Parent = parent
+	local function bar(x: number, y: number, w: number, h: number, rot: number, colour: Color3, edge: Color3?, zi: number)
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(x, y)
+		f.Size = UDim2.fromScale(w, h)
+		f.Rotation = rot
+		f.BackgroundColor3 = colour
+		f.BorderSizePixel = 0
+		f.ZIndex = zi
+		f.Parent = holder
+		Instance.new("UICorner", f).CornerRadius = UDim.new(0.3, 0)
+		if edge then
+			local st = Instance.new("UIStroke")
+			st.Color = edge
+			st.Thickness = 2
+			st.Parent = f
+		end
+		return f
+	end
+	local red, edge, gold = Color3.fromRGB(232, 58, 48), Color3.fromRGB(110, 18, 14), Color3.fromRGB(250, 200, 70)
+	for _, side in { -1, 1 } do
+		local rot = side * 45
+		local rad = math.rad(rot)
+		local function along(d: number): (number, number)
+			-- d: -0.5 (handle end, bottom) .. 0.5 (tip, top)
+			return 0.5 + math.sin(rad) * d * 0.9, 0.5 - math.cos(rad) * d * 0.9
+		end
+		local bx, by = along(0.12)
+		bar(bx, by, 0.16, 0.7, rot, red, edge, z + 1)
+		local gx, gy = along(-0.26)
+		bar(gx, gy, 0.42, 0.1, rot, gold, edge, z + 2)
+		local hx, hy = along(-0.38)
+		bar(hx, hy, 0.1, 0.2, rot, Color3.fromRGB(120, 70, 36), edge, z + 2)
+	end
+	return holder
+end
+
+-- An Island Tribes XP orb: a green octagon with "XP" on it.
+local function xpOrb(parent: Instance, size: number, z: number)
+	local holder = Instance.new("Frame")
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = Vector2.new(0.5, 0.5)
+	holder.Position = UDim2.fromScale(0.5, 0.4)
+	holder.Size = UDim2.fromOffset(size, size)
+	holder.ZIndex = z
+	holder.Parent = parent
+	for i, spec in { { 1, Color3.fromRGB(30, 110, 30), 0 }, { 0.82, Color3.fromRGB(110, 220, 80), 1 } } do
+		for _, rot in { 0, 45 } do
+			local f = Instance.new("Frame")
+			f.AnchorPoint = Vector2.new(0.5, 0.5)
+			f.Position = UDim2.fromScale(0.5, 0.5)
+			f.Size = UDim2.fromScale(spec[1] * 0.92, spec[1] * 0.92)
+			f.Rotation = rot
+			f.BackgroundColor3 = spec[2]
+			f.BorderSizePixel = 0
+			f.ZIndex = z + spec[3]
+			f.Parent = holder
+			Instance.new("UICorner", f).CornerRadius = UDim.new(0.08, 0)
+		end
+		if i == 2 then
+			local t = Instance.new("TextLabel")
+			t.BackgroundTransparency = 1
+			t.Size = UDim2.fromScale(1, 1)
+			t.Text = "XP"
+			t.TextScaled = true
+			t.FontFace = FONT
+			t.TextColor3 = Color3.fromRGB(255, 255, 255)
+			t.ZIndex = z + 3
+			t.Parent = holder
+			local st = Instance.new("UIStroke")
+			st.Color = Color3.fromRGB(30, 90, 30)
+			st.Thickness = 2
+			st.Parent = t
+			local pad = Instance.new("UIPadding")
+			pad.PaddingTop, pad.PaddingBottom = UDim.new(0.22, 0), UDim.new(0.22, 0)
+			pad.Parent = t
+		end
+	end
+	return holder
+end
+
 local function show(at: Vector3, amount: number, color: Color3, itemId: string?, _self: boolean, heal: boolean?)
 	local anchor = Instance.new("Part")
 	anchor.Anchored, anchor.CanCollide, anchor.CanQuery, anchor.CanTouch = true, false, false, false
@@ -68,7 +158,7 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	gui.Parent = anchor
 	-- One group so everything fades together. Item icons are 3D (ViewportFrames),
 	-- which don't draw inside a CanvasGroup, so those markers fade piece by piece.
-	local withIcon = itemId ~= nil and not heal
+	local withIcon = false -- drawn icons only now, so the whole marker fades as one group
 	local group = Instance.new(if withIcon then "Frame" else "CanvasGroup") :: any
 	group.BackgroundTransparency = 1
 	group.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -86,27 +176,9 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	local textColour = if heal then Color3.fromRGB(46, 150, 50) else Color3.fromRGB(210, 40, 32)
 	local pillY = 0.5
 	if itemId and not heal then
-		-- What you hit with: a red rounded badge with the tool's icon, number below it.
-		local badge = Instance.new("Frame")
-		badge.AnchorPoint = Vector2.new(0.5, 0.5)
-		badge.Position = UDim2.fromScale(0.5, 0.36)
-		badge.Size = UDim2.fromOffset(40, 40)
-		badge.BackgroundColor3 = Color3.fromRGB(255, 246, 228)
-		badge.Parent = group
-		Instance.new("UICorner", badge).CornerRadius = UDim.new(0.3, 0)
-		local ring = Instance.new("UIStroke")
-		ring.Color = fill
-		ring.Thickness = 4
-		ring.Parent = badge
-		local holderIcon = Instance.new("Frame")
-		holderIcon.BackgroundTransparency = 1
-		holderIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-		holderIcon.Position = UDim2.fromScale(0.5, 0.5)
-		holderIcon.Size = UDim2.fromOffset(30, 30)
-		holderIcon.ZIndex = 2
-		holderIcon.Parent = badge
-		Icons.make(itemId, holderIcon, UDim2.fromOffset(30, 30), UDim2.fromOffset(0, 0))
-		pillY = 0.74
+		-- You hit something: Island Tribes' red crossed swords, number below.
+		swords(group, 50, 1)
+		pillY = 0.76
 	else
 		heart(group, 66, dark, 1)
 		heart(group, 58, fill, 2)
@@ -155,6 +227,51 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 		TweenService:Create(group, TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4), { GroupTransparency = 1 }):Play()
 	end
 	task.delay(LIFE + 0.05, function()
+		anchor:Destroy()
+	end)
+end
+
+-- XP you earn: a green "XP" orb that pops up over you with "+N Xp" under it.
+local function showXp(at: Vector3, amount: number)
+	local anchor = Instance.new("Part")
+	anchor.Anchored, anchor.CanCollide, anchor.CanQuery, anchor.CanTouch = true, false, false, false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.one * 0.2
+	anchor.CFrame = CFrame.new(at + Vector3.new(math.random() * 3 - 1.5, 2 + math.random(), math.random() * 3 - 1.5))
+	anchor.Parent = workspace.CurrentCamera
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(80, 80)
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.MaxDistance = 120
+	gui.Parent = anchor
+	local group = Instance.new("CanvasGroup")
+	group.BackgroundTransparency = 1
+	group.Size = UDim2.fromScale(1, 1)
+	group.Parent = gui
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.5
+	scale.Parent = group
+	xpOrb(group, 50, 1)
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.AnchorPoint = Vector2.new(0.5, 0)
+	t.Position = UDim2.fromScale(0.5, 0.72)
+	t.Size = UDim2.fromOffset(90, 20)
+	t.Text = "+" .. math.floor(amount + 0.5) .. " Xp"
+	t.TextSize = 18
+	t.FontFace = FONT
+	t.TextColor3 = Color3.fromRGB(255, 255, 255)
+	t.ZIndex = 6
+	t.Parent = group
+	local st = Instance.new("UIStroke")
+	st.Color = Color3.fromRGB(20, 50, 20)
+	st.Thickness = 2
+	st.Parent = t
+	TweenService:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(gui, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(0, 3, 0) }):Play()
+	TweenService:Create(group, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.6), { GroupTransparency = 1 }):Play()
+	task.delay(1.5, function()
 		anchor:Destroy()
 	end)
 end
@@ -226,6 +343,23 @@ function Markers.start()
 		end)
 	end
 	local player = Players.LocalPlayer
+	-- XP orbs whenever you earn XP (a level-up resets XP, so count across it).
+	local Config = require(Shared.Config)
+	local lastXp, lastLevel = player:GetAttribute("XP") or 0, player:GetAttribute("Level") or 1
+	local loaded = false
+	task.delay(8, function()
+		loaded = true -- skip the jump when the save loads
+		lastXp, lastLevel = player:GetAttribute("XP") or 0, player:GetAttribute("Level") or 1
+	end)
+	player:GetAttributeChangedSignal("XP"):Connect(function()
+		local xp, level = player:GetAttribute("XP") or 0, player:GetAttribute("Level") or 1
+		local gained = if level > lastLevel then Config.XpForLevel(lastLevel) - lastXp + xp else xp - lastXp
+		lastXp, lastLevel = xp, level
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if loaded and gained > 0 and root then
+			showXp(root.Position, gained)
+		end
+	end)
 	if player.Character then
 		task.spawn(hook, player.Character)
 	end

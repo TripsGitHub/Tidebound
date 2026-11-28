@@ -926,36 +926,45 @@ for _, t in Items.CARTS do
 end
 
 for _, tier in Tiers.list do
-	-- A kite shield like Island Tribes': pointed top and bottom, a wooden face with
-	-- plank lines, a rim in the tier's colour (thick down one side), and a round boss
-	-- in the middle with the tier's accent on it.
+	-- A big rounded shield, worn large on the forearm: a wide round top tapering to a
+	-- blunt point at the bottom, a thick rim in the tier's material (crystal tiers
+	-- get glassy, glowing rims), a planked wooden face that bulges a little, and a
+	-- round boss with the tier's accent glowing in it.
 	builders[tier.id .. "_shield"] = function(m)
-		local wood, woodDark = Color3.fromRGB(122, 82, 46), Color3.fromRGB(88, 58, 32)
+		local wood, woodDark = Color3.fromRGB(150, 98, 52), Color3.fromRGB(104, 66, 36)
 		local rimMat = if tier.id == "wood" then Enum.Material.Wood else tierMaterial(tier.id)
-		local core = part(m, Vector3.new(0.6, 0.3, 0.2), CFrame.new(0, 0, 0.12), woodDark, Enum.Material.Wood) -- the handle at the back
-		local ROWS, HALF = 14, 1.25
-		local step = HALF * 2 / ROWS
+		local rimColour = if tier.id == "wood" then woodDark else tier.plate
+		local core = part(m, Vector3.new(0.7, 0.34, 0.24), CFrame.new(0, 0, 0.16), woodDark, Enum.Material.Wood) -- the handle at the back
+		local ROWS, H, W = 20, 1.3, 1.05 -- half height, half width
+		local step = H * 2 / ROWS
 		for i = 0, ROWS - 1 do
-			local y = -HALF + (i + 0.5) * step
-			local t = math.abs(y) / HALF
-			local w = 1.05 * (1 - t ^ 1.7) ^ 0.75 + 0.06
-			-- The rim: a little wider than the face, and thicker on the left edge.
-			part(m, Vector3.new(w + 0.22, step + 0.02, 0.16), CFrame.new(-0.05, y, 0.02), tier.plate, rimMat)
-			part(m, Vector3.new(w, step + 0.02, 0.2), CFrame.new(0.03, y, -0.02), if i % 2 == 0 then wood else wood:Lerp(woodDark, 0.25), Enum.Material.Wood)
+			local y = -H + (i + 0.5) * step
+			local t = y / H
+			local half = if t >= 0 then W * math.sqrt(math.max(0, 1 - t * t)) ^ 0.8 else W * (1 - math.abs(t) ^ 1.6) ^ 0.7
+			half = math.max(half, 0.12)
+			local bulge = 0.08 * (1 - t * t)
+			-- The rim, then the wooden face inside it.
+			part(m, Vector3.new(half * 2 + 0.3, step + 0.02, 0.22), CFrame.new(0, y, 0), rimColour, rimMat)
+			if half > 0.2 then
+				part(m, Vector3.new(half * 2 - 0.05, step + 0.02, 0.22 + bulge), CFrame.new(0, y, -0.03 - bulge / 2), if i % 3 == 0 then wood:Lerp(woodDark, 0.2) else wood, Enum.Material.Wood)
+			end
 		end
-		-- Tips of the rim, so the points stay sharp.
-		for _, side in { -1, 1 } do
-			part(m, Vector3.new(0.14, 0.24, 0.16), CFrame.new(-0.02, side * (HALF + 0.06), 0.02), tier.plate, rimMat)
+		-- Plank lines down the face, and a band across it.
+		for _, x in { -0.42, 0, 0.42 } do
+			part(m, Vector3.new(0.035, H * 1.5, 0.02), CFrame.new(x, -0.05, -0.2), woodDark, Enum.Material.Wood)
 		end
-		-- Plank lines down the face.
-		for _, x in { -0.28, 0.3 } do
-			part(m, Vector3.new(0.04, HALF * 1.35, 0.02), CFrame.new(x, 0, -0.125), woodDark, Enum.Material.Wood)
-		end
-		-- The boss: a dark iron ring with the tier's colour in the middle.
-		part(m, Vector3.new(0.12, 0.62, 0.62), CFrame.new(0.03, 0.05, -0.15) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(70, 66, 62), Enum.Material.Metal, Enum.PartType.Cylinder)
-		part(m, Vector3.new(0.34, 0.34, 0.34), CFrame.new(0.03, 0.05, -0.2), tier.accent, if tier.glow then Enum.Material.Neon else Enum.Material.Metal, Enum.PartType.Ball)
-		for _, y in { 0.62, -0.52 } do
-			part(m, Vector3.new(0.1, 0.1, 0.06), CFrame.new(0.03, y, -0.14), Color3.fromRGB(70, 66, 62), Enum.Material.Metal)
+		-- The boss: an iron ring with the tier's accent glowing in the middle.
+		part(m, Vector3.new(0.14, 0.8, 0.8), CFrame.new(0, -0.05, -0.2) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(70, 62, 52), Enum.Material.Metal, Enum.PartType.Cylinder)
+		local accent = if tier.id == "wood" then Color3.fromRGB(250, 214, 90) else tier.accent
+		part(m, Vector3.new(0.46, 0.46, 0.46), CFrame.new(0, -0.05, -0.27), accent, Enum.Material.Neon, Enum.PartType.Ball)
+		-- Rivets round the rim.
+		for k = 0, 7 do
+			local a = k / 8 * math.pi * 2
+			local rx, ry = math.cos(a) * (W - 0.05), math.sin(a) * (H - 0.08)
+			if ry < 0 then
+				rx *= 0.7
+			end
+			part(m, Vector3.new(0.12, 0.12, 0.06), CFrame.new(rx, ry, -0.13), Color3.fromRGB(80, 72, 60), Enum.Material.Metal)
 		end
 		-- Same pivot as the old round shield (turned a quarter about Y, at the middle),
 		-- so it still straps onto the forearm facing out.

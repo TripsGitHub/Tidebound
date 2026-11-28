@@ -206,8 +206,8 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 	restyle()
 	-- Armour badges over the plate, seen by everyone: a blue shield for how much of a
 	-- player's hit it blocks and a green slime for a mob's. Hidden with no armour on.
-	local badgeRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(150, 34), BackgroundTransparency = 1, Visible = false }, {
-		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 26), SortOrder = Enum.SortOrder.LayoutOrder }),
+	local badgeRow = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(220, 34), BackgroundTransparency = 1, Visible = false }, {
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 14), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	local function pctLabel(parent: Instance)
 		local pill = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromOffset(34, 14), BackgroundColor3 = rgb(236, 236, 236), BorderSizePixel = 0, ZIndex = 9 }, {
@@ -237,9 +237,41 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 	})
 	new("Frame", { Parent = slime, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromOffset(34, 8), BackgroundColor3 = green, BorderSizePixel = 0, ZIndex = 8 })
 	local vsMob = pctLabel(slime)
+	-- Stat add-ons: one round badge per active booster, next to the armour badges.
+	-- Each reads a player attribute holding a percentage; nil or 0 hides it. New
+	-- boosters only need a line here (and the server setting the attribute).
+	local BOOSTS = {
+		{ attr = "BoostSpeed", glyph = ">>", fill = rgb(250, 196, 40), edge = rgb(110, 70, 10), sign = "+" },
+		{ attr = "BoostDamage", glyph = "X", fill = rgb(230, 60, 50), edge = rgb(90, 16, 12), sign = "+" },
+		{ attr = "BoostRegen", glyph = "+", fill = rgb(90, 200, 90), edge = rgb(20, 70, 20), sign = "+" },
+		{ attr = "Heavy", glyph = "kg", fill = rgb(130, 130, 140), edge = rgb(40, 40, 46), sign = "-" },
+	}
+	local boostBadges = {}
+	for i, b in BOOSTS do
+		local holder = new("Frame", { Parent = badgeRow, LayoutOrder = 2 + i, Size = UDim2.fromOffset(32, 34), BackgroundTransparency = 1, Visible = false })
+		local disc = new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = b.fill, BorderSizePixel = 0, ZIndex = 7 }, {
+			new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+			new("UIStroke", { Color = b.edge, Thickness = 2 }),
+		})
+		new("TextLabel", { Parent = disc, Size = UDim2.fromScale(1, 0.8), BackgroundTransparency = 1, Text = b.glyph, TextScaled = true, TextColor3 = rgb(255, 255, 255), TextStrokeTransparency = 0.3, FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy), ZIndex = 8 })
+		local pill = pctLabel(holder)
+		pill.Parent.Position = UDim2.fromScale(0.5, 0.82)
+		boostBadges[i] = { holder = holder, label = pill, spec = b }
+	end
 	local function armour()
 		local m, p = plr:GetAttribute("DefMob") or 0, plr:GetAttribute("DefPlayer") or 0
-		badgeRow.Visible = not npc and (m > 0 or p > 0)
+		local anyBoost = false
+		for _, bb in boostBadges do
+			local v = plr:GetAttribute(bb.spec.attr)
+			local on = type(v) == "number" and v ~= 0
+			bb.holder.Visible = on
+			if on then
+				anyBoost = true
+				bb.label.Text = bb.spec.sign .. tostring(math.abs(v)) .. "%"
+			end
+		end
+		shield.Visible, slime.Visible = m > 0 or p > 0, m > 0 or p > 0
+		badgeRow.Visible = not npc and (m > 0 or p > 0 or anyBoost)
 		local function fmt(n: number)
 			return (if n == math.floor(n) then tostring(n) else string.format("%.1f", n)) .. "%"
 		end
@@ -251,6 +283,10 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 	local conns = {
 		plr:GetAttributeChangedSignal("DefMob"):Connect(armour),
 		plr:GetAttributeChangedSignal("DefPlayer"):Connect(armour),
+		plr:GetAttributeChangedSignal("BoostSpeed"):Connect(armour),
+		plr:GetAttributeChangedSignal("BoostDamage"):Connect(armour),
+		plr:GetAttributeChangedSignal("BoostRegen"):Connect(armour),
+		plr:GetAttributeChangedSignal("Heavy"):Connect(armour),
 		plr:GetAttributeChangedSignal("Level"):Connect(refresh),
 		plr:GetAttributeChangedSignal("Nameplate"):Connect(restyle),
 		plr:GetAttributeChangedSignal("Title"):Connect(restyle),

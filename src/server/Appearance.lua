@@ -116,7 +116,7 @@ local SLOT_PARTS = {
 		{ names = { "RightFoot", "Right Leg" }, offset = CFrame.new(0, 0, -0.1), scale = 1, half = "right", foot = true },
 	},
 	bag = { { names = { "UpperTorso", "Torso" }, offset = CFrame.new(0, 0.1, 0.95), scale = 1 } },
-	shield = { { names = { "LeftLowerArm", "Left Arm" }, offset = CFrame.new(-0.75, 0.1, 0), scale = 1 } },
+	shield = { { names = { "LeftLowerArm", "Left Arm" }, offset = CFrame.new(-0.85, 0.15, 0), scale = 1 } },
 }
 
 local function simplePiece(itemId: string, attach: BasePart, spec): Model
@@ -127,8 +127,8 @@ local function simplePiece(itemId: string, attach: BasePart, spec): Model
 	local material = model.PrimaryPart.Material
 	if item.slot == "shield" then
 		-- Strapped to the outside of the forearm, facing out to the side.
-		model:ScaleTo(0.9)
-		model:PivotTo(attach.CFrame * spec.offset * CFrame.Angles(0, math.rad(90), 0))
+		model:ScaleTo(1.25) -- worn big, like Island Tribes'
+		model:PivotTo(attach.CFrame * spec.offset * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(0, 0, math.rad(-8)))
 	elseif item.slot ~= "bag" then
 		model:ClearAllChildren()
 		local shell = Instance.new("Part")

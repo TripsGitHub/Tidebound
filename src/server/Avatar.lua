@@ -1,7 +1,7 @@
 -- Everyone spawns as the same kind of island tribesperson instead of their own Roblox
 -- avatar: a plain blocky R15 body at normal scale (so armour always fits, and nobody
 -- can be tiny or invisible to get an edge), a skin tone and hair colour picked from
--- their user id, a hide tunic and kilt with jagged hems, a belt, short hair and a
+-- their user id, a hide tunic and kilt with jagged hems, a belt, a Roblox hair and face, and a
 -- necklace of three white fangs. The same player always gets the same look.
 local Players = game:GetService("Players")
 
@@ -10,6 +10,10 @@ local Avatar = {}
 local rgb = Color3.fromRGB
 local SKIN = { rgb(255, 220, 186), rgb(234, 190, 150), rgb(204, 150, 106), rgb(160, 106, 70), rgb(120, 76, 48), rgb(92, 58, 38) }
 local HAIR = { rgb(40, 30, 24), rgb(62, 44, 30), rgb(24, 20, 18), rgb(96, 64, 38), rgb(140, 98, 54) }
+-- Free Roblox catalog hair and faces (checked in Studio): Pal Hair, Brown Charmer
+-- Hair, Shaggy, Brown Hair, Lavender Updo; Smile, Check It, Man Face. No hats.
+local HAIRS = { 63690008, 376548738, 20573078, 62234425, 451220849 }
+local FACES = { 144075659, 7074786, 86487700 }
 local HIDE = { rgb(150, 86, 44), rgb(136, 78, 42), rgb(160, 100, 56), rgb(122, 74, 44) }
 
 local function look(userId: number)
@@ -18,6 +22,8 @@ local function look(userId: number)
 		skin = SKIN[rng:NextInteger(1, #SKIN)],
 		hair = HAIR[rng:NextInteger(1, #HAIR)],
 		hide = HIDE[rng:NextInteger(1, #HIDE)],
+		hairId = HAIRS[rng:NextInteger(1, #HAIRS)],
+		faceId = FACES[rng:NextInteger(1, #FACES)],
 	}
 end
 
@@ -27,9 +33,11 @@ function Avatar.description(player: Player): HumanoidDescription
 	d.HeadColor, d.LeftArmColor, d.RightArmColor = l.skin, l.skin, l.skin
 	d.TorsoColor = l.hide
 	d.LeftLegColor, d.RightLegColor = l.hide:Lerp(Color3.new(0, 0, 0), 0.12), l.hide:Lerp(Color3.new(0, 0, 0), 0.12)
-	-- Blocky default body parts, standard scale, no accessories or clothing.
+	-- Blocky default body parts, standard scale, a Roblox hair and face, no hats.
 	d.HeightScale, d.WidthScale, d.DepthScale, d.HeadScale = 1, 1, 1, 1
 	d.BodyTypeScale, d.ProportionScale = 0, 0
+	d.HairAccessory = tostring(l.hairId)
+	d.Face = l.faceId
 	return d
 end
 
@@ -81,7 +89,7 @@ local function hem(folder: Instance, to: BasePart, y: number, colour: Color3, gr
 	teeth(2, dp, Vector3.zAxis, Vector3.new(w / 2, 0, 0))
 end
 
--- Dresses a freshly spawned character: hair, tunic hem, belt, kilt, necklace.
+-- Dresses a freshly spawned character: tunic hem, belt, kilt, necklace.
 function Avatar.dress(player: Player, character: Model)
 	local l = look(player.UserId)
 	local old = character:FindFirstChild("TribeOutfit")
@@ -95,16 +103,6 @@ function Avatar.dress(player: Player, character: Model)
 	local lower = character:WaitForChild("LowerTorso", 5) :: BasePart?
 	if not head or not upper or not lower then
 		return
-	end
-	local hs = head.Size
-	-- Short hair: a cap over the top and back of the head, a fringe and side tufts.
-	piece(folder, head, Vector3.new(hs.X + 0.1, hs.Y * 0.3, hs.Z + 0.1), CFrame.new(0, hs.Y * 0.38, 0.02), l.hair, Enum.Material.SmoothPlastic)
-	piece(folder, head, Vector3.new(hs.X + 0.1, hs.Y * 0.55, 0.12), CFrame.new(0, hs.Y * 0.12, hs.Z / 2 + 0.02), l.hair, Enum.Material.SmoothPlastic)
-	for _, x in { -1, 1 } do
-		piece(folder, head, Vector3.new(0.1, hs.Y * 0.4, hs.Z * 0.7), CFrame.new(x * (hs.X / 2 + 0.02), hs.Y * 0.2, 0.08), l.hair, Enum.Material.SmoothPlastic)
-	end
-	for i = -2, 2 do
-		piece(folder, head, Vector3.new(hs.X * 0.18, 0.14, 0.16), CFrame.new(i * hs.X * 0.19, hs.Y * 0.24, -hs.Z / 2 - 0.02) * CFrame.Angles(0, 0, i * 0.12), l.hair, Enum.Material.SmoothPlastic)
 	end
 	-- The tunic's ragged bottom edge and a dark belt.
 	local us = upper.Size
@@ -158,6 +156,15 @@ function Avatar.hideUnder(character: Model, slots: { [string]: string })
 			local name = parent and parent.Name or ""
 			local hidden = (head and name == "Head") or (body and (name == "UpperTorso" or name == "LowerTorso")) or (legs and string.find(name, "UpperLeg") ~= nil)
 			p.Transparency = if hidden then 1 else 0
+		end
+	end
+	-- The Roblox hair goes under a helmet.
+	for _, acc in character:GetChildren() do
+		if acc:IsA("Accessory") and acc.AccessoryType == Enum.AccessoryType.Hair then
+			local handle = acc:FindFirstChild("Handle") :: BasePart?
+			if handle then
+				handle.Transparency = if head then 1 else 0
+			end
 		end
 	end
 end
