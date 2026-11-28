@@ -2061,6 +2061,17 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		end
 		stage("Dressing the sea floor")
 		SeaFloor.build(ISLANDS, bores, spaces)
+		if not bakeOnly then
+			-- The ravines' special resources: richer ore and crystal down in the trenches.
+			local RAVINE = { "GoldVein", "SunstoneVein", "DiamondCluster", "GoldVein", "FractiteCluster", "SunstoneVein" }
+			for i, p in SeaFloor.ravineSpots(ISLANDS, 48) do
+				local kind = RAVINE[(i - 1) % #RAVINE + 1]
+				if Nodes[kind] then
+					local m = spawnNode(nodes, kind, p)
+					m:SetAttribute("Ravine", true)
+				end
+			end
+		end
 		stage("Sinking the grottos")
 		-- Sunken grottos under the open sea, clear of every cave above.
 		local avoid = {}

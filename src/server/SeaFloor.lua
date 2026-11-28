@@ -79,20 +79,40 @@ local function shoreDistance(islands: { Island }, x: number, z: number): number
 	return best
 end
 
+-- Ravines: long winding trenches across the open sea floor with rocky walls, where
+-- the special resources are. They follow the zero lines of a broad noise field, so
+-- they wind naturally, and a second noise breaks them into separate trenches.
+local function ravineAt(x: number, z: number): number
+	local gate = math.noise(x / 1300, z / 1300, 5.5)
+	if gate < -0.05 then
+		return 0
+	end
+	local n = math.noise(x / 760, z / 760, 11.3)
+	local v = 1 - math.abs(n) * 15
+	return math.clamp(v, 0, 1) * math.clamp((gate + 0.05) * 6, 0, 1)
+end
+SeaFloor.ravineAt = ravineAt
+
 local function targetDepth(islands, grid, x: number, z: number): number?
 	local shore = shoreDistance(islands, x, z)
 	if shore < 0 then
 		return nil
 	end
-	-- Slope away from the shelf, with broad noise dunes and narrower trenches.
-	local depth = SURFACE_FLOOR - math.min(shore / 3.2, 72)
-	depth += math.noise(x / 260, z / 260, 3.1) * 14 + math.noise(x / 90, z / 90, 7.7) * 5
-	depth = math.max(depth, DEEPEST)
+	-- Slope away from the shelf into long, gentle dunes (no small bumps: the old
+	-- floor's lumps and leftover pillars read as glitches).
+	local depth = SURFACE_FLOOR - math.min(shore / 3.4, 64)
+	depth += math.noise(x / 420, z / 420, 3.1) * 12 + math.noise(x / 160, z / 160, 7.7) * 3
+	-- Ravines cut down another 30-45 studs, fading in from the shelf.
+	local rv = ravineAt(x, z)
+	if rv > 0 then
+		depth -= (rv ^ 0.7) * 42 * math.clamp(shore / 220, 0, 1)
+	end
+	depth = math.max(depth, DEEPEST - 10)
 	local roof = roofAt(grid, x, z)
 	if roof then
 		depth = math.max(depth, roof + 16)
 	end
-	if depth > SURFACE_FLOOR - 4 then
+	if depth > SURFACE_FLOOR - 2 then
 		return nil
 	end
 	return depth
@@ -103,57 +123,59 @@ floorParams.FilterType = Enum.RaycastFilterType.Include
 floorParams.IgnoreWater = true
 floorParams.FilterDescendantsInstances = { Workspace.Terrain }
 
+-- Carve the floor as one smooth heightfield: every voxel of the sand bed above the
+-- target depth turns to water, the top voxel keeps a partial fill so the surface is
+-- smooth, and ravine walls turn to rock. Unlike scooping with balls, nothing is ever
+-- left standing between two bowls.
 local function scoop(terrain: Terrain, islands, grid, extent: number)
-	local STEP, R = 44, 34
-	local rng = Random.new(4242)
-	local n = 0
-	for x = -extent, extent, STEP do
-		for z = -extent, extent, STEP do
-			local px, pz = x + rng:NextNumber(-10, 10), z + rng:NextNumber(-10, 10)
-			local depth = targetDepth(islands, grid, px, pz)
-			-- The ball must clear the shelf on every side, and its own sides must not
-			-- dip under a cave roof nearby either.
-			if depth and shoreDistance(islands, px, pz) > R * 0.7 then
-				local worst = depth
-				for _, o in { Vector3.new(R, 0, 0), Vector3.new(-R, 0, 0), Vector3.new(0, 0, R), Vector3.new(0, 0, -R) } do
-					local roof = roofAt(grid, px + o.X, pz + o.Z)
-					if roof then
-						worst = math.max(worst, roof + 16)
-					end
-				end
-				-- Not under an island's underwater slope either: a bowl cut in under it
-				-- leaves a lid of sand floating over the hole with drips hanging off it.
-				local open = true
-				for _, o in { Vector3.zero, Vector3.new(R, 0, 0), Vector3.new(-R, 0, 0), Vector3.new(0, 0, R), Vector3.new(0, 0, -R) } do
-					local hit = Workspace:Raycast(Vector3.new(px + o.X, -1, pz + o.Z), Vector3.new(0, -60, 0), floorParams)
-					if hit and hit.Position.Y > SURFACE_FLOOR + 3 then
-						open = false
-						break
-					end
-				end
-				if open and worst < SURFACE_FLOOR - 4 then
-					-- A round-bottomed bowl: a ball for the bottom and a column of water
-					-- above it up through the top of the sand bed (a ball alone would
-					-- leave a lid of sand over a hidden pocket).
-					-- Water doesn't displace solid terrain (with shorelines they share a
-					-- voxel), so clear to air first and then flood it.
-					-- The ball's top stays well under the sea surface: water filled above it
-					-- stands up as a mound on the sea.
-					local r = math.min(R, (-6 - worst) / 2)
-					local mid = worst + r
-					for _, mat in { M.Air, M.Water } do
-						terrain:FillBall(Vector3.new(px, mid, pz), r, mat)
-						if mid < SURFACE_FLOOR + 2 then
-							local top = SURFACE_FLOOR + 2
-							terrain:FillCylinder(CFrame.new(px, (mid + top) / 2, pz), top - mid, r * 0.97, mat)
+	local RES = 4
+	local y0, y1 = DEEPEST - 16, SURFACE_FLOOR + 4
+	local SLAB = 64 -- voxels per side per block
+	local span = SLAB * RES
+	local start = -math.ceil(extent / span) * span
+	for bx = start, extent, span do
+		for bz = start, extent, span do
+			local region = Region3.new(Vector3.new(bx, y0, bz), Vector3.new(bx + span, y1, bz + span)):ExpandToGrid(RES)
+			local mats, occ = terrain:ReadVoxels(region, RES)
+			local size = mats.Size
+			local lo = region.CFrame.Position - region.Size / 2
+			local changed = false
+			for i = 1, size.X do
+				local wx = lo.X + (i - 0.5) * RES
+				for k = 1, size.Z do
+					local wz = lo.Z + (k - 0.5) * RES
+					local depth = targetDepth(islands, grid, wx, wz)
+					if depth then
+						local rv = ravineAt(wx, wz)
+						local wall = rv > 0.12 and rv < 0.85
+						for j = 1, size.Y do
+							local m = mats[i][j][k]
+							if m == M.Sand or m == M.Water or m == M.Air then
+								local vy = lo.Y + (j - 1) * RES
+								local fill = math.clamp((depth - vy) / RES, 0, 1)
+								if fill >= 1 then
+									if wall and depth - vy < 10 then
+										mats[i][j][k] = if (j + i + k) % 3 == 0 then M.Slate else M.Basalt
+										changed = true
+									end
+								elseif fill > 0 then
+									mats[i][j][k] = if wall then M.Basalt else M.Sand
+									occ[i][j][k] = math.max(fill, 0.05)
+									changed = true
+								elseif m ~= M.Water then
+									mats[i][j][k] = M.Water
+									occ[i][j][k] = 1
+									changed = true
+								end
+							end
 						end
 					end
 				end
 			end
-			n += 1
-			if n % 300 == 0 then
-				task.wait()
+			if changed then
+				terrain:WriteVoxels(region, RES, mats, occ)
 			end
+			task.wait()
 		end
 	end
 end
@@ -162,7 +184,7 @@ end
 local function floorAt(x: number, z: number): RaycastResult?
 	floorParams.FilterDescendantsInstances = { Workspace.Terrain }
 	local hit = Workspace:Raycast(Vector3.new(x, SURFACE_FLOOR + 30, z), Vector3.new(0, -140, 0), floorParams)
-	if hit and hit.Position.Y < SURFACE_FLOOR + 4 and (hit.Material == M.Sand or hit.Material == M.Salt or hit.Material == M.Ground or hit.Material == M.Mud or hit.Material == M.Sandstone or hit.Material == M.Rock or hit.Material == M.Slate or hit.Material == M.Limestone) then
+	if hit and hit.Position.Y < SURFACE_FLOOR + 4 and (hit.Material == M.Sand or hit.Material == M.Salt or hit.Material == M.Ground or hit.Material == M.Mud or hit.Material == M.Sandstone or hit.Material == M.Rock or hit.Material == M.Slate or hit.Material == M.Limestone or hit.Material == M.Basalt) then
 		return hit
 	end
 	return nil
@@ -347,7 +369,7 @@ local function dress(terrain: Terrain, extent: number)
 	folder.Name = "Seabed"
 	folder.Parent = Workspace
 	local rng = Random.new(777)
-	local tries = math.floor((extent * 2 / 105) ^ 2)
+	local tries = math.floor((extent * 2 / 72) ^ 2)
 	for i = 1, tries do
 		local x, z = rng:NextNumber(-extent, extent), rng:NextNumber(-extent, extent)
 		local hit = floorAt(x, z)
@@ -355,25 +377,29 @@ local function dress(terrain: Terrain, extent: number)
 			local at = hit.Position
 			local roll = rng:NextNumber()
 			local deep = at.Y < -80
-			if roll < 0.16 then
+			if roll < 0.06 then
 				-- Rock outcrop or reef: a few lumpy balls, half buried.
 				local mat = ({ M.Rock, M.Slate, M.Limestone, M.Basalt })[rng:NextInteger(1, 4)]
 				for _ = 1, rng:NextInteger(2, 5) do
 					local r = rng:NextNumber(3, if deep then 11 else 7)
 					terrain:FillBall(at + Vector3.new(rng:NextNumber(-6, 6), r * rng:NextNumber(-0.2, 0.3), rng:NextNumber(-6, 6)), r, mat)
 				end
-			elseif roll < 0.34 then
+			elseif roll < 0.12 then
 				-- A patch of different ground: gravel, mud or pale sandstone.
 				local mat = ({ M.Ground, M.Mud, M.Sandstone, M.Slate })[rng:NextInteger(1, 4)]
 				local r = rng:NextNumber(8, 18)
 				terrain:FillBall(at - Vector3.new(0, r * 0.85, 0), r, mat)
-			elseif roll < 0.5 then
+			elseif roll < 0.3 then
 				coral(folder, at, rng)
-			elseif roll < 0.64 then
+			elseif roll < 0.55 then
 				kelp(folder, at, rng)
-			elseif roll < 0.8 then
+				if rng:NextNumber() < 0.5 then
+					kelp(folder, at + Vector3.new(rng:NextNumber(-6, 6), 0, rng:NextNumber(-6, 6)), rng)
+				end
+			elseif roll < 0.82 then
 				seaGrass(folder, at, rng)
-			elseif roll < 0.9 then
+				seaGrass(folder, at + Vector3.new(rng:NextNumber(-5, 5), 0, rng:NextNumber(-5, 5)), rng)
+			elseif roll < 0.92 then
 				shell(folder, at, rng)
 			else
 				school(folder, at, rng)
@@ -385,6 +411,39 @@ local function dress(terrain: Terrain, extent: number)
 	end
 end
 
+-- Spots along the ravine floors for the special resources (run after the floor is
+-- there, baked or freshly carved). Returns floor positions.
+function SeaFloor.ravineSpots(islands: { Island }, count: number): { Vector3 }
+	local extent = 0
+	for _, isl in islands do
+		extent = math.max(extent, math.abs(isl.x) + isl.r, math.abs(isl.z) + isl.r)
+	end
+	local rng = Random.new(9090)
+	local out = {}
+	for _ = 1, count * 40 do
+		if #out >= count then
+			break
+		end
+		local x, z = rng:NextNumber(-extent, extent), rng:NextNumber(-extent, extent)
+		if ravineAt(x, z) > 0.85 and shoreDistance(islands, x, z) > 160 then
+			local hit = floorAt(x, z)
+			if hit and hit.Position.Y < SURFACE_FLOOR - 30 then
+				local ok = true
+				for _, p in out do
+					if (p - hit.Position).Magnitude < 60 then
+						ok = false
+						break
+					end
+				end
+				if ok then
+					table.insert(out, hit.Position)
+				end
+			end
+		end
+	end
+	return out
+end
+
 function SeaFloor.build(islands: { Island }, tunnels: { any }, chambers: { any })
 	local terrain = require(script.Parent.WorldBake).terrain
 	local extent = 0
@@ -393,7 +452,9 @@ function SeaFloor.build(islands: { Island }, tunnels: { any }, chambers: { any }
 	end
 	extent += 500
 	local grid = caveGrid(tunnels, chambers)
-	scoop(terrain, islands, grid, extent)
+	if not require(script.Parent.WorldBake).baked then
+		scoop(terrain, islands, grid, extent) -- (terrain only: already in a baked map)
+	end
 	dress(terrain, extent)
 end
 
