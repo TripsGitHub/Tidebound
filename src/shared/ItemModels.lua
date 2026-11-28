@@ -21,8 +21,6 @@ local ITEM_MESHES: { [string]: { mesh: string, tool: boolean?, scale: number? } 
 	stick = { mesh = "stick", scale = 1.2 },
 	leaves = { mesh = "leaves", scale = 1.5 },
 	stone = { mesh = "stone", scale = 1.3 },
-	berries = { mesh = "berries", scale = 1.4 },
-	coconut = { mesh = "coconut", scale = 1.3 },
 	raw_meat = { mesh = "raw_meat" },
 	cooked_meat = { mesh = "cooked_meat" },
 	leather = { mesh = "leather" },
@@ -272,47 +270,208 @@ end
 
 -- Food -------------------------------------------------------------------------
 
+-- Fruit and crops: big, chunky and smooth, a strong colour with a highlight and a
+-- few details (specks, stripes, a leaf) so each reads at a glance in the bag.
+local function ball(m: Model, size: Vector3, cf: CFrame, colour: Color3, material: Enum.Material?): Part
+	return part(m, size, cf, colour, material or Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+end
+
+local function shine(m: Model, on: BasePart, at: Vector3, size: number)
+	ball(m, Vector3.new(size, size * 0.7, size * 0.5), on.CFrame * CFrame.new(at), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic).Transparency = 0.45
+end
+
+local function leaf(m: Model, cf: CFrame, colour: Color3?)
+	part(m, Vector3.new(0.5, 0.06, 0.28), cf, colour or Color3.fromRGB(86, 168, 62), Enum.Material.SmoothPlastic)
+end
+
+-- Redberries: three plump berries with pale specks and a leaf on top.
 function builders.berries(m)
 	local core
-	for i, offset in { Vector3.new(0, 0, 0), Vector3.new(0.3, 0.05, 0.1), Vector3.new(-0.2, 0.05, 0.25), Vector3.new(0.05, 0.3, 0.1) } do
-		local b = part(m, Vector3.new(0.4, 0.4, 0.4), CFrame.new(offset), C.berry, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-		if i == 1 then
-			core = b
+	local red = Color3.fromRGB(196, 44, 56)
+	for i, o in { Vector3.new(0, -0.05, 0), Vector3.new(0.42, 0.02, 0.15), Vector3.new(-0.3, 0.05, 0.3) } do
+		local b = ball(m, Vector3.new(0.62, 0.6, 0.62), CFrame.new(o), red:Lerp(Color3.fromRGB(120, 20, 40), (i - 1) * 0.12))
+		for k = 0, 4 do
+			local a = k * 1.3 + i
+			part(m, Vector3.new(0.07, 0.07, 0.03), b.CFrame * CFrame.Angles(math.sin(a) * 0.9, a, 0) * CFrame.new(0, 0, -0.31), Color3.fromRGB(250, 214, 210), Enum.Material.SmoothPlastic)
 		end
+		shine(m, b, Vector3.new(-0.12, 0.15, -0.2), 0.16)
+		core = core or b
 	end
+	part(m, Vector3.new(0.06, 0.25, 0.06), CFrame.new(0.05, 0.35, 0.12), Color3.fromRGB(90, 64, 40))
+	leaf(m, CFrame.new(0.22, 0.42, 0.12) * CFrame.Angles(0, 0.4, 0.35))
 	return core
 end
 
 function builders.sunfruit(m)
-	local fruit = part(m, Vector3.new(1.1, 1.25, 1.1), CFrame.new(), Color3.fromRGB(255, 150, 40), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-	part(m, Vector3.new(0.6, 0.12, 0.3), CFrame.new(0.2, 0.68, 0) * CFrame.Angles(0, 0, 0.4), Color3.fromRGB(90, 160, 60), Enum.Material.SmoothPlastic)
+	local fruit = ball(m, Vector3.new(1.2, 1.15, 1.2), CFrame.new(), Color3.fromRGB(255, 146, 36), Enum.Material.Sand)
+	shine(m, fruit, Vector3.new(-0.25, 0.25, -0.38), 0.3)
+	part(m, Vector3.new(0.1, 0.22, 0.1), CFrame.new(0, 0.64, 0), Color3.fromRGB(90, 64, 40))
+	leaf(m, CFrame.new(0.22, 0.7, 0) * CFrame.Angles(0, 0, 0.4))
 	return fruit
 end
 
--- A curved banana from a few short segments bending round, green-tipped at each end.
+-- A chunky curved banana: overlapping round sections bending in an arc, thick in the
+-- middle, with a brown stalk and tip.
 function builders.banana(m)
 	local core
-	local yellow = Color3.fromRGB(250, 214, 70)
-	for i = -2, 2 do
-		local a = i * 0.28
-		local seg = part(m, Vector3.new(0.34, 0.36, 0.36), CFrame.new(math.sin(a) * 0.9, -math.cos(a) * 0.9 + 0.9, 0) * CFrame.Angles(0, 0, a), yellow, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
-		seg.Size = Vector3.new(0.36, 0.36, 0.36)
-		if i == 0 then
+	local yellow = Color3.fromRGB(250, 214, 60)
+	local n = 9
+	for i = 0, n - 1 do
+		local t = i / (n - 1)
+		local a = (t - 0.5) * 1.7
+		local r = 0.3 + math.sin(t * math.pi) * 0.16
+		local seg = ball(m, Vector3.new(r * 1.5, r * 1.15, r * 1.15), CFrame.new(math.sin(a) * 1.0, -math.cos(a) * 1.0 + 0.85, 0) * CFrame.Angles(0, 0, a), yellow:Lerp(Color3.fromRGB(210, 170, 40), math.abs(t - 0.5) * 0.4))
+		if i == math.floor(n / 2) then
 			core = seg
 		end
 	end
-	for _, side in { -1, 1 } do
-		local a = side * 0.7
-		part(m, Vector3.new(0.18, 0.18, 0.18), CFrame.new(math.sin(a) * 0.9, -math.cos(a) * 0.9 + 0.9, 0), Color3.fromRGB(90, 70, 40), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-	end
+	local a0, a1 = -0.95, 0.95
+	part(m, Vector3.new(0.14, 0.34, 0.14), CFrame.new(math.sin(a1) * 1.08, -math.cos(a1) * 1.08 + 0.92, 0) * CFrame.Angles(0, 0, a1), Color3.fromRGB(110, 90, 40))
+	ball(m, Vector3.new(0.14, 0.14, 0.14), CFrame.new(math.sin(a0) * 1.02, -math.cos(a0) * 1.02 + 0.85, 0), Color3.fromRGB(70, 50, 30))
+	shine(m, core, Vector3.new(0, 0.12, -0.18), 0.24)
 	return core
 end
 
 function builders.mango(m)
-	local fruit = part(m, Vector3.new(1.0, 1.2, 0.9), CFrame.new(), Color3.fromRGB(240, 150, 50), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-	part(m, Vector3.new(0.6, 0.7, 0.6), CFrame.new(-0.22, 0.25, 0.12), Color3.fromRGB(220, 70, 60), Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-	part(m, Vector3.new(0.5, 0.1, 0.25), CFrame.new(0.15, 0.62, 0) * CFrame.Angles(0, 0, -0.5), Color3.fromRGB(70, 150, 60), Enum.Material.SmoothPlastic)
+	local fruit = ball(m, Vector3.new(1.0, 1.25, 0.9), CFrame.new() * CFrame.Angles(0, 0, 0.25), Color3.fromRGB(246, 168, 46))
+	ball(m, Vector3.new(0.72, 0.8, 0.7), CFrame.new(-0.2, 0.22, 0.08), Color3.fromRGB(226, 84, 56))
+	shine(m, fruit, Vector3.new(-0.2, 0.25, -0.34), 0.24)
+	part(m, Vector3.new(0.09, 0.2, 0.09), CFrame.new(0.1, 0.66, 0), Color3.fromRGB(90, 64, 40))
+	leaf(m, CFrame.new(0.3, 0.7, 0) * CFrame.Angles(0, 0, -0.5))
 	return fruit
+end
+
+-- A hairy brown coconut with three dark eyes.
+function builders.coconut(m)
+	local nut = ball(m, Vector3.new(1.15, 1.08, 1.15), CFrame.new(), Color3.fromRGB(104, 70, 44), Enum.Material.Fabric)
+	for k = 0, 2 do
+		local a = k / 3 * math.pi * 2
+		ball(m, Vector3.new(0.16, 0.16, 0.08), CFrame.new(math.cos(a) * 0.14, 0.5, math.sin(a) * 0.14) * CFrame.Angles(math.rad(90), 0, 0), Color3.fromRGB(46, 30, 20))
+	end
+	for k = 0, 5 do
+		local a = k * 1.05
+		part(m, Vector3.new(0.05, 0.4, 0.03), nut.CFrame * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -0.56) * CFrame.Angles(0, 0, 0.3), Color3.fromRGB(70, 46, 30), Enum.Material.Fabric)
+	end
+	return nut
+end
+
+-- A striped watermelon.
+function builders.watermelon(m)
+	local melon = ball(m, Vector3.new(1.5, 1.2, 1.2), CFrame.new(), Color3.fromRGB(64, 140, 56))
+	for k = -2, 2 do
+		ball(m, Vector3.new(1.52, 1.22, 0.14), CFrame.new() * CFrame.Angles(k * 0.55, 0, 0), Color3.fromRGB(32, 84, 32))
+	end
+	shine(m, melon, Vector3.new(-0.3, 0.32, -0.3), 0.3)
+	part(m, Vector3.new(0.08, 0.16, 0.08), CFrame.new(0.72, 0.2, 0) * CFrame.Angles(0, 0, -1), Color3.fromRGB(90, 64, 40))
+	return melon
+end
+
+-- A carrot: an orange taper (stacked shrinking rounds) with a leafy green top.
+function builders.carrot(m)
+	local core
+	local orange = Color3.fromRGB(240, 128, 36)
+	for i = 0, 5 do
+		local t = i / 5
+		local r = 0.48 * (1 - t * 0.8)
+		local seg = ball(m, Vector3.new(r, 0.42, r), CFrame.new(0, 0.5 - t * 1.2, 0), orange:Lerp(Color3.fromRGB(220, 100, 30), t * 0.4))
+		if i == 1 then
+			core = seg
+		end
+	end
+	for k = 0, 3 do
+		part(m, Vector3.new(0.08, 0.5, 0.18), CFrame.new(0, 0.85, 0) * CFrame.Angles(0, k * 0.8, 0) * CFrame.Angles(0.35, 0, 0) * CFrame.new(0, 0.1, 0), Color3.fromRGB(92, 176, 62))
+	end
+	for k = 0, 2 do
+		part(m, Vector3.new(0.3, 0.03, 0.03), CFrame.new(0, 0.3 - k * 0.3, 0) * CFrame.Angles(0, k, 0) * CFrame.new(0, 0, -0.2 + k * 0.04), Color3.fromRGB(196, 96, 30))
+	end
+	return core
+end
+
+local function potatoModel(m: Model, skin: Color3, spot: Color3): BasePart
+	local p = ball(m, Vector3.new(1.25, 0.85, 0.95), CFrame.new() * CFrame.Angles(0, 0, 0.2), skin, Enum.Material.Sand)
+	ball(m, Vector3.new(0.7, 0.62, 0.7), CFrame.new(0.38, 0.1, 0.05), skin:Lerp(Color3.new(0, 0, 0), 0.05), Enum.Material.Sand)
+	for k = 0, 4 do
+		local a = k * 1.25
+		ball(m, Vector3.new(0.09, 0.09, 0.05), p.CFrame * CFrame.Angles(math.sin(a) * 0.8, a, 0) * CFrame.new(0, 0, -0.44), spot)
+	end
+	return p
+end
+
+function builders.potato(m)
+	return potatoModel(m, Color3.fromRGB(184, 142, 90), Color3.fromRGB(120, 88, 54))
+end
+
+function builders.baked_potato(m)
+	local p = potatoModel(m, Color3.fromRGB(150, 100, 56), Color3.fromRGB(90, 60, 34))
+	part(m, Vector3.new(0.7, 0.12, 0.4), CFrame.new(0, 0.42, 0), Color3.fromRGB(250, 226, 150))
+	part(m, Vector3.new(0.26, 0.1, 0.26), CFrame.new(0.05, 0.5, 0), Color3.fromRGB(255, 236, 120))
+	return p
+end
+
+-- Slimes: a wobbly translucent blob with two eyes, in its variant's colour.
+local function slimeModel(m: Model, colour: Color3, glow: boolean?): BasePart
+	local body = ball(m, Vector3.new(1.3, 1.0, 1.2), CFrame.new(0, -0.05, 0), colour, Enum.Material.Glass)
+	body.Transparency = 0.2
+	ball(m, Vector3.new(0.7, 0.5, 0.6), CFrame.new(0, -0.05, 0), colour:Lerp(Color3.new(0, 0, 0), 0.25), if glow then Enum.Material.Neon else Enum.Material.SmoothPlastic)
+	for _, x in { -0.22, 0.22 } do
+		ball(m, Vector3.new(0.2, 0.26, 0.1), CFrame.new(x, 0.12, -0.56), Color3.fromRGB(20, 20, 24))
+		ball(m, Vector3.new(0.07, 0.07, 0.04), CFrame.new(x - 0.04, 0.18, -0.61), Color3.new(1, 1, 1))
+	end
+	shine(m, body, Vector3.new(-0.3, 0.3, -0.35), 0.28)
+	return body
+end
+
+function builders.green_slime(m)
+	return slimeModel(m, Color3.fromRGB(110, 210, 90))
+end
+function builders.blue_slime(m)
+	return slimeModel(m, Color3.fromRGB(80, 150, 240))
+end
+function builders.pink_slime(m)
+	return slimeModel(m, Color3.fromRGB(250, 130, 200))
+end
+function builders.gold_slime(m)
+	return slimeModel(m, Color3.fromRGB(255, 206, 60), true)
+end
+
+-- Seeds: a little heap of oblong seeds in the crop's colours.
+local function seedsModel(m: Model, a: Color3, b: Color3): BasePart
+	local core
+	for i, o in { Vector3.new(0, 0, 0), Vector3.new(0.3, 0.02, 0.12), Vector3.new(-0.28, 0.02, 0.1), Vector3.new(0.06, 0.04, -0.28), Vector3.new(-0.1, 0.16, 0.05), Vector3.new(0.18, 0.14, -0.1), Vector3.new(-0.3, 0, -0.2) } do
+		local s = ball(m, Vector3.new(0.42, 0.2, 0.26), CFrame.new(o) * CFrame.Angles(0, i * 0.9, i * 0.2), if i % 2 == 0 then a else b)
+		core = core or s
+	end
+	return core
+end
+
+function builders.carrot_seeds(m)
+	return seedsModel(m, Color3.fromRGB(230, 120, 50), Color3.fromRGB(196, 92, 40))
+end
+function builders.potato_seeds(m)
+	return seedsModel(m, Color3.fromRGB(110, 92, 74), Color3.fromRGB(150, 128, 100))
+end
+function builders.watermelon_seeds(m)
+	return seedsModel(m, Color3.fromRGB(40, 32, 30), Color3.fromRGB(70, 56, 46))
+end
+function builders.slime_spore(m)
+	local core
+	for i, o in { Vector3.new(0, 0, 0), Vector3.new(0.34, 0.05, 0.1), Vector3.new(-0.26, 0.08, 0.2) } do
+		local s = ball(m, Vector3.new(0.4, 0.4, 0.4), CFrame.new(o), ({ Color3.fromRGB(110, 210, 90), Color3.fromRGB(80, 150, 240), Color3.fromRGB(250, 130, 200) })[i], Enum.Material.Glass)
+		s.Transparency = 0.15
+		core = core or s
+	end
+	return core
+end
+
+function builders.plant_box(m)
+	local soil = part(m, Vector3.new(1.6, 0.4, 1.6), CFrame.new(), Color3.fromRGB(70, 48, 32), Enum.Material.Ground)
+	for i = 0, 3 do
+		part(m, Vector3.new(1.75, 0.5, 0.14), CFrame.Angles(0, i * math.pi / 2, 0) * CFrame.new(0, 0.05, 0.8), if i % 2 == 0 then C.wood else C.woodDark, Enum.Material.WoodPlanks)
+	end
+	for k = -1, 1 do
+		part(m, Vector3.new(0.12, 0.45, 0.3), CFrame.new(k * 0.45, 0.4, 0) * CFrame.Angles(0, k, 0.2), Color3.fromRGB(92, 176, 62))
+	end
+	return soil
 end
 
 local function mushroomModel(m: Model, cap: Color3): BasePart
@@ -366,9 +525,6 @@ function builders.banana_bread(m)
 	return loaf
 end
 
-function builders.coconut(m)
-	return part(m, Vector3.new(1, 1, 1), CFrame.new(), C.coconut, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
-end
 
 local function meat(m: Model, color: Color3): BasePart
 	local core = part(m, Vector3.new(1.3, 0.6, 0.9), CFrame.new(), color, Enum.Material.SmoothPlastic)

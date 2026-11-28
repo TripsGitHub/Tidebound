@@ -45,6 +45,7 @@ end
 Survival.start()
 require(Systems.Smelting).start()
 Rafts.start()
+require(Systems.Farming).start()
 Save.start()
 Events.start()
 Oxygen.start()

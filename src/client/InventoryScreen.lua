@@ -52,14 +52,13 @@ local CRAFT_TABS = {
 	{ name = "Tools", icon = "wood_harvester" },
 	{ name = "Armour", icon = "wood_helmet" },
 	{ name = "Buildables", icon = "wood_wall" },
-	{ name = "Food", icon = "fruit_salad" },
 }
 local BAG_TABS = {
 	{ name = "All" },
 	{ name = "Tools", icon = "wood_harvester", kinds = { tool = true, placeable = true } },
 	{ name = "Armour", icon = "wood_helmet", kinds = { armour = true } },
 	{ name = "Resources", icon = "log", kinds = { resource = true } },
-	{ name = "Food", icon = "berries", kinds = { food = true } },
+	{ name = "Food", icon = "berries", kinds = { food = true, seed = true } },
 }
 
 local function clear(f: Instance)
@@ -268,8 +267,8 @@ local function bagCard(id: string)
 		primary = act(1, "Equip", function()
 			callbacks.onWear(id)
 		end)
-	elseif item.kind == "tool" or item.kind == "placeable" then
-		primary = act(1, "Equip", function()
+	elseif item.kind == "tool" or item.kind == "placeable" or item.kind == "seed" then
+		primary = act(1, if item.kind == "seed" then "Hold" else "Equip", function()
 			callbacks.onHold(if state.equipped == id then nil else id)
 		end)
 	elseif item.kind == "food" then

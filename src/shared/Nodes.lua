@@ -203,6 +203,41 @@ local Nodes = {
 		xp = 15,
 		drops = {
 			{ item = "sticky_slime", min = 2, max = 3 },
+			{ item = "slime_spore", min = 0, max = 1 },
+		},
+	},
+	-- Wild crops: dig them up for a bite now and seeds to grow more in a Plant Box.
+	WildCarrots = {
+		name = "Wild Carrots",
+		material = "plant",
+		hp = 5,
+		respawn = 90,
+		xp = 6,
+		drops = {
+			{ item = "carrot", min = 1, max = 2 },
+			{ item = "carrot_seeds", min = 1, max = 2 },
+		},
+	},
+	WildPotatoes = {
+		name = "Wild Potatoes",
+		material = "plant",
+		hp = 5,
+		respawn = 90,
+		xp = 6,
+		drops = {
+			{ item = "potato", min = 1, max = 2 },
+			{ item = "potato_seeds", min = 1, max = 2 },
+		},
+	},
+	WildMelons = {
+		name = "Wild Melons",
+		material = "plant",
+		hp = 7,
+		respawn = 120,
+		xp = 8,
+		drops = {
+			{ item = "watermelon", min = 1, max = 1 },
+			{ item = "watermelon_seeds", min = 1, max = 2 },
 		},
 	},
 }

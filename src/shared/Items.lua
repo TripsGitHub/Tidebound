@@ -208,6 +208,34 @@ for _, tier in Tiers.list do
 		table.insert(Items.ORE_BUILD, tier.id)
 	end
 end
+-- Farming: crops you grow in a Plant Box from seeds. Seeds come from wild crops
+-- (and slime spores from slime pools); a coconut is its own seed.
+Items.carrot = { name = "Carrot", kind = "food", order = 24.1, hunger = 12, heal = 4 }
+Items.potato = { name = "Potato", kind = "food", order = 24.2, hunger = 10, heal = 2 }
+Items.baked_potato = { name = "Baked Potato", kind = "food", order = 24.25, hunger = 30, heal = 10, description = "Roast a potato on a campfire." }
+Items.watermelon = { name = "Watermelon", kind = "food", order = 24.3, hunger = 26, heal = 10 }
+Items.green_slime = { name = "Green Slime", kind = "food", order = 24.4, hunger = 10, heal = 14, description = "Chewy and oddly healing." }
+Items.blue_slime = { name = "Blue Slime", kind = "food", order = 24.41, hunger = 30, heal = 4, description = "Fills you right up." }
+Items.pink_slime = { name = "Pink Slime", kind = "food", order = 24.42, hunger = 16, heal = 30, description = "A rare, sweet slime that heals a lot." }
+Items.gold_slime = { name = "Golden Slime", kind = "food", order = 24.43, hunger = 45, heal = 45, description = "The rarest slime. Fills and heals you completely." }
+Items.carrot_seeds = { name = "Carrot Seeds", kind = "seed", crop = "carrot", order = 25.1, description = "Plant in a Plant Box." }
+Items.potato_seeds = { name = "Potato Seeds", kind = "seed", crop = "potato", order = 25.2, description = "Plant in a Plant Box." }
+Items.watermelon_seeds = { name = "Watermelon Seeds", kind = "seed", crop = "watermelon", order = 25.3, description = "Plant in a Plant Box." }
+Items.slime_spore = { name = "Slime Spore", kind = "seed", crop = "slime", order = 25.4, description = "Plant in a Plant Box. Grows a green, blue, pink or (rarely) golden slime." }
+Items.coconut.crop = "coconut"
+Items.coconut.description = "Eat it, or plant it in a Plant Box to grow a coconut sapling."
+Items.plant_box = { name = "Plant Box", kind = "placeable", order = 36.4, structure = "PlantBox", description = "A wooden box of soil. Plant seeds in it and come back to harvest." }
+
+-- What each crop grows into. grow: seconds to ripen. yield: { item, min, max } (a
+-- slime picks one variant by weight). seeds: seeds you get back { min, max }.
+Items.CROPS = {
+	carrot = { seed = "carrot_seeds", grow = 120, yield = { { "carrot", 2, 4 } }, seeds = { 1, 2 } },
+	potato = { seed = "potato_seeds", grow = 150, yield = { { "potato", 2, 4 } }, seeds = { 1, 2 } },
+	watermelon = { seed = "watermelon_seeds", grow = 240, yield = { { "watermelon", 1, 2 } }, seeds = { 1, 3 } },
+	coconut = { seed = "coconut", grow = 300, yield = { { "coconut", 3, 5 } }, seeds = { 0, 0 } },
+	slime = { seed = "slime_spore", grow = 200, variants = { { "green_slime", 50 }, { "blue_slime", 30 }, { "pink_slime", 15 }, { "gold_slime", 5 } }, yield = { { "*", 1, 2 } }, seeds = { 1, 1 } },
+}
+
 -- Carts: storage on wheels, from wood up to gold.
 Items.CARTS = { "wood", "stone", "silver", "gold" }
 for i, t in Items.CARTS do

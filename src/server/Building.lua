@@ -14,6 +14,7 @@ local Quests = require(script.Parent.Quests)
 local Crafting = require(script.Parent.Crafting)
 local Chests = require(script.Parent.Chests)
 local Vehicles = require(script.Parent.Vehicles)
+local Farming = require(script.Parent.Farming)
 
 local Building = {}
 
@@ -121,6 +122,21 @@ function builders.WoodGate(model: Model, cf: CFrame, size: Vector3)
 end
 
 -- A wooden storage chest: planked box, darker lid, iron bands and a brass lock.
+-- A raised wooden box full of dark soil, with corner posts.
+function builders.PlantBox(model: Model, cf: CFrame, size: Vector3)
+	local core = part(model, true, { Name = "Core", Size = size, CFrame = cf, Color = Color3.fromRGB(70, 48, 32), Material = Enum.Material.Ground })
+	for i = 0, 3 do
+		local side = cf * CFrame.Angles(0, i * math.pi / 2, 0)
+		part(model, false, { Name = "Plank", Size = Vector3.new(size.X + 0.5, size.Y + 0.4, 0.5), CFrame = side * CFrame.new(0, 0.2, size.Z / 2), Color = if i % 2 == 0 then WOOD else WOOD_DARK, Material = Enum.Material.WoodPlanks })
+		part(model, false, { Name = "Post", Size = Vector3.new(0.7, size.Y + 0.8, 0.7), CFrame = side * CFrame.new(size.X / 2, 0.4, size.Z / 2), Color = WOOD_DARK, Material = Enum.Material.Wood })
+	end
+	-- Furrows in the soil.
+	for r = -1, 1 do
+		part(model, false, { Name = "Furrow", Size = Vector3.new(size.X - 1, 0.2, 0.6), CFrame = cf * CFrame.new(0, size.Y / 2 + 0.02, r * size.Z * 0.28), Color = Color3.fromRGB(56, 38, 26), Material = Enum.Material.Ground })
+	end
+	return core
+end
+
 function builders.Chest(model: Model, cf: CFrame, size: Vector3)
 	local bodyH = size.Y * 0.68
 	local core = part(model, true, { Name = "Core", Size = Vector3.new(size.X, bodyH, size.Z), CFrame = cf * CFrame.new(0, -size.Y / 2 + bodyH / 2, 0), Color = WOOD, Material = Enum.Material.WoodPlanks })
@@ -403,6 +419,9 @@ local function construct(ownerId: number, ownerPlayer: Player?, itemId: string, 
 	if def.chest then
 		model:SetAttribute("Capacity", def.chest)
 		Chests.setup(model, stored)
+	end
+	if def.planter then
+		Farming.setup(model, stored)
 	end
 	if def.cart then
 		-- Carts roll: an invisible low-friction skid under the wheels touches the
@@ -696,7 +715,7 @@ function Building.export(player: Player): any
 					z = round1(rel.Z),
 					r = Structures.snapRotation(math.deg(ry)),
 					hp = math.floor(m:GetAttribute("HP") or 0),
-					c = if Structures[st] and Structures[st].chest then Chests.export(m) else nil,
+					c = if Structures[st] and Structures[st].chest then Chests.export(m) elseif Structures[st] and Structures[st].planter then Farming.export(m) else nil,
 				})
 				if #list >= Config.MaxStructures then
 					break

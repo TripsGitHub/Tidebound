@@ -14,6 +14,7 @@ local Structures = {
 }
 
 -- Round 7: lights, bed, trap, ladder, ore walls and chests, carts.
+Structures.PlantBox = { size = Vector3.new(7, 1.8, 7), hp = 220, planter = true }
 Structures.Torch = { size = Vector3.new(1.6, 7, 1.6), hp = 40, small = true }
 Structures.Lamp = { size = Vector3.new(2.4, 9, 2.4), hp = 90, small = true }
 Structures.Bed = { size = Vector3.new(5.2, 2.4, 9.4), hp = 150 }

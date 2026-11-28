@@ -192,7 +192,51 @@ local function makeCropPatch(cf: CFrame): Model
 	return m
 end
 
+-- Wild crops: a low mound of soil with the plants growing out of it, the crop
+-- itself just showing so you can tell carrots from potatoes from melons.
+local function makeWildCrop(kind: string, cf: CFrame): Model
+	local m = Instance.new("Model")
+	local soil = part(m, { Name = "Soil", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.8, 5.5, 5.5), CFrame = cf * CFrame.new(0, 0.1, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = Color3.fromRGB(96, 70, 46), Material = Enum.Material.Ground })
+	local leaf = Color3.fromRGB(96, 170, 62)
+	local spots = if kind == "WildMelons" then 2 else 5
+	for i = 1, spots do
+		local a = i / spots * math.pi * 2 + rng:NextNumber(0, 0.6)
+		local r = if spots == 1 then 0 else rng:NextNumber(0.8, 1.8)
+		local at = cf * CFrame.new(math.cos(a) * r, 0.5, math.sin(a) * r) * CFrame.Angles(0, a, 0)
+		if kind == "WildMelons" then
+			for k = 0, 4 do
+				local b = k / 5 * math.pi * 2
+				part(m, { Name = "Leaf", Size = Vector3.new(1.6, 0.15, 1.6), CFrame = at * CFrame.new(math.cos(b) * 1.1, 0.05, math.sin(b) * 1.1) * CFrame.Angles(0, b, 0), Color = leaf, Material = Enum.Material.Grass, CanCollide = false })
+			end
+			local s = rng:NextNumber(1.8, 2.3)
+			local melon = part(m, { Name = "Melon", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 1.25, s, s), CFrame = at * CFrame.new(0, s / 2 - 0.1, 0), Color = Color3.fromRGB(56, 128, 52), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+			for k = -1, 1 do
+				part(m, { Name = "Stripe", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 1.27, s * 1.02, s * 0.16), CFrame = melon.CFrame * CFrame.new(0, 0, k * s * 0.3), Color = Color3.fromRGB(34, 86, 34), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+			end
+		else
+			local h = rng:NextNumber(1.4, 2.1)
+			for k = 0, 2 do
+				local b = k / 3 * math.pi * 2
+				part(m, { Name = "Leaf", Size = Vector3.new(0.2, h, 0.55), CFrame = at * CFrame.Angles(0, b, 0) * CFrame.Angles(math.rad(16), 0, 0) * CFrame.new(0, h / 2, 0), Color = if kind == "WildCarrots" then Color3.fromRGB(110, 186, 70) else Color3.fromRGB(70, 136, 52), Material = Enum.Material.Grass, CanCollide = false })
+			end
+			if kind == "WildCarrots" then
+				part(m, { Name = "Carrot", Size = Vector3.new(0.7, 0.5, 0.7), CFrame = at * CFrame.new(0, 0.05, 0), Color = Color3.fromRGB(238, 130, 40), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+			else
+				part(m, { Name = "Potato", Shape = Enum.PartType.Ball, Size = Vector3.new(1, 0.7, 0.8), CFrame = at * CFrame.new(0.35, 0.05, 0), Color = Color3.fromRGB(178, 138, 88), Material = Enum.Material.SmoothPlastic, CanCollide = false })
+			end
+		end
+	end
+	m.PrimaryPart = soil
+	soil.PivotOffset = soil.CFrame:Inverse() * cf
+	return m
+end
+
 local makers = { Pine = makePine, Palm = makePalm, Boulder = makeBoulder, Bush = makeBush, SlimePool = makeSlimePool, CropPatch = makeCropPatch }
+for _, k in { "WildCarrots", "WildPotatoes", "WildMelons" } do
+	makers[k] = function(cf: CFrame)
+		return makeWildCrop(k, cf)
+	end
+end
 
 -- The Blender mesh for each node, and how much its size varies.
 -- Trees and rocks are built big next to a player (pines several times your height), so
@@ -629,6 +673,38 @@ local BIOME_NODES = {
 		{ "CropPatch", 4, zone = "inland" },
 	},
 }
+
+-- Wild crops (seeds for plant boxes) grow wherever wild crop patches do, plus a few
+-- on Clover Island's meadow and the shore of every island so they're easy to find.
+do
+	local WILD = { "WildCarrots", "WildPotatoes", "WildMelons" }
+	for biome, list in BIOME_NODES do
+		local extra = {}
+		local found = false
+		for _, e in list do
+			if e[1] == "CropPatch" then
+				found = true
+				for k, w in WILD do
+					table.insert(extra, { w, math.max(1, math.ceil(e[2] * (if k == 3 then 0.5 else 0.8))), zone = e.zone })
+				end
+			end
+		end
+		if not found and biome ~= "ember" then
+			for k, w in WILD do
+				table.insert(extra, { w, if k == 3 then 1 else 2, zone = "*" })
+			end
+		end
+		if biome == "clover" then
+			for k, w in WILD do
+				table.insert(extra, { w, if k == 3 then 3 else 5, zone = "meadow" })
+				table.insert(extra, { w, 2, zone = "palms" })
+			end
+		end
+		for _, e in extra do
+			table.insert(list, e)
+		end
+	end
+end
 
 -- Islets: four plantings, round in turn (see the ISLANDS list).
 local ISLET_NODES = {
