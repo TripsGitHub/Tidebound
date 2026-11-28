@@ -20,6 +20,7 @@ local CAMPS = {
 	["Silver Crags"] = { "Miners' Camp", Props.CLOTH[4] },
 	["Old Ruins"] = { "Explorers' Camp", Props.CLOTH[1] },
 	["Banana Isle"] = { "Harvest Camp", Color3.fromRGB(250, 210, 70) },
+	["Tide Isle"] = { "Crossroads Camp", Props.CLOTH[2] },
 }
 
 local function onGround(groundAt, x: number, z: number, default: number): Vector3

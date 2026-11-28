@@ -539,6 +539,7 @@ export type Island = {
 	r: number, -- radius of the island's land (studs)
 	biome: string,
 	ring: boolean?, -- false: left out of the Deep Network's ring (hangs off its nearest island)
+	field: string?, -- the IslandFields / BIOME_NODES key when it differs from biome (resized recipes)
 }
 
 local ISLANDS: { Island } = {
@@ -547,73 +548,164 @@ local ISLANDS: { Island } = {
 	{ name = "Stone Shelf", x = 300, z = 90, r = 110, biome = "rock" },
 	{ name = "Frost Isle", x = -190, z = -265, r = 95, biome = "snow" },
 	{ name = "Slime Marsh", x = 195, z = -265, r = 96, biome = "marsh" },
-	{ name = "Ember Isle", x = 0, z = 0, r = 115, biome = "ember" }, -- late game, middle
+	{ name = "Ember Isle", x = 440, z = -460, r = 150, biome = "ember" }, -- late game, out past the north-east
 	-- Smaller islands between and beyond the big ones (IslandFields.make recipes).
 	{ name = "Driftwood Cay", x = -190, z = 300, r = 45, biome = "cay" }, -- food next to spawn
 	{ name = "Coral Atoll", x = 190, z = 300, r = 58, biome = "atoll" }, -- palms round a lagoon
 	{ name = "Silver Crags", x = -345, z = -110, r = 62, biome = "crags" }, -- silver, wolves
 	{ name = "Gold Mesa", x = 345, z = -110, r = 64, biome = "mesa" }, -- gold on the terraces
-	{ name = "Old Ruins", x = 0, z = -370, r = 72, biome = "ruins" }, -- far north, past Ember
+	{ name = "Old Ruins", x = 0, z = -370, r = 72, biome = "ruins" }, -- far north, past Tide Isle
 	{ name = "Skull Key", x = 480, z = 330, r = 34, biome = "skull", ring = false },
 	{ name = "Gull Rock", x = -480, z = 330, r = 28, biome = "rockcay", ring = false },
-	{ name = "Banana Isle", x = -340, z = 270, r = 66, biome = "fruit" }, -- banana palms and ponds, near the start
-	{ name = "Maw Rock", x = 0, z = 160, r = 58, biome = "maw", ring = false, hub = true }, -- the way down to the Maw
+	{ name = "Banana Isle", x = -340, z = 270, r = 78, biome = "fruit" }, -- banana palms and ponds, near the start
+	{ name = "Tide Isle", x = 0, z = 0, r = 150, biome = "tide" }, -- the big middle island: a bit of everything, the place to explore and fight
+	{ name = "Maw Rock", x = 0, z = 150, r = 72, biome = "maw", ring = false, hub = true }, -- the way down to the Maw, joined onto Tide Isle's south coast
 	-- Nameless islands: no name on the map, no cave, one hand-built outpost each
 	-- (see Outposts.lua). Always after the named ones.
-	{ name = "Isle 1", x = -150, z = -45, r = 30, biome = "isle1", nameless = true, outpost = "stoneCircle" },
-	{ name = "Isle 2", x = 160, z = -40, r = 32, biome = "isle2", nameless = true, outpost = "ruinedTower" },
-	{ name = "Isle 3", x = -120, z = 180, r = 32, biome = "isle3", nameless = true, outpost = "dockMarket" },
-	{ name = "Isle 4", x = 480, z = 90, r = 40, biome = "isle4", nameless = true, outpost = "hillTrader" },
+	{ name = "Isle 1", x = -192, z = -55, r = 30, biome = "isle1", nameless = true, outpost = "stoneCircle" },
+	{ name = "Isle 2", x = 184, z = -77, r = 32, biome = "isle2", nameless = true, outpost = "ruinedTower" },
+	{ name = "Isle 3", x = -136, z = 144, r = 32, biome = "isle3", nameless = true, outpost = "dockMarket" },
+	{ name = "Isle 4", x = 537, z = 90, r = 40, biome = "isle4", nameless = true, outpost = "hillTrader" },
 	{ name = "Isle 5", x = -480, z = -260, r = 42, biome = "isle5", nameless = true, outpost = "hermit" },
-	{ name = "Isle 6", x = 330, z = -420, r = 38, biome = "isle6", nameless = true, outpost = "lighthouse" },
-	{ name = "Isle 7", x = -300, z = -430, r = 36, biome = "isle7", nameless = true, outpost = "shipwreck" },
-	{ name = "Isle 8", x = 120, z = 170, r = 30, biome = "isle8", nameless = true, outpost = "fishingHut" },
+	{ name = "Isle 6", x = 239, z = -412, r = 38, biome = "isle6", nameless = true, outpost = "lighthouse" },
+	{ name = "Isle 7", x = -301, z = -437, r = 36, biome = "isle7", nameless = true, outpost = "shipwreck" },
+	{ name = "Isle 8", x = 147, z = 133, r = 30, biome = "isle8", nameless = true, outpost = "fishingHut" },
 	-- Islets: little bits of land dotted across the open sea, nothing built on them.
-	{ name = "Islet 1", x = -560, z = 10, r = 20, biome = "islet1", nameless = true }, -- palm
-	{ name = "Islet 2", x = 500, z = -290, r = 16, biome = "islet2", nameless = true }, -- rock
-	{ name = "Islet 3", x = 320, z = 480, r = 22, biome = "islet3", nameless = true }, -- grass
-	{ name = "Islet 4", x = 560, z = -100, r = 16, biome = "islet4", nameless = true }, -- sand
-	{ name = "Islet 5", x = -280, z = 480, r = 22, biome = "islet5", nameless = true }, -- palm
-	{ name = "Islet 6", x = 160, z = -520, r = 22, biome = "islet6", nameless = true }, -- rock
-	{ name = "Islet 7", x = -140, z = -520, r = 22, biome = "islet7", nameless = true }, -- grass
-	{ name = "Islet 8", x = -530, z = 170, r = 20, biome = "islet8", nameless = true }, -- sand
-	{ name = "Islet 9", x = 160, z = 480, r = 12, biome = "islet9", nameless = true }, -- palm
-	{ name = "Islet 10", x = -130, z = 480, r = 18, biome = "islet10", nameless = true }, -- rock
-	{ name = "Islet 11", x = -560, z = -130, r = 14, biome = "islet11", nameless = true }, -- grass
-	{ name = "Islet 12", x = 20, z = -200, r = 22, biome = "islet12", nameless = true }, -- sand
-	{ name = "Islet 13", x = 340, z = 350, r = 12, biome = "islet13", nameless = true }, -- palm
-	{ name = "Islet 14", x = 380, z = -270, r = 14, biome = "islet14", nameless = true }, -- rock
-	{ name = "Islet 15", x = -390, z = 420, r = 12, biome = "islet15", nameless = true }, -- grass
-	{ name = "Islet 16", x = 540, z = 210, r = 16, biome = "islet16", nameless = true }, -- sand
-	-- Clusters: little islands just off each big one, so there is less open sea to swim.
-	{ name = "Cluster 1", x = 109, z = 320, r = 22, biome = "islet3", nameless = true }, -- off Clover Island
-	{ name = "Cluster 2", x = -75, z = 251, r = 12, biome = "islet9", nameless = true }, -- off Clover Island
-	{ name = "Cluster 3", x = -204, z = 90, r = 14, biome = "islet11", nameless = true }, -- off Pine Hills
-	{ name = "Cluster 4", x = -374, z = 22, r = 20, biome = "islet1", nameless = true }, -- off Pine Hills
-	{ name = "Cluster 5", x = 403, z = 90, r = 14, biome = "islet14", nameless = true }, -- off Stone Shelf
-	{ name = "Cluster 6", x = 225, z = 21, r = 12, biome = "islet13", nameless = true }, -- off Stone Shelf
-	{ name = "Cluster 7", x = -99, z = -265, r = 12, biome = "islet15", nameless = true }, -- off Frost Isle
-	{ name = "Cluster 8", x = -259, z = -328, r = 16, biome = "islet16", nameless = true }, -- off Frost Isle
-	{ name = "Cluster 9", x = 289, z = -265, r = 16, biome = "islet4", nameless = true }, -- off Slime Marsh
-	{ name = "Cluster 10", x = 122, z = -332, r = 22, biome = "islet5", nameless = true }, -- off Slime Marsh
-	{ name = "Cluster 11", x = 109, z = 0, r = 18, biome = "islet10", nameless = true }, -- off Ember Isle
-	{ name = "Cluster 12", x = -83, z = -76, r = 22, biome = "islet7", nameless = true }, -- off Ember Isle
-	{ name = "Cluster 13", x = -129, z = 300, r = 22, biome = "islet3", nameless = true }, -- off Driftwood Cay
-	{ name = "Cluster 14", x = -230, z = 263, r = 12, biome = "islet9", nameless = true }, -- off Driftwood Cay
-	{ name = "Cluster 15", x = 255, z = 300, r = 14, biome = "islet11", nameless = true }, -- off Coral Atoll
-	{ name = "Cluster 16", x = 139, z = 253, r = 20, biome = "islet1", nameless = true }, -- off Coral Atoll
-	{ name = "Cluster 17", x = -277, z = -110, r = 14, biome = "islet14", nameless = true }, -- off Silver Crags
-	{ name = "Cluster 18", x = -394, z = -155, r = 12, biome = "islet13", nameless = true }, -- off Silver Crags
-	{ name = "Cluster 19", x = 413, z = -110, r = 12, biome = "islet15", nameless = true }, -- off Gold Mesa
-	{ name = "Cluster 20", x = 293, z = -158, r = 16, biome = "islet16", nameless = true }, -- off Gold Mesa
-	{ name = "Cluster 21", x = 77, z = -370, r = 16, biome = "islet4", nameless = true }, -- off Old Ruins
-	{ name = "Cluster 22", x = -60, z = -425, r = 22, biome = "islet5", nameless = true }, -- off Old Ruins
-	{ name = "Cluster 23", x = 531, z = 330, r = 18, biome = "islet10", nameless = true }, -- off Skull Key
-	{ name = "Cluster 24", x = 441, z = 294, r = 22, biome = "islet7", nameless = true }, -- off Skull Key
-	{ name = "Cluster 25", x = -431, z = 330, r = 22, biome = "islet3", nameless = true }, -- off Gull Rock
-	{ name = "Cluster 26", x = -511, z = 302, r = 12, biome = "islet9", nameless = true }, -- off Gull Rock
-	{ name = "Cluster 27", x = -269, z = 270, r = 14, biome = "islet11", nameless = true }, -- off Banana Isle
-	{ name = "Cluster 28", x = -396, z = 219, r = 20, biome = "islet1", nameless = true }, -- off Banana Isle
+	{ name = "Islet 1", x = -560, z = 10, r = 27, biome = "islet1", nameless = true }, -- palm
+	{ name = "Islet 2", x = 500, z = -290, r = 22, biome = "islet2", nameless = true }, -- rock
+	{ name = "Islet 3", x = 320, z = 480, r = 30, biome = "islet3", nameless = true }, -- grass
+	{ name = "Islet 4", x = 560, z = -100, r = 22, biome = "islet4", nameless = true }, -- sand
+	{ name = "Islet 5", x = -280, z = 480, r = 30, biome = "islet5", nameless = true }, -- palm
+	{ name = "Islet 6", x = 160, z = -520, r = 30, biome = "islet6", nameless = true }, -- rock
+	{ name = "Islet 7", x = -145, z = -527, r = 30, biome = "islet7", nameless = true }, -- grass
+	{ name = "Islet 8", x = -530, z = 170, r = 27, biome = "islet8", nameless = true }, -- sand
+	{ name = "Islet 9", x = 160, z = 480, r = 16, biome = "islet9", nameless = true }, -- palm
+	{ name = "Islet 10", x = -130, z = 480, r = 24, biome = "islet10", nameless = true }, -- rock
+	{ name = "Islet 11", x = -560, z = -130, r = 19, biome = "islet11", nameless = true }, -- grass
+	{ name = "Islet 12", x = 20, z = -200, r = 30, biome = "islet12", nameless = true }, -- sand
+	{ name = "Islet 13", x = 340, z = 350, r = 16, biome = "islet13", nameless = true }, -- palm
+	{ name = "Islet 14", x = 402, z = -273, r = 19, biome = "islet14", nameless = true }, -- rock
+	{ name = "Islet 15", x = -382, z = 441, r = 16, biome = "islet15", nameless = true }, -- grass
+	{ name = "Islet 16", x = 540, z = 210, r = 22, biome = "islet16", nameless = true }, -- sand
+	-- Clusters: bigger nameless islands just off each big one, so there is less open sea to swim.
+	{ name = "Cluster 1", x = 144, z = 405, r = 37, biome = "islet3", nameless = true }, -- off Clover Island
+	{ name = "Cluster 2", x = -90, z = 195, r = 20, biome = "islet9", nameless = true }, -- off Clover Island
+	{ name = "Cluster 4", x = -413, z = -14, r = 34, biome = "islet1", nameless = true }, -- off Pine Hills
+	{ name = "Cluster 5", x = 453, z = 90, r = 24, biome = "islet14", nameless = true }, -- off Stone Shelf
+	{ name = "Cluster 6", x = 188, z = -7, r = 20, biome = "islet13", nameless = true }, -- off Stone Shelf
+	{ name = "Cluster 7", x = -55, z = -265, r = 20, biome = "islet15", nameless = true }, -- off Frost Isle
+	{ name = "Cluster 8", x = -300, z = -354, r = 27, biome = "islet16", nameless = true }, -- off Frost Isle
+	{ name = "Cluster 9", x = 337, z = -258, r = 27, biome = "islet4", nameless = true }, -- off Slime Marsh
+	{ name = "Cluster 10", x = 144, z = -409, r = 37, biome = "islet5", nameless = true }, -- off Slime Marsh
+	{ name = "Cluster 14", x = -196, z = 182, r = 20, biome = "islet9", nameless = true }, -- off Driftwood Cay
+	{ name = "Cluster 15", x = 292, z = 300, r = 24, biome = "islet11", nameless = true }, -- off Coral Atoll
+	{ name = "Cluster 16", x = 122, z = 212, r = 34, biome = "islet1", nameless = true }, -- off Coral Atoll
+	{ name = "Cluster 17", x = -239, z = -112, r = 24, biome = "islet14", nameless = true }, -- off Silver Crags
+	{ name = "Cluster 18", x = -420, z = -179, r = 20, biome = "islet13", nameless = true }, -- off Silver Crags
+	{ name = "Cluster 19", x = 449, z = -110, r = 20, biome = "islet15", nameless = true }, -- off Gold Mesa
+	{ name = "Cluster 20", x = 238, z = -131, r = 27, biome = "islet16", nameless = true }, -- off Gold Mesa
+	{ name = "Cluster 21", x = 78, z = -460, r = 27, biome = "islet4", nameless = true }, -- off Old Ruins
+	{ name = "Cluster 22", x = -98, z = -453, r = 37, biome = "islet5", nameless = true }, -- off Old Ruins
+	{ name = "Cluster 23", x = 565, z = 330, r = 31, biome = "islet10", nameless = true }, -- off Skull Key
+	{ name = "Cluster 24", x = 413, z = 268, r = 37, biome = "islet7", nameless = true }, -- off Skull Key
+	{ name = "Cluster 25", x = -407, z = 373, r = 37, biome = "islet3", nameless = true }, -- off Gull Rock
+	{ name = "Cluster 26", x = -530, z = 285, r = 20, biome = "islet9", nameless = true }, -- off Gull Rock
+	{ name = "Cluster 27", x = -240, z = 227, r = 24, biome = "islet11", nameless = true }, -- off Banana Isle
+	{ name = "Cluster 28", x = -429, z = 189, r = 34, biome = "islet1", nameless = true }, -- off Banana Isle
+	-- More nameless islands filling the open sea, each built from one of the islet recipes
+	-- at its own size (see SIZED below), so there is always land in sight.
+	{ name = "Isle 9", x = 469, z = -240, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 10", x = -398, z = -422, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 11", x = 244, z = -528, r = 32, biome = "gen", nameless = true },
+	{ name = "Isle 12", x = 94, z = -585, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 13", x = -191, z = 506, r = 22, biome = "gen", nameless = true },
+	{ name = "Isle 14", x = -440, z = 276, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 15", x = -469, z = -78, r = 18, biome = "gen", nameless = true },
+	{ name = "Isle 16", x = 438, z = -165, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 17", x = 328, z = 232, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 18", x = -380, z = -366, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 19", x = 96, z = 546, r = 29, biome = "gen", nameless = true },
+	{ name = "Isle 20", x = -143, z = 550, r = 23, biome = "gen", nameless = true },
+	{ name = "Isle 21", x = 573, z = -4, r = 23, biome = "gen", nameless = true },
+	{ name = "Isle 22", x = 39, z = -270, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 23", x = -53, z = 497, r = 30, biome = "gen", nameless = true },
+	{ name = "Isle 24", x = -129, z = 419, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 25", x = -243, z = 393, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 26", x = -202, z = -413, r = 25, biome = "gen", nameless = true },
+	{ name = "Isle 27", x = -322, z = 381, r = 27, biome = "gen", nameless = true },
+	{ name = "Isle 28", x = -527, z = 90, r = 28, biome = "gen", nameless = true },
+	{ name = "Isle 29", x = 523, z = -150, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 30", x = -447, z = 112, r = 20, biome = "gen", nameless = true },
+	{ name = "Isle 31", x = 449, z = -23, r = 21, biome = "gen", nameless = true },
+	{ name = "Isle 32", x = -180, z = -136, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 33", x = -403, z = -254, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 34", x = -21, z = -558, r = 31, biome = "gen", nameless = true },
+	{ name = "Isle 35", x = -401, z = -309, r = 21, biome = "gen", nameless = true },
+	{ name = "Isle 36", x = -83, z = 567, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 37", x = -231, z = -535, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 38", x = 50, z = 502, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 39", x = 472, z = 184, r = 28, biome = "gen", nameless = true },
+	{ name = "Isle 40", x = -482, z = 36, r = 19, biome = "gen", nameless = true },
+	{ name = "Isle 41", x = 250, z = -64, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 42", x = -339, z = -266, r = 19, biome = "gen", nameless = true },
+	{ name = "Isle 43", x = 218, z = 433, r = 23, biome = "gen", nameless = true },
+	{ name = "Isle 44", x = 203, z = 545, r = 30, biome = "gen", nameless = true },
+	{ name = "Isle 45", x = -131, z = -384, r = 18, biome = "gen", nameless = true },
+	{ name = "Isle 46", x = 135, z = -135, r = 18, biome = "gen", nameless = true },
+	{ name = "Isle 47", x = 282, z = 377, r = 29, biome = "gen", nameless = true },
+	{ name = "Isle 48", x = 254, z = 506, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 49", x = -150, z = 219, r = 20, biome = "gen", nameless = true },
+	{ name = "Isle 50", x = -194, z = 415, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 51", x = -482, z = -27, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 52", x = -34, z = -494, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 53", x = -508, z = -142, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 54", x = 22, z = 566, r = 27, biome = "gen", nameless = true },
+	{ name = "Isle 55", x = -267, z = 338, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 56", x = -195, z = -473, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 57", x = 523, z = -41, r = 19, biome = "gen", nameless = true },
+	{ name = "Isle 58", x = -565, z = -53, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 59", x = 190, z = 189, r = 18, biome = "gen", nameless = true },
+	{ name = "Isle 60", x = -369, z = -206, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 61", x = 398, z = -207, r = 22, biome = "gen", nameless = true },
+	{ name = "Isle 62", x = -250, z = -488, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 63", x = -482, z = -184, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 64", x = -451, z = -367, r = 32, biome = "gen", nameless = true },
+	{ name = "Isle 65", x = 417, z = 418, r = 28, biome = "gen", nameless = true },
+	{ name = "Isle 66", x = 74, z = -537, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 67", x = -113, z = -584, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 68", x = -549, z = -182, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 69", x = 519, z = -205, r = 18, biome = "gen", nameless = true },
+	{ name = "Isle 70", x = -186, z = 9, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 71", x = -73, z = -189, r = 20, biome = "gen", nameless = true },
+	{ name = "Isle 72", x = 403, z = 191, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 73", x = 34, z = -509, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 74", x = -291, z = -517, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 75", x = 519, z = 16, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 76", x = 490, z = 253, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 77", x = -167, z = 77, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 78", x = 271, z = 233, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 79", x = 96, z = -179, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 80", x = -160, z = 375, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 81", x = 8, z = 474, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 82", x = -125, z = -150, r = 18, biome = "gen", nameless = true },
+	{ name = "Isle 83", x = 354, z = 421, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 84", x = 573, z = 162, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 85", x = 82, z = 463, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 86", x = 390, z = 339, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 87", x = -273, z = -44, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 88", x = -460, z = -130, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 89", x = -434, z = 60, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 90", x = -240, z = 532, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 91", x = -306, z = -206, r = 15, biome = "gen", nameless = true },
+	{ name = "Isle 92", x = -589, z = 67, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 93", x = -366, z = -469, r = 17, biome = "gen", nameless = true },
+	{ name = "Isle 94", x = -481, z = 232, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 95", x = -345, z = 475, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 96", x = -583, z = 119, r = 16, biome = "gen", nameless = true },
+	{ name = "Isle 97", x = -81, z = -524, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 98", x = -522, z = -79, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 99", x = 390, z = -22, r = 14, biome = "gen", nameless = true },
+	{ name = "Isle 100", x = -201, z = 561, r = 14, biome = "gen", nameless = true },
 }
 -- Built MapScale.H times bigger than the shapes above, and MapScale.Spread further apart.
 for _, isl in ISLANDS do
@@ -684,6 +776,12 @@ local BIOME_NODES = {
 	ember = {
 		{ "Boulder", 9, zone = "slopes" },
 		{ "Boulder", 3, zone = "camp" },
+		-- The lowland round the volcano: burnt woods, ash and a little silver.
+		{ "Pine", 8, { 1, 3 }, zone = "lowland" },
+		{ "Bush", 5, zone = "lowland" },
+		{ "Boulder", 6, zone = "lowland" },
+		{ "SilverVein", 2, zone = "lowland" },
+		{ "Palm", 3, { 1, 1 }, zone = "shore" },
 	},
 	-- Recipe islands are zoned shore / inland / peak.
 	cay = {
@@ -745,38 +843,6 @@ local BIOME_NODES = {
 	},
 }
 
--- Wild crops (seeds for plant boxes) grow wherever wild crop patches do, plus a few
--- on Clover Island's meadow and the shore of every island so they're easy to find.
-do
-	local WILD = { "WildCarrots", "WildPotatoes", "WildMelons" }
-	for biome, list in BIOME_NODES do
-		local extra = {}
-		local found = false
-		for _, e in list do
-			if e[1] == "CropPatch" then
-				found = true
-				for k, w in WILD do
-					table.insert(extra, { w, math.max(1, math.ceil(e[2] * (if k == 3 then 0.5 else 0.8))), zone = e.zone })
-				end
-			end
-		end
-		if not found and biome ~= "ember" then
-			for k, w in WILD do
-				table.insert(extra, { w, if k == 3 then 1 else 2, zone = "*" })
-			end
-		end
-		if biome == "clover" then
-			for k, w in WILD do
-				table.insert(extra, { w, if k == 3 then 3 else 5, zone = "meadow" })
-				table.insert(extra, { w, 2, zone = "palms" })
-			end
-		end
-		for _, e in extra do
-			table.insert(list, e)
-		end
-	end
-end
-
 -- Islets: four plantings, round in turn (see the ISLANDS list).
 local ISLET_NODES = {
 	palm = { { "Palm", 4, { 1, 3 }, zone = "*" }, { "FruitPalm", 1, { 1, 1 }, zone = "shore" }, { "Bush", 2, zone = "inland" }, { "CropPatch", 1, zone = "inland" } },
@@ -828,6 +894,111 @@ BIOME_NODES.isle8 = {
 	{ "CropPatch", 2, zone = "inland" },
 }
 
+BIOME_NODES.tide = { -- Tide Isle: a bit of everything, by quarter
+	{ "Pine", 26, { 2, 4 }, zone = "forest" },
+	{ "Bush", 5, zone = "forest" },
+	{ "Boulder", 3, zone = "forest" },
+	{ "Boulder", 14, zone = "rocks" },
+	{ "SilverVein", 5, zone = "rocks" },
+	{ "GoldVein", 4, zone = "rocks" },
+	{ "SunstoneVein", 1, { 1, 2 }, zone = "rocks" },
+	{ "Pine", 3, { 1, 2 }, zone = "rocks" },
+	{ "Palm", 12, { 1, 3 }, zone = "dunes" },
+	{ "FruitPalm", 4, { 1, 2 }, zone = "dunes" },
+	{ "BananaPalm", 3, { 1, 2 }, zone = "dunes" },
+	{ "Boulder", 3, zone = "dunes" },
+	{ "Bush", 8, zone = "meadow" },
+	{ "Pine", 3, { 1, 2 }, zone = "meadow" },
+	{ "SlimePool", 3, zone = "meadow" },
+	{ "CropPatch", 4, zone = "meadow" },
+	{ "Boulder", 2, zone = "meadow" },
+	{ "Bush", 2, zone = "centre" },
+	{ "Pine", 2, { 1, 2 }, zone = "centre" },
+	{ "CropPatch", 1, zone = "centre" },
+	{ "Palm", 4, { 1, 1 }, zone = "shore" },
+}
+
+-- Wild crops (seeds for plant boxes) grow wherever wild crop patches do, plus a few
+-- on Clover Island's meadow and the shore of every island so they're easy to find.
+do
+	local WILD = { "WildCarrots", "WildPotatoes", "WildMelons" }
+	local seen = {} -- some biomes share one planting list: add to each list once
+	for biome, list in BIOME_NODES do
+		if seen[list] then
+			continue
+		end
+		seen[list] = true
+		local extra = {}
+		local found = false
+		for _, e in list do
+			if e[1] == "CropPatch" then
+				found = true
+				for k, w in WILD do
+					table.insert(extra, { w, math.max(1, math.ceil(e[2] * (if k == 3 then 0.5 else 0.8))), zone = e.zone })
+				end
+			end
+		end
+		if not found and biome ~= "ember" then
+			local small = string.match(biome, "^isle") ~= nil -- isles and islets: one patch of each
+			for k, w in WILD do
+				table.insert(extra, { w, if small or k == 3 then 1 else 2, zone = "*" })
+			end
+		end
+		if biome == "clover" then
+			for k, w in WILD do
+				table.insert(extra, { w, if k == 3 then 3 else 5, zone = "meadow" })
+				table.insert(extra, { w, 2, zone = "palms" })
+			end
+		end
+		for _, e in extra do
+			table.insert(list, e)
+		end
+	end
+end
+
+
+-- Resized recipes: clusters, islets and the extra nameless islands are each built from
+-- an islet or isle recipe at their own size (and with their own seed, so no two look
+-- the same), with node counts grown to match the extra land.
+do
+	local TEMPLATES = {}
+	for i = 1, 16 do
+		table.insert(TEMPLATES, "islet" .. i)
+	end
+	for _, k in { "isle1", "isle3", "isle5", "isle7", "isle8" } do
+		table.insert(TEMPLATES, k)
+	end
+	local H = MapScale.H
+	for i, isl in ISLANDS do
+		if not isl.nameless then
+			continue
+		end
+		if isl.biome == "gen" then
+			isl.biome = TEMPLATES[(i * 7) % #TEMPLATES + 1]
+		end
+		local template = IslandFields[isl.biome]
+		local spec = template and template.spec
+		local r = isl.r / H
+		if spec and math.abs(spec.r - r) > 0.5 then
+			local copy = table.clone(spec)
+			copy.r = r
+			copy.seed = spec.seed + i * 13
+			copy.peak = spec.peak * math.clamp((r / spec.r) ^ 0.5, 1, 1.6)
+			local key = "sized" .. i
+			IslandFields[key] = IslandFields.make(copy)
+			local grow = (r / spec.r) ^ 2
+			local list = {}
+			for _, e in BIOME_NODES[isl.biome] or {} do
+				local n = table.clone(e)
+				n[2] = math.max(1, math.round(e[2] * grow))
+				table.insert(list, n)
+			end
+			BIOME_NODES[key] = list
+			isl.field = key
+		end
+	end
+end
+
 -- Spacing, in studs. Island Tribes keeps trees 20-40 studs apart with open ground
 -- between, so you can always see the next one.
 local CLUMP_SPACING = 30 -- between clumps of trees
@@ -844,7 +1015,7 @@ local function island(terrain: Terrain, isl: Island)
 		CloverIsland.fill(terrain, x, z)
 		return
 	end
-	local field = IslandFields[isl.biome]
+	local field = IslandFields[isl.field or isl.biome]
 	if field then
 		IslandFields.fill(field, terrain, x, z)
 		return
@@ -1044,7 +1215,7 @@ local function findSpot(
 		end
 		local zoneOk = true
 		local rx, rz = (px - isl.x) / MapScale.H, (pz - isl.z) / MapScale.H -- the zone maps are at 1x
-		local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
+		local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.field or isl.biome]
 		if field then
 			zoneOk = field.canGrow(rx, rz) and (zone == nil or zone == "*" or field.zoneAt(rx, rz) == zone)
 		end
@@ -1067,7 +1238,7 @@ end
 
 local function populate(nodeFolder: Folder, isl: Island, taken: { Vector3 })
 	currentBiome = isl.biome
-	for _, entry in BIOME_NODES[isl.biome] do
+	for _, entry in BIOME_NODES[isl.field or isl.biome] do
 		local nodeType, clump, zone = entry[1], entry[3], entry.zone
 		-- Same density as the hand-tuned 1x map (scaled by Density), over more land.
 		local count = math.max(1, math.round(entry[2] * MapScale.H * MapScale.H * MapScale.Density))
@@ -2009,7 +2180,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	local network = if WorldBake.baked
 		then WorldBake.loadNetwork()
 		else Caves.build(WorldBake.terrain, NAMED, groundAt, function(isl, x, z)
-			local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.biome]
+			local field = if isl.biome == "clover" then CloverIsland else IslandFields[isl.field or isl.biome]
 			local rx, rz = (x - isl.x) / H, (z - isl.z) / H
 			local far = (Vector3.new(x, 0, z) - Vector3.new(sx, 0, sz)).Magnitude > 60
 			return far and (field == nil or field.canGrow(rx, rz))
@@ -2309,6 +2480,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		["Banana Isle"] = { "homestead", "Banana Farm", Color3.fromRGB(250, 210, 70), 40 },
 		["Coral Atoll"] = { "teepees", "Reef Camp", Props.CLOTH[2], 34 },
 		["Stone Shelf"] = { "quarry", "Quarry Yard", Props.CLOTH[4], 40 },
+		["Tide Isle"] = { "fort", "Tide Fort", Props.CLOTH[3], 52 },
 	}
 	local COASTAL = { dockMarket = true, fishingHut = true, shipwreck = true, lighthouse = true }
 	local built = {}
@@ -2440,6 +2612,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	-- Everything else, by island: { kind, herds, per herd, zone }.
 	local MOBS = {
 		["Clover Island"] = { { "Crab", 2, 3, "palms" } },
+		["Tide Isle"] = { { "Boar", 3, 3, "meadow" }, { "Wolf", 2, 3, "forest" }, { "Goat", 2, 3, "rocks" }, { "Crab", 3, 3, "shore" }, { "Turtle", 2, 2, "shore" }, { "BogSlime", 1, 3, "meadow" } },
 		["Coral Atoll"] = { { "Crab", 4, 3, "shore" }, { "Boar", 1, 3, "inland" }, { "Turtle", 3, 2, "shore" } },
 		["Banana Isle"] = { { "Boar", 2, 3, "inland" }, { "Turtle", 2, 2, "shore" }, { "Crab", 2, 3, "shore" } },
 		["Pine Hills"] = { { "Boar", 1, 4, "forest" } },

@@ -372,14 +372,19 @@ end
 
 local EI = {} :: any
 EI.name = "Ember Isle"
-EI.bounds = { -150, 150, -150, 150 }
+EI.bounds = { -200, 200, -200, 200 }
 EI.ytop = 64
+-- The volcano stands in a wide ring of lowland (ash flats, scorched grass, black
+-- beaches), so there is room to land, camp and build round it.
+local EI_R = 150
 function EI.land(x, z)
-	return 1 - hypot(x, z) / 112 + noise(x * 1.2, z * 1.2) * 0.04
+	local a = atan2(z, x)
+	local wob = sin(a * 3 + 2) * 0.06 + sin(a * 5 + 4.1) * 0.04
+	return 1 - hypot(x, z) / (EI_R * (1 + wob)) + noise(x * 1.2, z * 1.2) * 0.04
 end
 local function eiLanding(x, z)
 	local a = atan2(x, z) + noise(x * 0.5, z * 0.5) * 0.07 -- 0 = due south
-	return smooth((0.55 - abs(a)) / 0.3)
+	return smooth((0.55 - abs(a)) / 0.3) * smooth((hypot(x, z) - 60) / 10)
 end
 EI.landing = eiLanding
 function EI.height(x, z)
@@ -392,7 +397,7 @@ function EI.height(x, z)
 	local inland = smooth((l - 0.06) / 0.25)
 	local cone = smooth(1 - d / 96) ^ 1.5 * 52
 	h += inland * (cone + 3 + noise(x * 1.5, z * 1.5) * 1.5)
-	h += (1 - eiLanding(x, z)) * smooth((l - 0.02) / 0.08) * 8 -- sea cliffs except at the landing
+	h += (1 - eiLanding(x, z)) * smooth((l - 0.02) / 0.08) * smooth((105 - d) / 12) * 8 -- a cliff step up to the volcano, except at the landing
 	h += smooth(l / 0.2) * detail(x, z) * 0.9
 	if d < 22 then
 		h = math.min(h, 40 + (d / 22) ^ 2 * 12) -- crater
@@ -424,6 +429,9 @@ function EI.zoneAt(x, z)
 	if eiLanding(x, z) > 0.5 and d > 60 and d < 90 then
 		return "camp"
 	end
+	if d > 104 then
+		return if EI.land(x, z) < 0.1 then "shore" else "lowland"
+	end
 	return "slopes"
 end
 function EI.material(x, z, h, slope)
@@ -437,6 +445,14 @@ function EI.material(x, z, h, slope)
 	end
 	if EI.zoneAt(x, z) == "camp" and noise(x * 1.8, z * 1.8) > 0.2 then
 		return M.Ground
+	end
+	if d > 104 and slope < 0.8 then
+		-- The lowland: ash flats with patches of scorched grass further from the cone.
+		local n = noise(x * 0.9 + 31, z * 0.9)
+		if n > 0.15 + smooth((125 - d) / 20) * 0.6 then
+			return M.Grass
+		end
+		return if n < -0.35 then M.Basalt else M.Ground
 	end
 	if slope > 0.8 + g * 0.15 then
 		return M.Slate
@@ -468,15 +484,26 @@ end })
 local function make(spec): Field
 	local F = {} :: any
 	F.name = spec.name
+	F.spec = spec -- so WorldBuilder can build the same recipe at another size
+	F.merge = spec.merge -- runs into a neighbouring island: keep the land already there
 	local R = spec.r
 	F.bounds = { -R * 1.4, R * 1.4, -R * 1.4, R * 1.4 }
 	F.ytop = spec.peak + (spec.mountain or 0) + 14
 	local seed = spec.seed
 	local rand = Random.new(seed)
 	local hills = {}
-	for _ = 1, spec.hills or 3 do
+	-- Somewhere on the land: anywhere within half the radius, or along a banana's arc.
+	local function inland(): (number, number)
+		if spec.shape == "banana" then
+			local a = math.rad(rand:NextNumber(-140, -40))
+			return cos(a) * R * 0.9, R * 0.62 + sin(a) * R * 0.9
+		end
 		local a, d = rand:NextNumber(0, pi * 2), rand:NextNumber(0, R * 0.5)
-		table.insert(hills, { cos(a) * d, sin(a) * d, R * rand:NextNumber(0.25, 0.45), spec.peak * rand:NextNumber(0.5, 1) })
+		return cos(a) * d, sin(a) * d
+	end
+	for _ = 1, spec.hills or 3 do
+		local hx, hz = inland()
+		table.insert(hills, { hx, hz, R * rand:NextNumber(0.25, 0.45) * (if spec.shape then 0.6 else 1), spec.peak * rand:NextNumber(0.5, 1) })
 	end
 	local spires = {}
 	for _ = 1, spec.spires or 0 do
@@ -486,10 +513,32 @@ local function make(spec): Field
 	-- Ponds: round dips with water in them, somewhere inland.
 	local ponds = {}
 	for _ = 1, spec.ponds or 0 do
-		local a, d = rand:NextNumber(0, pi * 2), rand:NextNumber(R * 0.15, R * 0.5)
-		table.insert(ponds, { cos(a) * d, sin(a) * d, R * rand:NextNumber(0.08, 0.13) })
+		local px, pz
+		if spec.shape then
+			px, pz = inland()
+		else
+			local a, d = rand:NextNumber(0, pi * 2), rand:NextNumber(R * 0.15, R * 0.5)
+			px, pz = cos(a) * d, sin(a) * d
+		end
+		table.insert(ponds, { px, pz, R * rand:NextNumber(0.08, 0.13) * (if spec.shape then 0.7 else 1) })
+	end
+	-- Banana shape: a fat curved band along an arc, tapering to rounded tips.
+	local ARC_R, ARC_CZ, ARC_A0, ARC_A1 = R * 0.9, R * 0.62, math.rad(-165), math.rad(-15)
+	local function bananaLand(x, z)
+		local a = atan2(z - ARC_CZ, x)
+		local ac = math.clamp(a, ARC_A0, ARC_A1)
+		if a > 0 then
+			ac = if a > pi / 2 then ARC_A0 else ARC_A1 -- the far side of the circle: nearest tip
+		end
+		local px, pz = cos(ac) * ARC_R, ARC_CZ + sin(ac) * ARC_R
+		local t = (ac - ARC_A0) / (ARC_A1 - ARC_A0)
+		local w = R * (0.1 + 0.27 * sin(pi * t) ^ 0.7) * (1 + noise(x * 1.1 + seed, z * 1.1) * 0.08)
+		return 1 - hypot(x - px, z - pz) / w
 	end
 	function F.land(x, z)
+		if spec.shape == "banana" then
+			return bananaLand(x, z)
+		end
 		local a = atan2(z, x)
 		local wob = sin(a * 3 + seed) * 0.12 + sin(a * 5 + seed * 2.3) * 0.07 + noise(x * 1.3 + seed * 7, z * 1.3) * 0.04
 		local l = 1 - hypot(x, z) / (R * (1 + wob))
@@ -511,7 +560,7 @@ local function make(spec): Field
 		end
 		if spec.mountain then
 			-- One big peak in the middle, with ridges running down it.
-			local d = hypot(x, z) / (R * 0.78)
+			local d = hypot(x, z) / (R * (spec.mountainR or 0.78))
 			if d < 1 then
 				local ridges = 1 + 0.12 * sin(atan2(z, x) * 7 + seed) + noise(x * 0.7, z * 0.7) * 0.08
 				h += spec.mountain * (1 - d ^ 1.5) ^ 1.6 * ridges
@@ -604,10 +653,89 @@ IslandFields.crags = make({ name = "Silver Crags", r = 62, peak = 34, hills = 4,
 IslandFields.mesa = make({ name = "Gold Mesa", r = 64, peak = 30, hills = 3, mesa = true, seed = 43, low = M.Sandstone, high = M.Sandstone, cliff = M.Sandstone, shore = M.Sand })
 -- Autumn: golden grass (LeafyGrass is tinted for it in WorldBuilder) under orange and gold trees.
 IslandFields.ruins = make({ name = "Old Ruins", r = 72, peak = 20, hills = 6, ponds = 2, seed = 61, low = M.LeafyGrass, high = M.LeafyGrass })
-IslandFields.fruit = make({ name = "Banana Isle", r = 66, peak = 16, hills = 5, ponds = 3, seed = 97, low = M.Grass, high = M.Grass })
+-- Shaped like a banana: a long curved island, fat in the middle, thin at the tips.
+IslandFields.fruit = make({ name = "Banana Isle", r = 78, peak = 14, hills = 6, ponds = 3, seed = 97, low = M.Grass, high = M.Grass, shape = "banana" })
 IslandFields.skull = make({ name = "Skull Key", r = 34, peak = 22, hills = 1, seed = 71, low = M.Basalt, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
 -- The cave hub: a big snow-capped rock you can see from every island near the middle.
-IslandFields.maw = make({ name = "Maw Rock", r = 58, peak = 14, hills = 3, spires = 4, mountain = 125, cap = M.Snow, capAt = 92, seed = 89, low = M.Slate, high = M.Slate, cliff = M.Basalt, shore = M.Sand })
+IslandFields.maw = make({ name = "Maw Rock", r = 72, peak = 10, hills = 4, spires = 4, mountain = 125, mountainR = 0.5, cap = M.Snow, capAt = 92, seed = 89, low = M.Slate, high = M.Slate, cliff = M.Basalt, shore = M.Sand, merge = true })
+-- Tide Isle: the big island in the middle of the map with a bit of everything, split
+-- into quarters round a grassy heart: pine forest (west), rocky highlands with ore
+-- (north), palm dunes (east), and meadows with crops and slime pools (south, where
+-- Maw Rock joins its coast).
+do
+	local T = make({ name = "Tide Isle", r = 150, peak = 18, hills = 9, seed = 401, low = M.Grass, high = M.Grass, cliff = M.Rock })
+	local R = 150
+	local baseLand, baseHeight, baseMaterial = T.land, T.height, T.material
+	local function sector(x, z): string
+		if hypot(x, z) < R * 0.22 + noise(x * 0.9, z * 0.9) * 6 then
+			return "centre"
+		end
+		local a = math.deg(atan2(z, x)) + noise(x * 0.6 + 40, z * 0.6) * 14
+		if a > 180 then
+			a -= 360
+		elseif a < -180 then
+			a += 360
+		end
+		if a >= 125 or a < -130 then
+			return "forest"
+		elseif a < -45 then
+			return "rocks"
+		elseif a < 40 then
+			return "dunes"
+		end
+		return "meadow"
+	end
+	T.sector = sector
+	local function extra(x, z): number
+		local l = baseLand(x, z)
+		if l <= 0.08 then
+			return 0
+		end
+		local inland = smooth((l - 0.08) / 0.35)
+		local s = sector(x, z)
+		if s == "rocks" then
+			-- Craggy highlands: ridges that climb towards the middle of the north.
+			local ridge = math.abs(noise(x * 0.35 + 7, z * 0.35 - 3))
+			return inland * (10 + (1 - ridge) * 26)
+		elseif s == "dunes" then
+			return inland * (2 + (sin(x * 0.18 + z * 0.05) + 1) * 2.2)
+		end
+		return 0
+	end
+	T.height = function(x, z)
+		return baseHeight(x, z) + extra(x, z)
+	end
+	T.ytop += 40
+	T.zoneAt = function(x, z)
+		if baseLand(x, z) < 0.12 then
+			return "shore"
+		end
+		return sector(x, z)
+	end
+	T.material = function(x, z, h, slope)
+		local m = baseMaterial(x, z, h, slope)
+		if baseLand(x, z) <= 0.08 then
+			return m
+		end
+		local s = sector(x, z)
+		local g = grain(x, z)
+		if s == "rocks" then
+			if slope > 1.1 + g * 0.2 or h > 26 + g * 5 then
+				return if g > 0.3 then M.Slate else M.Rock
+			end
+			return grassy(x, z, M.Grass)
+		elseif s == "dunes" then
+			if slope > 1.5 then
+				return M.Sandstone
+			end
+			return if g > 0.6 then M.Grass else M.Sand
+		elseif s == "forest" then
+			return if m == M.Rock then m else grassy(x, z, M.LeafyGrass)
+		end
+		return m
+	end
+	IslandFields.tide = T
+end
 IslandFields.rockcay = make({ name = "Gull Rock", r = 28, peak = 14, hills = 2, spires = 3, seed = 83, low = M.Rock, high = M.Rock })
 -- The nameless islands: small, each its own shape.
 IslandFields.isle1 = make({ name = "", r = 30, peak = 16, hills = 2, spires = 4, seed = 101, low = M.Grass, high = M.Rock, cliff = M.Slate })
@@ -681,7 +809,7 @@ function IslandFields.fill(field: Field, terrain: Terrain, cx: number, cz: numbe
 			end
 			mats[j], occ[j] = m, o
 		end
-	end)
+	end, field.merge)
 end
 
 return IslandFields

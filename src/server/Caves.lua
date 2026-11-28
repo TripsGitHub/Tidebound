@@ -343,7 +343,7 @@ function Caves.build(terrain: Terrain, islands: { any }, groundAt: (number, numb
 	-- Deep Network: the outer islands in a ring, and each one to the middle island.
 	local middle
 	for i, isl in islands do
-		if isl.biome == "ember" then
+		if isl.biome == "tide" then
 			middle = i
 		end
 	end

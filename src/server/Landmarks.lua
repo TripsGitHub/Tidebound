@@ -325,29 +325,69 @@ function BUILDERS.fruit(m: Model, c: Vector3, groundAt)
 	return "The Banana Giant", (top - c).Y + 6
 end
 
--- Maw Rock: a huge jaw of black stone teeth round a dark hollow, the sign that the
+-- Maw Rock: a broken stone shrine round a dark hollow, the sign that the
 -- caves under this rock go down to the Maw, the deepest place in the world.
 function BUILDERS.maw(m: Model, c: Vector3, groundAt)
-	local tooth, gum = Color3.fromRGB(228, 220, 200), Color3.fromRGB(46, 40, 44)
-	for i = 0, 13 do
-		local a = i / 14 * math.pi * 2
-		local r = 16 + rng:NextNumber(-1.5, 1.5)
-		local at = c + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
-		local h = rng:NextNumber(12, 22)
-		local lean = CFrame.lookAt(at, Vector3.new(c.X, at.Y, c.Z)) * CFrame.Angles(math.rad(-rng:NextNumber(14, 26)), 0, 0)
-		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(rng:NextNumber(3, 5), h, rng:NextNumber(4, 6)), CFrame = lean * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone })
-		Props.part(m, { Name = "Gum", Size = Vector3.new(6, 3, 7), CFrame = CFrame.new(at + Vector3.new(0, 1, 0)) * CFrame.Angles(0, -a, 0), Color = gum, Material = Enum.Material.Basalt })
+	-- A ring of broken stone pillars round the hole, a fallen lintel across two of
+	-- them, a faint rune glowing on each: an old shrine over the way down.
+	local stone, dark, rune = Color3.fromRGB(84, 80, 84), Color3.fromRGB(40, 36, 40), Color3.fromRGB(255, 120, 60)
+	for i = 0, 7 do
+		local a = i / 8 * math.pi * 2
+		local at = c + Vector3.new(math.cos(a) * 16, 0, math.sin(a) * 16)
+		local hit = groundAt(at.X, at.Z)
+		local y = if hit then hit.Position.Y else c.Y
+		local h = if i % 3 == 0 then rng:NextNumber(4, 7) else rng:NextNumber(10, 16)
+		local cf = CFrame.lookAt(Vector3.new(at.X, y, at.Z), Vector3.new(c.X, y, c.Z)) * CFrame.Angles(math.rad(rng:NextNumber(-3, 3)), 0, math.rad(rng:NextNumber(-3, 3)))
+		Props.part(m, { Name = "PillarFoot", Size = Vector3.new(5.5, 2, 5.5), CFrame = cf * CFrame.new(0, 0.4, 0), Color = dark, Material = Enum.Material.Basalt })
+		Props.part(m, { Name = "Pillar", Size = Vector3.new(4, h, 4), CFrame = cf * CFrame.new(0, h / 2, 0), Color = stone, Material = Enum.Material.Slate })
+		local r = Props.part(m, { Name = "Rune", Size = Vector3.new(1.4, 1.4, 0.3), CFrame = cf * CFrame.new(0, math.min(h - 1.5, 5), -2.1) * CFrame.Angles(0, 0, math.pi / 4), Color = rune, Material = Enum.Material.Neon, CanCollide = false })
+		r.CastShadow = false
+		if i % 3 == 0 then
+			-- Broken off: the top lies in the grass beside it.
+			Props.part(m, { Name = "Rubble", Size = Vector3.new(4, 5, 4), CFrame = cf * CFrame.new(3.5, 1.2, 2) * CFrame.Angles(math.rad(80), rng:NextNumber(0, 6), 0), Color = stone, Material = Enum.Material.Slate })
+		end
 	end
+	local p1 = c + Vector3.new(math.cos(math.pi / 4) * 16, 0, math.sin(math.pi / 4) * 16)
+	local p2 = c + Vector3.new(math.cos(math.pi / 2) * 16, 0, math.sin(math.pi / 2) * 16)
+	local mid = (p1 + p2) / 2
+	Props.part(m, { Name = "FallenLintel", Size = Vector3.new(15, 2.4, 4), CFrame = CFrame.lookAt(mid, mid + (p2 - p1)) * CFrame.new(0, 9.5, 0) * CFrame.Angles(0, math.pi / 2, math.rad(8)), Color = stone, Material = Enum.Material.Slate })
 	-- The throat: a dark disc with a dim red glow deep inside.
 	Props.part(m, { Shape = Enum.PartType.Cylinder, Name = "Throat", Size = Vector3.new(0.6, 26, 26), CFrame = CFrame.new(c + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(18, 14, 16), Material = Enum.Material.Basalt, CanCollide = false })
 	local glow = Props.part(m, { Name = "Glow", Size = Vector3.new(4, 0.4, 4), CFrame = CFrame.new(c + Vector3.new(0, 0.5, 0)), Color = Color3.fromRGB(200, 40, 30), Material = Enum.Material.Neon, CanCollide = false, Transparency = 0.4 })
 	local light = Instance.new("PointLight")
 	light.Color, light.Range, light.Brightness = Color3.fromRGB(255, 60, 40), 34, 1.6
 	light.Parent = glow
-	return "The Maw", 30
+	return "The Maw Shrine", 18
 end
 
 -- A plain cairn for any island without its own landmark.
+-- Tide Isle: the Tide Stones. A ring of tall weathered standing stones, each with a
+-- blue-green band of sea glass, round a flat stone floor with a compass rose.
+function BUILDERS.tide(m: Model, c: Vector3, groundAt)
+	local stone, glass = Color3.fromRGB(128, 132, 128), Color3.fromRGB(90, 190, 180)
+	for i = 0, 8 do
+		local a = i / 9 * math.pi * 2
+		local p = c + Vector3.new(math.cos(a) * 17, 0, math.sin(a) * 17)
+		local hit = groundAt(p.X, p.Z)
+		local y = if hit then hit.Position.Y else c.Y
+		local h = 16 + (i % 3) * 4
+		local look = CFrame.lookAt(Vector3.new(p.X, y, p.Z), Vector3.new(c.X, y, c.Z))
+		local tilt = CFrame.Angles(math.rad(rng:NextNumber(-4, 4)), 0, math.rad(rng:NextNumber(-4, 4)))
+		part(m, { Name = "TideStone", Size = Vector3.new(4.5, h, 3), CFrame = look * tilt * CFrame.new(0, h / 2 - 1, 0), Color = stone, Material = Enum.Material.Slate })
+		part(m, { Name = "TideStoneCap", Size = Vector3.new(3.6, 2, 2.4), CFrame = look * tilt * CFrame.new(0, h - 0.4, 0) * CFrame.Angles(0, 0, 0.25), Color = stone:Lerp(Color3.new(1, 1, 1), 0.12), Material = Enum.Material.Slate })
+		local band = part(m, { Name = "SeaGlass", Size = Vector3.new(4.7, 1.2, 3.2), CFrame = look * tilt * CFrame.new(0, h * 0.62, 0), Color = glass, Material = Enum.Material.Glass, Transparency = 0.2 })
+		band.CanCollide = false
+		if i % 3 == 0 then
+			part(m, { Name = "Lintel", Size = Vector3.new(4, 2.2, 13), CFrame = CFrame.lookAt(Vector3.new(p.X, y + h + 0.6, p.Z), Vector3.new(c.X, y + h + 0.6, c.Z)) * CFrame.new(0, 0, -3), Color = stone, Material = Enum.Material.Slate })
+		end
+	end
+	for k = 0, 3 do
+		local a = k * math.pi / 2
+		part(m, { Name = "Rose", Size = Vector3.new(1.4, 0.4, 9), CFrame = CFrame.new(c + Vector3.new(math.cos(a) * 15.5, 0.15, math.sin(a) * 15.5)) * CFrame.Angles(0, -a + math.pi / 2, 0), Color = glass, Material = Enum.Material.Slate })
+	end
+	return "The Tide Stones", 24
+end
+
 function BUILDERS.default(m: Model, c: Vector3, groundAt)
 	for i = 0, 7 do
 		local a = i / 8 * math.pi * 2
@@ -509,38 +549,64 @@ function Landmarks.place(kind: string, centre: Vector3, groundAt, title: string?
 	return m
 end
 
--- The way into the Maw: a giant jaw of stone teeth framing Maw Rock's cave mouth,
+-- The way into the Maw: a great stone doorway framing Maw Rock's cave mouth,
 -- a red beacon over it you can see from the other islands, and a lit path of torch
 -- posts winding up from the beach, with a sign at the bottom. `mouth` is the cave
 -- entrance, `out` the flat direction from the mountain out through it.
 function Landmarks.mawGate(mouth: Vector3, out: Vector3, groundAt): Model
 	local m = Instance.new("Model")
 	m.Name = "The Maw"
-	local tooth, gum = Color3.fromRGB(228, 220, 200), Color3.fromRGB(46, 40, 44)
+	local stone, dark, rune = Color3.fromRGB(84, 80, 84), Color3.fromRGB(40, 36, 40), Color3.fromRGB(255, 120, 60)
 	local front = mouth + out * 6
 	local look = CFrame.lookAt(front, front + out)
 	local right = look.RightVector
-	-- Upper jaw: teeth hanging down in an arch over the mouth; lower jaw: teeth rising
-	-- from the lip. Slightly curved inward like a bite.
-	for i = -4, 4 do
-		local t = i / 4
-		local x = t * 17
-		local archY = 30 - (t * t) * 12
-		local h = 5 + (1 - math.abs(t)) * 3 + rng:NextNumber(-0.6, 0.6)
-		local at = front + right * x + Vector3.new(0, archY, 0)
-		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(3.6, h, 4), CFrame = CFrame.lookAt(at, at - out) * CFrame.Angles(math.rad(180 + 12), 0, 0) * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone, CanCollide = false })
-		Props.part(m, { Name = "Gum", Size = Vector3.new(4.6, 3, 5), CFrame = CFrame.lookAt(at + Vector3.new(0, 1.2, 0), at + Vector3.new(0, 1.2, 0) + out), Color = gum, Material = Enum.Material.Basalt })
+	-- A great stone doorway built into the mountain: two pillars of stacked blocks, a
+	-- heavy lintel with a glowing rune band, a raised iron portcullis under it, and a
+	-- brazier burning on a plinth either side. The way in stays 26 studs wide.
+	local function block(name: string, size: Vector3, off: Vector3, colour: Color3, mat: Enum.Material?, rot: CFrame?)
+		return Props.part(m, { Name = name, Size = size, CFrame = look * CFrame.new(off) * (rot or CFrame.identity), Color = colour, Material = mat or Enum.Material.Slate })
 	end
-	-- Lower teeth only at the corners of the mouth so the way in stays wide open.
-	for _, i in { -3, -2, 2, 3 } do
-		local t = i / 3
-		local x = t * 17
-		local h = 5 + math.abs(t) * 3 + rng:NextNumber(-0.6, 0.6)
-		local at = front + right * x + Vector3.new(0, -1, 0)
-		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(3.2, h, 3.6), CFrame = CFrame.lookAt(at, at + out) * CFrame.Angles(math.rad(-14), 0, 0) * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone, CanCollide = false })
+	for _, side in { -1, 1 } do
+		local x = side * 16
+		block("PillarFoot", Vector3.new(9, 4, 9), Vector3.new(x, 1, 0), dark, Enum.Material.Basalt)
+		for k = 0, 4 do
+			local w = 7 - (k % 2) * 0.6
+			block("PillarStone", Vector3.new(w, 5.6, w), Vector3.new(x + rng:NextNumber(-0.25, 0.25), 5.8 + k * 5.6, 0), stone, Enum.Material.Slate, CFrame.Angles(0, rng:NextNumber(-0.04, 0.04), 0))
+		end
+		block("PillarCap", Vector3.new(9, 2.4, 9), Vector3.new(x, 32, 0), dark, Enum.Material.Basalt)
+		-- Brazier on a plinth, out in front of the pillar.
+		block("Plinth", Vector3.new(4, 6, 4), Vector3.new(side * 23, 2, -6), stone)
+		local bowl = Props.part(m, { Name = "Brazier", Shape = Enum.PartType.Cylinder, Size = Vector3.new(2, 5, 5), CFrame = look * CFrame.new(side * 23, 6, -6) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(60, 54, 50), Material = Enum.Material.Metal })
+		local fire = Instance.new("Fire")
+		fire.Size, fire.Heat = 6, 9
+		fire.Color, fire.SecondaryColor = Color3.fromRGB(255, 120, 40), Color3.fromRGB(255, 200, 80)
+		fire.Parent = bowl
+		local l = Instance.new("PointLight")
+		l.Color, l.Range, l.Brightness = Color3.fromRGB(255, 140, 70), 26, 1.6
+		l.Parent = bowl
+	end
+	block("Lintel", Vector3.new(44, 6, 10), Vector3.new(0, 36, 0), stone, Enum.Material.Slate)
+	block("LintelTop", Vector3.new(48, 2.4, 12), Vector3.new(0, 40, 0), dark, Enum.Material.Basalt)
+	local band = block("RuneBand", Vector3.new(30, 1.2, 0.4), Vector3.new(0, 36, -5.1), rune, Enum.Material.Neon)
+	band.CanCollide = false
+	for k = -2, 2 do
+		local r = block("Rune", Vector3.new(1.6, 1.6, 0.4), Vector3.new(k * 6, 38.4, -5.1), rune, Enum.Material.Neon, CFrame.Angles(0, 0, math.pi / 4))
+		r.CanCollide = false
+	end
+	-- The portcullis, raised: its bottom teeth hang just under the lintel.
+	for k = -6, 6 do
+		local bar = block("Portcullis", Vector3.new(0.7, 6, 0.7), Vector3.new(k * 2, 31, 2), Color3.fromRGB(58, 54, 52), Enum.Material.Metal)
+		bar.CanCollide = false
+		local tip = block("PortcullisTip", Vector3.new(0.7, 1.4, 0.7), Vector3.new(k * 2, 27.4, 2), Color3.fromRGB(58, 54, 52), Enum.Material.Metal, CFrame.Angles(0, math.pi / 4, 0))
+		tip.CanCollide = false
+	end
+	block("PortcullisRail", Vector3.new(26, 0.8, 0.8), Vector3.new(0, 29, 2), Color3.fromRGB(58, 54, 52), Enum.Material.Metal).CanCollide = false
+	-- Worn steps up to the threshold.
+	for k = 0, 2 do
+		block("Step", Vector3.new(26 - k * 2, 1, 3), Vector3.new(0, -0.6 + k * 0.6, -6 + k * 3), stone, Enum.Material.Slate)
 	end
 	-- The beacon: a tall faint red column of light above the jaw.
-	local beam = Props.part(m, { Name = "Beacon", Shape = Enum.PartType.Cylinder, Size = Vector3.new(160, 2.5, 2.5), CFrame = CFrame.new(front + Vector3.new(0, 36 + 80, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 70, 50), Material = Enum.Material.Neon, Transparency = 0.7, CanCollide = false, CanQuery = false, CastShadow = false })
+	local beam = Props.part(m, { Name = "Beacon", Shape = Enum.PartType.Cylinder, Size = Vector3.new(160, 2.5, 2.5), CFrame = CFrame.new(front + Vector3.new(0, 42 + 80, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 70, 50), Material = Enum.Material.Neon, Transparency = 0.7, CanCollide = false, CanQuery = false, CastShadow = false })
 	local glow = Props.part(m, { Name = "MawGlow", Size = Vector3.new(10, 0.4, 10), CFrame = CFrame.new(mouth + Vector3.new(0, 0.5, 0)), Color = Color3.fromRGB(200, 40, 30), Material = Enum.Material.Neon, Transparency = 0.4, CanCollide = false, CanQuery = false })
 	local light = Instance.new("PointLight")
 	light.Color, light.Range, light.Brightness = Color3.fromRGB(255, 70, 40), 40, 2

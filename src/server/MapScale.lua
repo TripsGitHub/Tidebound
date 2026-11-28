@@ -7,7 +7,7 @@ local MapScale = {}
 
 MapScale.H = 4 -- island size, horizontal: Clover is about 880 studs across
 MapScale.V = 1.5 -- vertical (hills, cliffs, sea floor)
-MapScale.Spread = 5.5 -- island positions: about 800 studs of open sea between neighbours
+MapScale.Spread = 4.6 -- island positions: a few hundred studs of open sea between neighbours, islets between
 MapScale.Density = 0.45 -- nodes per area compared with the 1x map (1 = same density)
 
 -- Writes the box [x0, x1] x [y0, y1] x [z0, z1] (world studs) into terrain in slabs, so
@@ -22,7 +22,8 @@ function MapScale.writeSlabs(
 	y1: number,
 	z0: number,
 	z1: number,
-	column: (wx: number, wz: number, ys: { number }, mats: { any }, occ: { number }) -> ()
+	column: (wx: number, wz: number, ys: { number }, mats: { any }, occ: { number }) -> (),
+	merge: boolean? -- keep land already there (an island that runs into another one)
 )
 	local RES = 4
 	local SLAB = 24 -- voxel columns per slab along x
@@ -39,6 +40,11 @@ function MapScale.writeSlabs(
 		local xe = math.min(x + SLAB * RES, hi.X)
 		local nx = (xe - x) / RES
 		local mats, occ = table.create(nx), table.create(nx)
+		local slab = Region3.new(Vector3.new(x, lo.Y, lo.Z), Vector3.new(xe, hi.Y, hi.Z))
+		local oldM, oldO
+		if merge then
+			oldM, oldO = terrain:ReadVoxels(slab, RES)
+		end
 		for i = 1, nx do
 			local mi, oi = table.create(ny), table.create(ny)
 			for j = 1, ny do
@@ -51,11 +57,18 @@ function MapScale.writeSlabs(
 				local wz = lo.Z + (k - 0.5) * RES
 				column(wx, wz, ys, colM, colO)
 				for j = 1, ny do
-					mi[j][k], oi[j][k] = colM[j], colO[j]
+					local m, o = colM[j], colO[j]
+					if oldM then
+						local om, oo = oldM[i][j][k], oldO[i][j][k]
+						if om ~= Enum.Material.Water and om ~= Enum.Material.Air and (oo >= o or m == Enum.Material.Water or m == Enum.Material.Air) then
+							m, o = om, oo
+						end
+					end
+					mi[j][k], oi[j][k] = m, o
 				end
 			end
 		end
-		terrain:WriteVoxels(Region3.new(Vector3.new(x, lo.Y, lo.Z), Vector3.new(xe, hi.Y, hi.Z)), RES, mats, occ)
+		terrain:WriteVoxels(slab, RES, mats, occ)
 		x = xe
 		task.wait() -- keep the server responsive while the world builds
 	end
