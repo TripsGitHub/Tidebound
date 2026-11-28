@@ -214,11 +214,11 @@ function Drops.dropFromBag(player: Player, itemId: unknown)
 	if count <= 0 then
 		return
 	end
-	-- Tools/armour drop one at a time; resources drop the whole stack.
-	local kind = Items[itemId].kind
-	local amount = if kind == "resource" or kind == "food" then count else 1
-	if Inventory.take(player, itemId, amount) then
-		Drops.spawn(itemId, amount, root.Position + root.CFrame.LookVector * 3, root.CFrame.LookVector)
+	-- Everything drops one at a time (click again for the next), each landing a
+	-- little apart so they don't pile into one spot.
+	if Inventory.take(player, itemId, 1) then
+		local side = root.CFrame.RightVector * (math.random() - 0.5) * 2.4
+		Drops.spawn(itemId, 1, root.Position + root.CFrame.LookVector * 3 + side, root.CFrame.LookVector)
 	end
 end
 

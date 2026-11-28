@@ -30,9 +30,9 @@ local function island(name: string)
 	return nil
 end
 
-local function announce(text: string)
+local function announce(text: string, kind: string)
 	Remotes.Notify:FireAllClients(text, "good")
-	Remotes.WorldEvent:FireAllClients(text)
+	Remotes.WorldEvent:FireAllClients(text, kind)
 end
 
 local function groundAt(x: number, z: number): RaycastResult?
@@ -133,7 +133,7 @@ function Events.erupt()
 	end
 	erupting = true
 	local cfg = Config.Events
-	announce("The ground shakes... Ember Isle is about to erupt!")
+	announce("The ground shakes... Ember Isle is about to erupt!", "eruption")
 	local top = groundAt(ember.x, ember.z)
 	local crater = (if top then top.Position else Vector3.new(ember.x, 40, ember.z)) + Vector3.new(0, 2, 0)
 	plume(crater, cfg.EruptionWarning + 40)
@@ -191,7 +191,7 @@ function Events.erupt()
 		end
 	end
 	if made > 0 then
-		announce("Ember Isle erupted! " .. made .. " Obsidian Spires burst out of its slopes")
+		announce("Ember Isle erupted! " .. made .. " Obsidian Spires burst out of its slopes", "eruption")
 	end
 	erupting = false
 end
@@ -248,7 +248,7 @@ function Events.meteorShower()
 			table.insert(candidates, isl)
 		end
 	end
-	announce("A meteor shower lights up the night sky!")
+	announce("A meteor shower lights up the night sky!", "meteor")
 	Remotes.WorldFx:FireAllClients("sky", Color3.fromRGB(170, 150, 255), 150, "meteor")
 	local count = rng:NextInteger(cfg.Meteors[1], cfg.Meteors[2])
 	for _ = 1, count do
@@ -256,7 +256,7 @@ function Events.meteorShower()
 		local isl = candidates[rng:NextInteger(1, #candidates)]
 		local model = tag(WorldBuilder.spawnNodeOn(isl, "MoonstoneCluster"))
 		if model then
-			announce("A meteor is falling towards " .. isl.name .. "!")
+			announce("A meteor is falling towards " .. isl.name .. "!", "meteor")
 			task.spawn(function()
 				meteor(model)
 				-- Fades at dawn if nobody mines it.

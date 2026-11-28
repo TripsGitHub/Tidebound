@@ -28,7 +28,19 @@ local Oxygen = require(Systems.Oxygen)
 -- spawn point is built. Also set in default.project.json.
 Players.CharacterAutoLoads = false
 
-WorldBuilder.build()
+-- Players are let in as soon as the islands and their trees are up (SpawnReady);
+-- the caves, camps and map finish building around them, instead of everyone
+-- staring at a loading screen for the whole build.
+task.spawn(function()
+	local ok, err = pcall(WorldBuilder.build)
+	if not ok then
+		warn("[World] build failed: " .. tostring(err))
+		workspace:SetAttribute("SpawnReady", true) -- never leave players stuck loading
+	end
+end)
+while not workspace:GetAttribute("SpawnReady") do
+	workspace:GetAttributeChangedSignal("SpawnReady"):Wait()
+end
 Survival.start()
 require(Systems.Smelting).start()
 Rafts.start()

@@ -49,13 +49,15 @@ end
 
 -- Slowly turns an icon's item round, with a gentle bob and a little tilt that rocks as
 -- it turns (the selected hotbar item). Stops by itself when the icon goes away.
-function Icons.spin(vf: ViewportFrame, speed: number?)
+-- `since` (an os.clock time) keeps the turn going from where it was when the icon is
+-- rebuilt, so a slot redrawn after eating or picking up doesn't snap back to the start.
+function Icons.spin(vf: ViewportFrame, speed: number?, since: number?)
 	local camera = vf.CurrentCamera
 	if not camera then
 		return
 	end
 	local dist = camera.CFrame.Position.Magnitude
-	local t0 = os.clock()
+	local t0 = since or os.clock()
 	local conn
 	conn = game:GetService("RunService").RenderStepped:Connect(function()
 		if not vf.Parent then

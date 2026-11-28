@@ -178,8 +178,8 @@ local function tryPickup()
 		return
 	end
 	nextPickup = now + 0.15
-	local info = Hover.get()
-	local target = if info.kind == "drop" and info.inRange then info.target else Hover.nearestDrop()
+	-- Whatever's under the mouse first; with nothing there, the nearest thing in reach.
+	local target = Hover.dropUnderMouse() or Hover.nearestDrop()
 	if target then
 		Remotes.PickUp:FireServer(target)
 	end
@@ -288,13 +288,22 @@ Remotes.Inventory.OnClientEvent:Connect(function(items, newEquipped, armour, bag
 end)
 Remotes.Notify.OnClientEvent:Connect(UI.notify)
 -- World events (eruptions, meteors, boss gates and kills) also go in the chat for everyone.
-Remotes.WorldEvent.OnClientEvent:Connect(function(text: string)
+-- Each kind of event gets its own colour and tag, so you can tell them apart at a glance.
+local EVENT_STYLE = {
+	eruption = { "#FF7A3C", "Eruption", "#FFD2B8" },
+	meteor = { "#B98CFF", "Meteor", "#E4D4FF" },
+	boss = { "#FF4D5E", "Boss", "#FFC9CE" },
+	lair = { "#E8B04A", "Lair", "#FFE9BF" },
+	world = { "#F6C848", "World", "#FFFFFF" },
+}
+Remotes.WorldEvent.OnClientEvent:Connect(function(text: string, kind: string?)
 	local TextChatService = game:GetService("TextChatService")
 	local channels = TextChatService:FindFirstChild("TextChannels")
 	local general = channels and channels:FindFirstChild("RBXGeneral") :: TextChannel?
 	if general then
+		local style = EVENT_STYLE[kind or "world"] or EVENT_STYLE.world
 		local safe = string.gsub(string.gsub(string.gsub(text, "&", "&amp;"), "<", "&lt;"), ">", "&gt;")
-		general:DisplaySystemMessage('<font color="#F6C848"><b>[World]</b></font> ' .. safe)
+		general:DisplaySystemMessage(string.format('<font color="%s"><b>[%s]</b></font> <font color="%s">%s</font>', style[1], style[2], style[3], safe))
 	end
 end)
 Remotes.PickedUp.OnClientEvent:Connect(function(itemId, amount)

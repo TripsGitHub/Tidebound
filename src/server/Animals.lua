@@ -829,7 +829,7 @@ function Animals.damage(model: Model, amount: number, attacker: Player)
 		Quests.record(attacker, "hunt", model:GetAttribute("AnimalType"), 1)
 		local minion = model:GetAttribute("Minion")
 		if s.def.boss then
-			Remotes.WorldEvent:FireAllClients(attacker.DisplayName .. " defeated the " .. s.def.name .. "!")
+			Remotes.WorldEvent:FireAllClients(attacker.DisplayName .. " defeated the " .. s.def.name .. "!", "boss")
 		end
 		model:Destroy()
 		local kind, home = model.Name, s.home

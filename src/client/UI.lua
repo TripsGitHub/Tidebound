@@ -102,6 +102,7 @@ end
 local lastSelected: { [string]: boolean } = {}
 local SLOT = 66 -- hotbar slot size in pixels
 
+local spinSince: { [string]: number } = {} -- when each held item started turning
 local function rebuildHotbar()
 	for _, c in hotbar:GetChildren() do
 		if c:IsA("GuiObject") then
@@ -134,7 +135,8 @@ local function rebuildHotbar()
 			if selected then
 				-- The held item turns slowly in its slot, rocking as it goes, over a soft
 				-- warm glow that breathes in and out.
-				Icons.spin(icon)
+				spinSince[id] = spinSince[id] or os.clock()
+				Icons.spin(icon, nil, spinSince[id])
 				local glow = new("Frame", { Parent = slot, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.86, 0.86), BackgroundColor3 = C.star, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
 				TweenService:Create(glow, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.93, Size = UDim2.fromScale(0.96, 0.96) }):Play()
 			end
@@ -157,6 +159,13 @@ local function rebuildHotbar()
 				slot.Position = UDim2.new(0.5, 0, 1, -8)
 				TweenService:Create(slot, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 1, 0) }):Play()
 			end
+		end
+	end
+	-- Forget the turn of anything no longer held, so picking it again starts fresh.
+	for id in spinSince do
+		local item = Items[id]
+		if not (id == state.equipped or (item and item.kind == "armour" and state.armour[item.slot] == id)) then
+			spinSince[id] = nil
 		end
 	end
 	lastSelected = {}
@@ -286,52 +295,95 @@ end
 
 -- Notices and pickup feed --------------------------------------------------------
 
+-- Notices stack upward beside your character: the newest slides in at the bottom
+-- and shoves the older ones up out of its way (with a little overshoot), and each
+-- one leaves by drifting up and fading out, then the stack settles down into the gap.
+local NOTICE_H, NOTICE_GAP, NOTICE_MAX = 40, 6, 5
+local notices: { Frame } = {}
+
+local function restack()
+	for i, holder in notices do
+		local y = -(i - 1) * (NOTICE_H + NOTICE_GAP)
+		TweenService:Create(holder, TweenInfo.new(0.38, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0), { Position = UDim2.new(0, 0, 1, y) }):Play()
+	end
+end
+
+local function dismiss(holder: Frame)
+	if holder:GetAttribute("Leaving") then
+		return
+	end
+	holder:SetAttribute("Leaving", true)
+	local i = table.find(notices, holder)
+	if i then
+		table.remove(notices, i)
+	end
+	local fade = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(holder, fade, { Position = holder.Position + UDim2.fromOffset(0, -34) }):Play()
+	for _, d in holder:GetDescendants() do
+		if d:IsA("Frame") and d.BackgroundTransparency < 1 then
+			TweenService:Create(d, fade, { BackgroundTransparency = 1 }):Play()
+		elseif d:IsA("TextLabel") then
+			TweenService:Create(d, fade, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
+		elseif d:IsA("UIStroke") then
+			TweenService:Create(d, fade, { Transparency = 1 }):Play()
+		elseif d:IsA("ViewportFrame") then
+			TweenService:Create(d, fade, { ImageTransparency = 1, BackgroundTransparency = 1 }):Play()
+		end
+	end
+	restack()
+	task.delay(0.5, function()
+		holder:Destroy()
+	end)
+end
+
 function UI.notify(text: string, style: string?, iconItem: string?)
-	-- A small tan pill beside your character: a darker inner box with bold white
-	-- words, and the item it's about (or what you're holding) as an icon on the right.
-	for _, child in noticeList:GetChildren() do
-		if child:IsA("Frame") and child:GetAttribute("Text") == text then
-			child:SetAttribute("Born", os.clock())
+	-- A small tan pill: a darker inner box with bold white words, and the item it's
+	-- about (or what you're holding) as an icon on the right. The same message again
+	-- just keeps the one already showing up for longer, with a little bump.
+	for _, holder in notices do
+		if holder:GetAttribute("Text") == text then
+			holder:SetAttribute("Born", os.clock())
+			local bump = holder:FindFirstChildWhichIsA("UIScale", true)
+			if bump then
+				bump.Scale = 1.12
+				TweenService:Create(bump, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			end
 			return
 		end
 	end
-	local pill = new("Frame", { Parent = noticeList, Size = UDim2.fromOffset(0, 40), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = C.panel, BackgroundTransparency = 0.05 }, {
+	local holder = new("Frame", { Parent = noticeList, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, -24, 1, 18), Size = UDim2.fromOffset(0, NOTICE_H), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1 })
+	holder:SetAttribute("Text", text)
+	holder:SetAttribute("Born", os.clock())
+	local pill = new("Frame", { Parent = holder, Size = UDim2.fromOffset(0, NOTICE_H), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = C.panel, BackgroundTransparency = 0.05 }, {
 		new("UICorner", { CornerRadius = UDim.new(0, 8) }),
-		new("UIStroke", { Color = C.rim, Thickness = 1.5, Transparency = 0.3, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
+		new("UIStroke", { Color = C.wood, Thickness = 2, Transparency = 0.1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }),
 		new("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4), PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }),
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6) }),
 	})
-	pill:SetAttribute("Text", text)
-	pill:SetAttribute("Born", os.clock())
-	local inner = new("Frame", { Parent = pill, LayoutOrder = 1, Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = C.cardDark }, {
+	local inner = new("Frame", { Parent = pill, LayoutOrder = 1, Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = if style == "good" then Color3.fromRGB(92, 120, 70) elseif style == "warn" then Color3.fromRGB(140, 78, 56) else C.cardDark }, {
 		new("UICorner", { CornerRadius = UDim.new(0, 6) }),
 		new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) }),
 	})
-	local words = label({ Parent = inner, Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 21, Font = Enum.Font.BuilderSansBold, TextColor3 = if style == "good" then Color3.fromRGB(220, 255, 200) else C.text })
+	label({ Parent = inner, Size = UDim2.fromOffset(0, 32), AutomaticSize = Enum.AutomaticSize.X, Text = text, TextScaled = false, TextSize = 21, Font = Enum.Font.BuilderSansBold, TextColor3 = if style == "good" then Color3.fromRGB(230, 255, 210) else C.text })
 	local icon = iconItem or state.equipped
 	if icon and Items[icon] then
-		local holder = new("Frame", { Parent = pill, LayoutOrder = 2, Size = UDim2.fromOffset(32, 32), BackgroundTransparency = 1 })
-		Icons.make(icon, holder, UDim2.fromScale(1, 1))
+		local iconHolder = new("Frame", { Parent = pill, LayoutOrder = 2, Size = UDim2.fromOffset(32, 32), BackgroundTransparency = 1 })
+		Icons.make(icon, iconHolder, UDim2.fromScale(1, 1))
 	end
-	local scale = new("UIScale", { Parent = pill, Scale = 0.6 })
-	TweenService:Create(scale, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	local scale = new("UIScale", { Parent = pill, Scale = 0.7 })
+	TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	table.insert(notices, 1, holder)
+	while #notices > NOTICE_MAX do
+		dismiss(notices[#notices])
+	end
+	restack()
 	task.spawn(function()
-		while pill.Parent and os.clock() - (pill:GetAttribute("Born") :: number) < 2.5 do
-			task.wait(0.25)
+		while holder.Parent and not holder:GetAttribute("Leaving") and os.clock() - (holder:GetAttribute("Born") :: number) < 3 do
+			task.wait(0.2)
 		end
-		local fade = TweenInfo.new(0.3)
-		TweenService:Create(pill, fade, { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(inner, fade, { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(words, fade, { TextTransparency = 1, TextStrokeTransparency = 1 }):Play()
-		for _, d in pill:GetDescendants() do
-			if d:IsA("UIStroke") then
-				TweenService:Create(d, fade, { Transparency = 1 }):Play()
-			elseif d:IsA("ViewportFrame") then
-				TweenService:Create(d, fade, { ImageTransparency = 1 }):Play()
-			end
+		if holder.Parent then
+			dismiss(holder)
 		end
-		task.wait(0.3)
-		pill:Destroy()
 	end)
 end
 
@@ -885,9 +937,7 @@ function UI.init(cb)
 
 	-- Notices (top centre, below the XP bar)
 	-- Notices float just right of your character (screen centre).
-	noticeList = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0.5, 70, 0.5, -20), Size = UDim2.fromOffset(460, 180), BackgroundTransparency = 1 }, {
-		new("UIListLayout", { Padding = UDim.new(0, 5), HorizontalAlignment = Enum.HorizontalAlignment.Left, VerticalAlignment = Enum.VerticalAlignment.Center }),
-	})
+	noticeList = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0.5, 70, 0.5, 60), Size = UDim2.fromOffset(460, 280), BackgroundTransparency = 1 })
 
 	-- Pickup feed (right middle)
 	feedList = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.55, 0), Size = UDim2.fromOffset(220, 160), BackgroundTransparency = 1 }, {

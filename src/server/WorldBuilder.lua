@@ -1757,6 +1757,7 @@ local buildStart, stageStart, stageName = os.clock(), os.clock(), "start"
 local function stage(name: string)
 	local now = os.clock()
 	print(string.format("[World] %s took %.1fs (%.1fs total)", stageName, now - stageStart, now - buildStart))
+	workspace:SetAttribute("BuildTimes", (workspace:GetAttribute("BuildTimes") or "") .. string.format("%s %.1f | ", stageName, now - stageStart))
 	stageName, stageStart = name, now
 	workspace:SetAttribute("LoadingStep", name)
 end
@@ -1837,6 +1838,13 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		populate(nodes, isl, local_)
 		decorate(isl)
 		task.wait()
+	end
+
+	-- The islands, their trees and rocks and the spawn are all in place: let players
+	-- in now (see Main). Caves, camps, the map and the animals keep building around
+	-- them for the next half a minute or so.
+	if not bakeOnly then
+		workspace:SetAttribute("SpawnReady", true)
 	end
 
 	-- Stone Shelf's cave mouth faces north.

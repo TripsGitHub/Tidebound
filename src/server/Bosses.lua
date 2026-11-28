@@ -454,6 +454,8 @@ function Bosses.makeGate(b, bossName: string, onOpen: (() -> ())?)
 			Remotes.Notify:FireClient(player, "You need a Maw Key", "warn")
 			return
 		end
+		local def = AnimalDefs[bossName]
+		Remotes.WorldEvent:FireAllClients(player.DisplayName .. " unlocked the lair of the " .. (if def then def.name else bossName) .. "!", "lair")
 		openGate()
 	end)
 	inside.Triggered:Connect(function(player)

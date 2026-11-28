@@ -80,6 +80,38 @@ function Hover.nearestDrop(): Model?
 	return best
 end
 
+-- The drop in pickup range that sits closest to the mouse pointer on screen (within
+-- about 60 px of it), so small items under the cursor win even when the hover ray
+-- slips past them onto the ground or a tree.
+function Hover.dropUnderMouse(): Model?
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local drops = workspace:FindFirstChild("Drops")
+	local camera = workspace.CurrentCamera
+	if not root or not drops or not camera then
+		return nil
+	end
+	if current.kind == "drop" and current.inRange and current.target then
+		return current.target
+	end
+	local mouse = game:GetService("UserInputService"):GetMouseLocation()
+	local best, bestPx = nil, 60
+	for _, d in drops:GetChildren() do
+		if d:IsA("Model") then
+			local pos = d:GetPivot().Position
+			if (pos - root.Position).Magnitude <= Config.PickupRange then
+				local screen, onScreen = camera:WorldToViewportPoint(pos)
+				if onScreen then
+					local px = (Vector2.new(screen.X, screen.Y) - mouse).Magnitude
+					if px < bestPx then
+						best, bestPx = d, px
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
 function Hover.get(): Info
 	return current
 end
