@@ -167,7 +167,7 @@ local function craftCard(i: number, recipe)
 	new("UITextSizeConstraint", { Parent = title, MaxTextSize = 15 })
 
 	local iconBox = block({ Parent = card, Position = UDim2.fromOffset(5, 20), Size = UDim2.fromOffset(50, 50), BackgroundColor3 = C.cardDark })
-	Icons.make(recipe.id, iconBox, UDim2.fromScale(0.9, 0.9), UDim2.fromScale(0.05, 0.05))
+	local iconVf = Icons.make(recipe.id, iconBox, UDim2.fromScale(0.9, 0.9), UDim2.fromScale(0.05, 0.05))
 
 	-- Ingredients share the box evenly however many there are (no names here, so they
 	-- never overlap: the (i) panel shows them big with names).
@@ -193,7 +193,12 @@ local function craftCard(i: number, recipe)
 	new("UICorner", { Parent = info, CornerRadius = UDim.new(1, 0) })
 
 	local foot = block({ Parent = card, Position = UDim2.fromOffset(5, 76), Size = UDim2.new(1, -10, 0, 29), BackgroundColor3 = C.cardDark })
-	local entry = { card = card, costs = counts, foot = foot, locked = nil }
+	-- Locked recipes: the name stays, but the look and the cost are blacked out.
+	local hidden = new("Frame", { Parent = card, Position = costs.Position, Size = costs.Size, BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.05, BorderSizePixel = 0, ZIndex = 5, Visible = false }, {
+		new("UICorner", { CornerRadius = UDim.new(0, 8) }),
+	})
+	label({ Parent = hidden, Size = UDim2.fromScale(1, 1), Text = "???", TextScaled = false, TextSize = 22, ZIndex = 6, TextColor3 = Color3.fromRGB(120, 120, 120) })
+	local entry = { card = card, costs = counts, foot = foot, locked = nil, icon = iconVf, hidden = hidden }
 	craftCards[recipe.id] = entry
 	return entry
 end
@@ -220,6 +225,10 @@ local function rebuildCrafting()
 				end
 				if entry.locked ~= locked then
 					entry.locked = locked
+					entry.hidden.Visible = locked
+					if entry.icon and entry.icon:IsA("ViewportFrame") then
+						entry.icon.ImageColor3 = if locked then Color3.new(0, 0, 0) else Color3.new(1, 1, 1)
+					end
 					clear(entry.foot)
 					if locked then
 						label({ Parent = entry.foot, Size = UDim2.fromScale(1, 1), Text = "Level " .. recipe.level, TextScaled = false, TextSize = 22 })
@@ -445,9 +454,13 @@ function Screen.details(recipe)
 	TweenService:Create(glow, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Size = UDim2.fromScale(0.95, 0.95), BackgroundTransparency = 0.92 }):Play()
 	local big = Icons.make(recipe.id, stage, UDim2.fromScale(0.86, 0.86), UDim2.fromScale(0.07, 0.07))
 	Icons.spin(big, 0.8)
+	local isLocked = level < recipe.level
+	if isLocked and big and big:IsA("ViewportFrame") then
+		big.ImageColor3 = Color3.new(0, 0, 0)
+	end
 
 	-- What it does, in a sentence or two.
-	local about = label({ Parent = d, Position = UDim2.fromOffset(200, 54), Size = UDim2.fromOffset(222, 100), Text = item.description or describe(recipe.id), TextScaled = false, TextSize = 18, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
+	local about = label({ Parent = d, Position = UDim2.fromOffset(200, 54), Size = UDim2.fromOffset(222, 100), Text = if isLocked then "Reach level " .. recipe.level .. " to see what this is and what it takes." else (item.description or describe(recipe.id)), TextScaled = false, TextSize = 18, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top })
 	label({ Parent = d, Position = UDim2.fromOffset(200, 160), Size = UDim2.fromOffset(222, 22), Text = (if level >= recipe.level then "Unlocked" else "Unlocks at level " .. recipe.level), TextScaled = false, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = if level >= recipe.level then C.good else C.bad })
 	_ = about
 
@@ -455,12 +468,15 @@ function Screen.details(recipe)
 	local row = new("Frame", { Parent = d, Position = UDim2.fromOffset(14, 230), Size = UDim2.new(1, -28, 0, 76), BackgroundTransparency = 1 }, {
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
-	for id, amount in recipe.cost do
+	for id, amount in (if isLocked then {} else recipe.cost) do
 		local have = state.items[id] or 0
 		local cell = block({ Parent = row, Size = UDim2.fromOffset(86, 76), BackgroundColor3 = C.cardDark })
 		label({ Parent = cell, Position = UDim2.fromOffset(2, 2), Size = UDim2.new(1, -4, 0, 16), Text = Items[id].name, TextScaled = true })
 		Icons.make(id, cell, UDim2.fromOffset(36, 36), UDim2.new(0.5, -18, 0, 18))
 		label({ Parent = cell, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 18), Text = have .. " / " .. amount, TextScaled = false, TextSize = 16, TextColor3 = if have >= amount then C.good else C.bad })
+	end
+	if isLocked then
+		label({ Parent = row, Size = UDim2.fromOffset(300, 60), Text = "??? Requirements hidden", TextScaled = false, TextSize = 22, TextColor3 = Color3.fromRGB(120, 120, 120) })
 	end
 	if level >= recipe.level then
 		textButton({ Parent = d, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.fromOffset(180, 34), Text = "Craft", TextScaled = false, TextSize = 24 }, function()

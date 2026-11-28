@@ -73,4 +73,27 @@ function Icons.spin(vf: ViewportFrame, speed: number?, since: number?)
 	end)
 end
 
+-- A smooth little shake for the held item: it rocks side to side and bobs, always
+-- facing you (so a flat sword never turns edge-on and vanishes).
+function Icons.wobble(vf: ViewportFrame, since: number?)
+	local camera = vf.CurrentCamera
+	if not camera then
+		return
+	end
+	local home = camera.CFrame
+	local t0 = since or os.clock()
+	local conn
+	conn = game:GetService("RunService").RenderStepped:Connect(function()
+		if not vf.Parent then
+			conn:Disconnect()
+			return
+		end
+		local t = os.clock() - t0
+		local roll = math.sin(t * 5.5) * math.rad(9)
+		local yaw = math.sin(t * 2.3) * math.rad(14)
+		local dist = home.Position.Magnitude
+		camera.CFrame = CFrame.Angles(0, yaw, 0) * CFrame.lookAt(Vector3.new(0, math.sin(t * 3.1) * dist * 0.025, dist), Vector3.zero) * CFrame.Angles(0, 0, roll)
+	end)
+end
+
 return Icons

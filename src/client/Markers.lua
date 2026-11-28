@@ -158,47 +158,85 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	gui.Parent = anchor
 	-- One group so everything fades together. Item icons are 3D (ViewportFrames),
 	-- which don't draw inside a CanvasGroup, so those markers fade piece by piece.
-	local withIcon = false -- drawn icons only now, so the whole marker fades as one group
-	local group = Instance.new(if withIcon then "Frame" else "CanvasGroup") :: any
+	-- Drawn like the badges over nameplates: a smooth rounded tile with a dark rim and
+	-- a lit left half, a white glyph on it (a sword when you hit something, a heart
+	-- when you're hurt or healed), and the number on a white pill underneath. No
+	-- CanvasGroup: it renders at low resolution and looks pixelated, so every piece
+	-- fades on its own instead.
+	local withIcon = true
+	local group = Instance.new("Frame")
 	group.BackgroundTransparency = 1
 	group.AnchorPoint = Vector2.new(0.5, 0.5)
 	group.Position = UDim2.fromScale(0.5, 0.5)
 	group.Size = UDim2.fromScale(1, 1)
-	if not withIcon then
-		group.GroupTransparency = 0.15
-	end
 	group.Parent = gui
 	local scale = Instance.new("UIScale")
-	scale.Scale = 0.6
+	scale.Scale = 0.5
 	scale.Parent = group
-	local dark = if heal then Color3.fromRGB(30, 96, 40) else Color3.fromRGB(120, 22, 18)
-	local fill = if heal then Color3.fromRGB(92, 200, 80) else Color3.fromRGB(232, 58, 48)
-	local textColour = if heal then Color3.fromRGB(46, 150, 50) else Color3.fromRGB(210, 40, 32)
-	local pillY = 0.5
-	if itemId and not heal then
-		-- You hit something: Island Tribes' red crossed swords, number below.
-		swords(group, 50, 1)
-		pillY = 0.76
-	else
-		heart(group, 66, dark, 1)
-		heart(group, 58, fill, 2)
-		pillY = 0.52
+	local dark = if heal then Color3.fromRGB(24, 80, 30) elseif _self then Color3.fromRGB(90, 14, 12) else Color3.fromRGB(110, 20, 16)
+	local fill = if heal then Color3.fromRGB(80, 196, 72) elseif _self then Color3.fromRGB(196, 40, 36) else Color3.fromRGB(232, 62, 50)
+	local textColour = if heal then Color3.fromRGB(36, 130, 44) else Color3.fromRGB(196, 34, 28)
+	local function tile(size: number, colour: Color3, z: number, round: number): Frame
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(0.5, 0.36)
+		f.Size = UDim2.fromOffset(size, size)
+		f.BackgroundColor3 = colour
+		f.BorderSizePixel = 0
+		f.ZIndex = z
+		f.Parent = group
+		Instance.new("UICorner", f).CornerRadius = UDim.new(0, round)
+		return f
 	end
+	tile(40, dark, 1, 11)
+	local face = tile(34, Color3.new(1, 1, 1), 2, 9)
+	local light = fill:Lerp(Color3.new(1, 1, 1), 0.3)
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, light), ColorSequenceKeypoint.new(0.5, light), ColorSequenceKeypoint.new(0.501, fill), ColorSequenceKeypoint.new(1, fill) })
+	g.Parent = face
+	if itemId and not heal and not _self then
+		-- A white sword, upright: blade, guard and grip, all square to the screen.
+		local function bar(x: number, y: number, w: number, h: number, c: Color3)
+			local b = Instance.new("Frame")
+			b.AnchorPoint = Vector2.new(0.5, 0.5)
+			b.Position = UDim2.new(0.5, x, 0.5, y)
+			b.Size = UDim2.fromOffset(w, h)
+			b.BackgroundColor3 = c
+			b.BorderSizePixel = 0
+			b.ZIndex = 3
+			b.Parent = face
+			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 2)
+		end
+		bar(0, -3, 6, 20, Color3.new(1, 1, 1))
+		bar(0, 8, 18, 4, Color3.fromRGB(255, 214, 90))
+		bar(0, 13, 4, 6, Color3.fromRGB(120, 72, 38))
+	else
+		local h = Instance.new("TextLabel")
+		h.BackgroundTransparency = 1
+		h.Size = UDim2.fromScale(1, 1)
+		h.Position = UDim2.fromScale(0, 0.04)
+		h.Text = "♥"
+		h.TextScaled = true
+		h.TextColor3 = Color3.new(1, 1, 1)
+		h.ZIndex = 3
+		h.Parent = face
+	end
+	local pillY = 0.74
 	local pill = Instance.new("TextLabel")
 	pill.AnchorPoint = Vector2.new(0.5, 0.5)
 	pill.Position = UDim2.fromScale(0.5, pillY)
-	pill.Size = UDim2.fromOffset(0, 22)
+	pill.Size = UDim2.fromOffset(0, 20)
 	pill.AutomaticSize = Enum.AutomaticSize.X
 	pill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	pill.ZIndex = 5
 	pill.FontFace = FONT
-	pill.TextSize = 20
+	pill.TextSize = 18
 	pill.TextColor3 = textColour
 	pill.Text = (if heal then "+" else "-") .. tostring(math.max(1, math.floor(amount + 0.5)))
 	pill.Parent = group
-	Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
+	Instance.new("UICorner", pill).CornerRadius = UDim.new(0, 6)
 	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 7), UDim.new(0, 7)
+	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 6), UDim.new(0, 6)
 	pad.Parent = pill
 	local edge = Instance.new("UIStroke")
 	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border

@@ -58,6 +58,19 @@ function Inventory.sync(player: Player)
 		-- Armour %s for the badges over everyone's nameplate.
 		player:SetAttribute("DefMob", math.floor(Inventory.defense(player, "mob") * 1000 + 0.5) / 10)
 		player:SetAttribute("DefPlayer", math.floor(Inventory.defense(player, "player") * 1000 + 0.5) / 10)
+		-- The tier most of your armour is made of (chestplate wins a tie), so the
+		-- shield badge can be drawn in that material.
+		local votes, best, bestN = {}, nil, 0
+		for slot, id in d.armour do
+			local t = string.match(id, "^(.-)_") 
+			if t and slot ~= "bag" then
+				votes[t] = (votes[t] or 0) + (if slot == "body" then 1.5 else 1)
+				if votes[t] > bestN then
+					best, bestN = t, votes[t]
+				end
+			end
+		end
+		player:SetAttribute("ArmourTier", best)
 	end
 end
 

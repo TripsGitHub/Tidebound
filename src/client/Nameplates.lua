@@ -217,45 +217,57 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 		local l = new("TextLabel", { Parent = pill, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "0%", TextScaled = true, TextColor3 = rgb(20, 20, 20), FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Bold), ZIndex = 10 })
 		return l
 	end
-	-- Island Tribes-style shield badges: a flat-topped heater shield with raised top
-	-- corners, a thick dark outline, crisp corners (nothing rounded), and a two-tone
-	-- fill, lighter on the left like light coming from one side.
+	-- Shield badges, smooth (no turned squares, which come out jagged on a
+	-- billboard): a flat top with a gently rounded top edge and a deep U-shaped
+	-- bottom, a thick dark outline and a lit left half. The player shield is drawn
+	-- in the material of the armour you wear; the mob one stays green.
 	local function shieldShape(parent: Instance, fill: Color3, edge: Color3)
-		local light = fill:Lerp(Color3.new(1, 1, 1), 0.28)
-		local function twoTone(f: Frame, rot: number)
-			new("UIGradient", {
-				Parent = f,
-				Rotation = rot,
-				Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, light), ColorSequenceKeypoint.new(0.5, light), ColorSequenceKeypoint.new(0.501, fill), ColorSequenceKeypoint.new(1, fill) }),
-			})
+		local light = fill:Lerp(Color3.new(1, 1, 1), 0.3)
+		local parts = {}
+		local function grad(f: Frame)
+			new("UIGradient", { Parent = f, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, light), ColorSequenceKeypoint.new(0.5, light), ColorSequenceKeypoint.new(0.501, fill), ColorSequenceKeypoint.new(1, fill) }) })
 		end
-		-- Outline first (one size up, dark), then the fill on top.
 		for layer = 1, 2 do
-			local pad = if layer == 1 then 3 else 0
+			local pad = if layer == 1 then 4 else 0
 			local col = if layer == 1 then edge else Color3.new(1, 1, 1)
 			local z = 5 + layer
-			local top = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 4 - pad / 2), Size = UDim2.fromOffset(26 + pad, 16 + pad), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z })
-			local point = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 19), Size = UDim2.fromOffset(18.5 + pad, 18.5 + pad), Rotation = 45, BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z })
-			-- The raised corners at the top.
-			for side = -1, 1, 2 do
-				local horn = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, side * 10, 0, 4), Size = UDim2.fromOffset(7 + pad, 7 + pad), Rotation = 45, BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z })
-				if layer == 2 then
-					horn.BackgroundColor3 = if side < 0 then light else fill
-				end
-			end
+			-- Top: a wide band with small rounded corners.
+			local top = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 2 - pad / 2), Size = UDim2.fromOffset(28 + pad, 14 + pad), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z }, {
+				new("UICorner", { CornerRadius = UDim.new(0, 4) }),
+			})
+			-- Bottom: a tall rounded body that narrows into the U.
+			local body = new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6 - pad / 2), Size = UDim2.fromOffset(28 + pad, 26 + pad), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z }, {
+				new("UICorner", { CornerRadius = UDim.new(0.5, 0) }),
+			})
 			if layer == 2 then
-				twoTone(top, 0)
-				twoTone(point, -45)
+				grad(top)
+				grad(body)
+				table.insert(parts, top)
+				table.insert(parts, body)
+			end
+		end
+		return parts
+	end
+	local shield = new("Frame", { Parent = badgeRow, LayoutOrder = 1, Size = UDim2.fromOffset(34, 36), BackgroundTransparency = 1 })
+	local shieldParts = shieldShape(shield, rgb(38, 112, 226), rgb(12, 30, 72))
+	local vsPlayer = pctLabel(shield)
+	local slime = new("Frame", { Parent = badgeRow, LayoutOrder = 2, Size = UDim2.fromOffset(34, 36), BackgroundTransparency = 1 })
+	shieldShape(slime, rgb(58, 160, 52), rgb(14, 50, 14))
+	local vsMob = pctLabel(slime)
+	local TiersMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Tiers"))
+	local function tintShield()
+		local tier = TiersMod.get(plr:GetAttribute("ArmourTier") or "")
+		local fill = if tier then tier.plate else rgb(38, 112, 226)
+		local light = fill:Lerp(Color3.new(1, 1, 1), 0.3)
+		for _, f in shieldParts do
+			local g = f:FindFirstChildOfClass("UIGradient")
+			if g then
+				g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, light), ColorSequenceKeypoint.new(0.5, light), ColorSequenceKeypoint.new(0.501, fill), ColorSequenceKeypoint.new(1, fill) })
 			end
 		end
 	end
-	local shield = new("Frame", { Parent = badgeRow, LayoutOrder = 1, Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1 })
-	shieldShape(shield, rgb(38, 112, 226), rgb(12, 30, 72))
-	local vsPlayer = pctLabel(shield)
-	-- Against mobs: the same shield in green.
-	local slime = new("Frame", { Parent = badgeRow, LayoutOrder = 2, Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1 })
-	shieldShape(slime, rgb(58, 160, 52), rgb(14, 50, 14))
-	local vsMob = pctLabel(slime)
+	tintShield()
+	plr:GetAttributeChangedSignal("ArmourTier"):Connect(tintShield)
 	-- Stat add-ons: one round badge per active booster, next to the armour badges.
 	-- Each reads a player attribute holding a percentage; nil or 0 hides it. New
 	-- boosters only need a line here (and the server setting the attribute).
@@ -268,10 +280,11 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 	local boostBadges = {}
 	for i, b in BOOSTS do
 		local holder = new("Frame", { Parent = badgeRow, LayoutOrder = 2 + i, Size = UDim2.fromOffset(32, 34), BackgroundTransparency = 1, Visible = false })
-		-- A crisp diamond (a turned square) with a dark rim and a lit left half.
-		new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 13), Size = UDim2.fromOffset(23, 23), Rotation = 45, BackgroundColor3 = b.edge, BorderSizePixel = 0, ZIndex = 6 })
-		local gem = new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 13), Size = UDim2.fromOffset(18, 18), Rotation = 45, BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 7 }, {
-			new("UIGradient", { Rotation = -45, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, b.fill:Lerp(Color3.new(1, 1, 1), 0.3)), ColorSequenceKeypoint.new(0.5, b.fill:Lerp(Color3.new(1, 1, 1), 0.3)), ColorSequenceKeypoint.new(0.501, b.fill), ColorSequenceKeypoint.new(1, b.fill) }) }),
+		-- A smooth rounded tile with a dark rim and a lit left half.
+		new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 13), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = b.edge, BorderSizePixel = 0, ZIndex = 6 }, { new("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+		local gem = new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 13), Size = UDim2.fromOffset(23, 23), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 7 }, {
+			new("UICorner", { CornerRadius = UDim.new(0, 6) }),
+			new("UIGradient", { Rotation = 0, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, b.fill:Lerp(Color3.new(1, 1, 1), 0.3)), ColorSequenceKeypoint.new(0.5, b.fill:Lerp(Color3.new(1, 1, 1), 0.3)), ColorSequenceKeypoint.new(0.501, b.fill), ColorSequenceKeypoint.new(1, b.fill) }) }),
 		})
 		local disc = new("Frame", { Parent = holder, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 13), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, ZIndex = 8 })
 		local _ = gem

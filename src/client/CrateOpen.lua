@@ -91,36 +91,60 @@ local function play(crateId: string, loot: { { any } })
 	})
 	tween(title, 0.3, { TextTransparency = 0 })
 
-	-- Slide in, then a short shake.
-	tween(vf, 0.3, { Position = UDim2.fromScale(0.5, 0.4) }, Enum.EasingStyle.Quad)
-	task.wait(0.35)
+	-- Slam in: drops from above and lands hard with a jolt of the whole screen.
+	local scale = Instance.new("UIScale")
+	scale.Scale = 1.5
+	scale.Parent = vf
+	tween(vf, 0.14, { Position = UDim2.fromScale(0.5, 0.4) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	tween(scale, 0.14, { Scale = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	task.wait(0.14)
+	local function jolt(power: number, time: number)
+		task.spawn(function()
+			local t0 = os.clock()
+			while os.clock() - t0 < time and root.Parent do
+				local k = 1 - (os.clock() - t0) / time
+				root.Position = UDim2.fromOffset(math.random(-power, power) * k, math.random(-power, power) * k)
+				RunService.RenderStepped:Wait()
+			end
+			root.Position = UDim2.fromOffset(0, 0)
+		end)
+	end
+	jolt(10, 0.15)
+	-- A quick, hard rattle that builds.
 	local base = model:GetPivot()
 	local t0 = os.clock()
-	while os.clock() - t0 < 0.7 do
-		local a = math.sin((os.clock() - t0) * 38) * 0.07
+	while os.clock() - t0 < 0.32 do
+		local k = (os.clock() - t0) / 0.32
+		local a = math.sin((os.clock() - t0) * 70) * (0.05 + 0.11 * k)
 		model:PivotTo(base * CFrame.Angles(0, 0, a))
+		scale.Scale = 1 - 0.06 * k -- squashes down before it bursts
 		RunService.RenderStepped:Wait()
 	end
 	model:PivotTo(base)
 
-	-- Pop: the lid flips up and off and the crate gives a little hop.
+	-- Burst: a white flash, a big screen jolt, the crate punches outward and the lid
+	-- is blown off.
 	local lidParts = {}
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") and p.Name == "Lid" then
 			table.insert(lidParts, { p, p.CFrame })
 		end
 	end
-	local pop = Instance.new("UIScale")
-	pop.Scale = 1.12
-	pop.Parent = vf
-	tween(pop, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	local flash = UIKit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.15, ZIndex = 20, Parent = root })
+	tween(flash, 0.22, { BackgroundTransparency = 1 })
+	jolt(18, 0.25)
+	scale.Scale = 1.25
+	tween(scale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+	pcall(function()
+		require(script.Parent.Effects).sound("Hit")
+	end)
 	task.spawn(function()
 		local s0 = os.clock()
-		while os.clock() - s0 < 0.6 and model.Parent do
-			local k = (os.clock() - s0) / 0.6
+		while os.clock() - s0 < 0.35 and model.Parent do
+			local k = (os.clock() - s0) / 0.35
 			for _, entry in lidParts do
 				local p, start = entry[1], entry[2]
-				p.CFrame = CFrame.new(0, k * 3.5, -k * 1.2) * start * CFrame.Angles(-k * 1.6, 0, 0)
+				p.CFrame = CFrame.new(0, k * 6, -k * 2) * start * CFrame.Angles(-k * 3, 0, k * 0.8)
 				p.Transparency = k
 			end
 			RunService.RenderStepped:Wait()
@@ -141,7 +165,7 @@ local function play(crateId: string, loot: { { any } })
 			Padding = UDim.new(0, 10),
 		}),
 	})
-	task.wait(0.35)
+	task.wait(0.05)
 	for i, entry in loot do
 		local id, amount = entry[1], entry[2]
 		local item = Items[id]
@@ -179,11 +203,14 @@ local function play(crateId: string, loot: { { any } })
 			TextColor3 = rc,
 			Parent = card,
 		})
-		tween(card, 0.35, { Size = UDim2.fromOffset(118, 150) }, Enum.EasingStyle.Back)
+		-- Each card slams in big and snaps to size.
+		card.Size = UDim2.fromOffset(170, 216)
+		card.Rotation = (i % 2 == 0 and 1 or -1) * 8
+		tween(card, 0.16, { Size = UDim2.fromOffset(118, 150), Rotation = 0 }, Enum.EasingStyle.Back)
 		pcall(function()
 			require(script.Parent.Effects).sound("Pickup")
 		end)
-		task.wait(0.3)
+		task.wait(0.1)
 	end
 
 	local hint = UIKit.label({
@@ -223,7 +250,7 @@ local function play(crateId: string, loot: { { any } })
 	end
 	button.MouseButton1Click:Connect(close)
 	hint.Visible = true
-	task.delay(6, close)
+	task.delay(4, close)
 end
 
 function CrateOpen.init()

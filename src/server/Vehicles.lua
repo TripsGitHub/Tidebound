@@ -105,12 +105,42 @@ function Vehicles.rig(model: Model, root: BasePart, kind: string, speed: number,
 	vel.Parent = root
 
 	local hint = o.hint or (if kind == "raft" then "W/S to row, A/D to turn, Space to hop off" else "W/S to drive, A/D to steer, Space to hop off")
+	-- G to get in (as well as walking onto the seat).
+	local ride = Instance.new("ProximityPrompt")
+	ride.Name = "RidePrompt"
+	ride.ActionText = if kind == "raft" then "Board" else "Ride"
+	ride.ObjectText = model:GetAttribute("DisplayName") or (if kind == "raft" then "Raft" else "Cart")
+	ride.KeyboardKeyCode = Enum.KeyCode.G
+	ride.GamepadKeyCode = Enum.KeyCode.ButtonY
+	ride.HoldDuration = 0
+	ride.MaxActivationDistance = 12
+	ride.RequiresLineOfSight = false
+	ride.UIOffset = Vector2.new(0, -40)
+	ride.Parent = vs
+	ride.Triggered:Connect(function(player)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 and not vs.Occupant and not humanoid.SeatPart then
+			vs:Sit(humanoid)
+		end
+	end)
+	-- A parked cart just rests on the ground under gravity; it only holds its
+	-- heading while someone drives it. Rafts always stay level on the water.
+	local function settle(driving: boolean)
+		if kind == "cart" then
+			align.Enabled = driving
+			vel.Enabled = driving
+		end
+		ride.Enabled = not driving
+	end
+	settle(false)
 	vs:GetPropertyChangedSignal("Occupant"):Connect(function()
 		local occupant = vs.Occupant
 		local driver = occupant and Players:GetPlayerFromCharacter(occupant.Parent)
 		if not driver then
 			vel.PlaneVelocity = Vector2.zero
 		end
+		settle(occupant ~= nil)
 		pcall(function()
 			root:SetNetworkOwner(driver)
 		end)

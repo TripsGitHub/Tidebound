@@ -12,6 +12,7 @@ local Favourites = {}
 
 local pinned: { [number]: string } = {} -- slots you chose (saved)
 local auto: { [number]: string } = {} -- slots things fell into (this session)
+local dismissed: { [string]: boolean } = {} -- dragged off the bar: don't auto-add again
 local changed = Instance.new("BindableEvent")
 Favourites.Changed = changed.Event
 
@@ -67,8 +68,20 @@ function Favourites.place(id: string, i: number)
 		auto[a] = nil
 	end
 	pinned[i], auto[i] = id, nil
-	if there and there ~= id and from then
-		pinned[from] = there
+	dismissed[id] = nil
+	if there and there ~= id then
+		if from then
+			pinned[from] = there
+		else
+			-- Dropped from the bag onto a full slot: what was there moves to the
+			-- first free slot instead of falling off the bar.
+			for k = 1, MAX do
+				if not pinned[k] and not auto[k] then
+					auto[k] = there
+					break
+				end
+			end
+		end
 	end
 	save()
 	changed:Fire()
@@ -77,7 +90,9 @@ end
 function Favourites.toggle(id: string)
 	local p = slotIn(pinned, id)
 	if p then
+		-- Unstarring keeps it where it is; it just isn't pinned any more.
 		pinned[p] = nil
+		auto[p] = id
 	else
 		local a = slotIn(auto, id)
 		if a then
@@ -96,6 +111,21 @@ function Favourites.toggle(id: string)
 	changed:Fire()
 end
 
+-- Dragged off the bar: it leaves its slot and won't drop back in by itself.
+function Favourites.remove(id: string)
+	local p = slotIn(pinned, id)
+	if p then
+		pinned[p] = nil
+	end
+	local a = slotIn(auto, id)
+	if a then
+		auto[a] = nil
+	end
+	dismissed[id] = true
+	save()
+	changed:Fire()
+end
+
 -- The bar for this frame: slot -> id (holes are empty slots). have(id) says whether
 -- you hold any; wants(id) whether a new item of that kind should fill a free slot.
 function Favourites.layout(size: number, have: (string) -> boolean, candidates: { string }): { [number]: string }
@@ -106,7 +136,7 @@ function Favourites.layout(size: number, have: (string) -> boolean, candidates: 
 		end
 	end
 	for _, id in candidates do
-		if not Favourites.slotOf(id) then
+		if not Favourites.slotOf(id) and not dismissed[id] then
 			for i = 1, size do
 				if not pinned[i] and not auto[i] then
 					auto[i] = id

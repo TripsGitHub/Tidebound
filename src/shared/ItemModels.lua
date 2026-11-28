@@ -176,6 +176,39 @@ for tier in SWORD_TIERS do
 	end
 end
 
+-- Obsidian: a black volcanic-glass blade knapped into jagged shards, with molten
+-- orange cracks glowing down the middle, a rough black guard and a shard pommel.
+function builders.obsidian_sword(m)
+	local glass = Color3.fromRGB(14, 12, 20)
+	local sheen = Color3.fromRGB(46, 40, 62)
+	local magma = Color3.fromRGB(255, 104, 30)
+	local grip = part(m, Vector3.new(0.26, 1, 0.26), CFrame.new(0, 0.35, 0), Color3.fromRGB(30, 24, 22), Enum.Material.Fabric)
+	-- Shard pommel and a rough, uneven guard.
+	part(m, Vector3.new(0.3, 0.3, 0.3), CFrame.new(0, -0.3, 0) * CFrame.Angles(math.rad(45), math.rad(30), math.rad(45)), glass, Enum.Material.Glass)
+	part(m, Vector3.new(0.55, 0.22, 0.32), CFrame.new(-0.25, 0.97, 0) * CFrame.Angles(0, 0, math.rad(10)), glass, Enum.Material.Basalt)
+	part(m, Vector3.new(0.55, 0.22, 0.32), CFrame.new(0.25, 0.93, 0) * CFrame.Angles(0, 0, math.rad(-14)), glass, Enum.Material.Basalt)
+	-- The blade: stacked flakes, each a little off-line, so the edge is chipped and jagged.
+	local flakes = { { 1.4, 0.56, 0 }, { 1.95, 0.5, 6 }, { 2.5, 0.46, -5 }, { 3.0, 0.4, 7 }, { 3.45, 0.3, -6 } }
+	for i, f in flakes do
+		local y, w, tilt = f[1], f[2], f[3]
+		part(m, Vector3.new(w, 0.62, 0.1), CFrame.new(0, y, 0) * CFrame.Angles(0, 0, math.rad(tilt)), if i % 2 == 0 then sheen else glass, Enum.Material.Glass)
+	end
+	-- Pointed tip.
+	part(m, Vector3.new(0.3, 0.3, 0.1), CFrame.new(0, 3.75, 0) * CFrame.Angles(0, 0, math.rad(45)), glass, Enum.Material.Glass)
+	-- Molten cracks down both faces.
+	for _, z in { -0.06, 0.06 } do
+		part(m, Vector3.new(0.06, 2.5, 0.02), CFrame.new(0.02, 2.4, z) * CFrame.Angles(0, 0, math.rad(3)), magma, Enum.Material.Neon)
+		part(m, Vector3.new(0.05, 0.5, 0.02), CFrame.new(0.12, 1.9, z) * CFrame.Angles(0, 0, math.rad(-35)), magma, Enum.Material.Neon)
+		part(m, Vector3.new(0.05, 0.45, 0.02), CFrame.new(-0.1, 2.9, z) * CFrame.Angles(0, 0, math.rad(30)), magma, Enum.Material.Neon)
+	end
+	local glow = Instance.new("PointLight")
+	glow.Color = magma
+	glow.Range = 5
+	glow.Brightness = 0.6
+	glow.Parent = grip
+	return grip
+end
+
 local function harvester(m: Model, headColor: Color3, headMaterial: Enum.Material): BasePart
 	local handle = part(m, Vector3.new(0.3, 3, 0.3), CFrame.new(0, 1.3, 0), C.woodDark, Enum.Material.Wood)
 	-- A pick head on one side and an axe blade on the other.

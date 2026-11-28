@@ -108,25 +108,40 @@ end
 
 -- Start dragging an item (from a bag card or a slot); it follows the mouse once it
 -- has moved a little, and lands in whichever slot you let go over.
+local function mouseAt(): Vector2
+	return UserInputService:GetMouseLocation() - game:GetService("GuiService"):GetGuiInset()
+end
 function UI.beginDrag(id: string, _start: Vector2?, from: number?)
-	local inset = game:GetService("GuiService"):GetGuiInset()
-	drag = { id = id, start = UserInputService:GetMouseLocation() - inset, from = from }
+	drag = { id = id, start = mouseAt(), from = from }
 end
 
 function UI.justDragged(): boolean
 	return os.clock() - dragEndedAt < 0.15
 end
 
+-- The dragged item lives on its own unscaled layer, so it sits exactly under the
+-- pointer whatever the HUD's scale is.
+local dragLayer: ScreenGui? = nil
 UserInputService.InputChanged:Connect(function(input)
 	local d = drag
 	if not d or input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
 		return
 	end
-	local pos = Vector2.new(input.Position.X, input.Position.Y)
-	if not d.ghost and (pos - d.start).Magnitude > 8 and gui then
-		local g = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(58, 58), BackgroundColor3 = C.panel, BackgroundTransparency = 0.25, ZIndex = 50 }, { UIKit.round(), stroke(C.star, 2) })
-		local vf = Icons.make(d.id, g, UDim2.fromScale(0.85, 0.85), UDim2.fromScale(0.075, 0.075))
+	local pos = mouseAt()
+	if not d.ghost and (pos - d.start).Magnitude > 8 then
+		if not dragLayer then
+			dragLayer = new("ScreenGui", { Name = "HotbarDrag", ResetOnSpawn = false, DisplayOrder = 60, IgnoreGuiInset = false, Parent = player:WaitForChild("PlayerGui") })
+		end
+		local px = 62
+		local slot1 = slotButtons[1]
+		if slot1 and slot1.Parent then
+			px = slot1.AbsoluteSize.X
+		end
+		local g = new("Frame", { Parent = dragLayer, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(px, px), BackgroundColor3 = C.panel, BackgroundTransparency = 0.2, ZIndex = 50 }, { UIKit.round(), stroke(C.star, 3) })
+		local vf = Icons.make(d.id, g, UDim2.fromScale(0.82, 0.82), UDim2.fromScale(0.5, 0.5))
+		vf.AnchorPoint = Vector2.new(0.5, 0.5)
 		vf.ZIndex = 51
+		Icons.wobble(vf)
 		d.ghost = g
 	end
 	if d.ghost then
@@ -143,49 +158,80 @@ UserInputService.InputEnded:Connect(function(input)
 	if d.ghost then
 		d.ghost:Destroy()
 		dragEndedAt = os.clock()
-		local at = UI.hotbarSlotAt(Vector2.new(input.Position.X, input.Position.Y))
+		local at = UI.hotbarSlotAt(mouseAt())
 		if at then
 			Favourites.place(d.id, at)
+		elseif d.from then
+			-- Dragged off the bar: take it out of its slot.
+			Favourites.remove(d.id)
 		end
 	end
 end)
 
--- The selected slot's background shows what the item is made of: wood glows warm,
--- stone breathes grey, metal has a shine sweeping across it, crystal sparkles, and
--- the glowing tiers pulse in their own colour.
+-- The selected slot's background shows what the item is made of, always inside the
+-- round slot: wood smoulders with a slow ember swirl, stone turns a cool grey swirl,
+-- metal has a turning sheen with a bright glint sweeping across, crystal a turning
+-- prism of its colours with stars twinkling over it, and the glowing tiers pulse in
+-- their own light on top.
 local Tiers = require(Shared.Tiers)
+local function spinGradient(g: UIGradient, period: number)
+	g.Rotation = 0
+	TweenService:Create(g, TweenInfo.new(period, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), { Rotation = 360 }):Play()
+end
+local function disc(parent: Instance, colour: Color3, alpha: number, z: number?): Frame
+	return new("Frame", { Parent = parent, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = colour, BackgroundTransparency = alpha, BorderSizePixel = 0, ZIndex = z or 0 }, { UIKit.round() })
+end
 local function tierFx(slot: GuiObject, id: string)
 	local tier = Tiers.split(id)
-	local fx = new("Frame", { Parent = slot, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.9, 0.9), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 0 }, { UIKit.round() })
+	local fx = new("Frame", { Parent = slot, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.92, 0.92), BackgroundTransparency = 1, ZIndex = 0 })
 	if not tier then
-		local glow = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = C.star, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
-		TweenService:Create(glow, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.93 }):Play()
+		local glow = disc(fx, C.star, 0.75)
+		TweenService:Create(glow, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.92 }):Play()
 		return
 	end
-	local base = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = tier.plate, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
-	if tier.style == "wood" or tier.style == "stone" then
-		TweenService:Create(base, TweenInfo.new(if tier.style == "wood" then 1.1 else 1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.8 }):Play()
+	local white = Color3.new(1, 1, 1)
+	local light = tier.plate:Lerp(white, 0.45)
+	local dark = tier.plate:Lerp(Color3.new(0, 0, 0), 0.35)
+	-- A turning two-colour swirl filling the slot.
+	local swirl = disc(fx, white, 0.15)
+	local sg = new("UIGradient", { Parent = swirl })
+	if tier.style == "wood" then
+		sg.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, dark), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 150, 60)), ColorSequenceKeypoint.new(1, dark) })
+		spinGradient(sg, 4)
+		local ember = disc(fx, Color3.fromRGB(255, 120, 40), 0.6)
+		TweenService:Create(ember, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.95 }):Play()
+	elseif tier.style == "stone" then
+		sg.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, dark), ColorSequenceKeypoint.new(0.5, light), ColorSequenceKeypoint.new(1, dark) })
+		spinGradient(sg, 6)
 	elseif tier.style == "metal" then
-		-- A bright band that sweeps across every couple of seconds.
-		local band = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0, BorderSizePixel = 0, ZIndex = 0 })
-		local grad = new("UIGradient", {
-			Parent = band,
-			Rotation = 25,
-			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.38, 1), NumberSequenceKeypoint.new(0.5, 0.1), NumberSequenceKeypoint.new(0.62, 1), NumberSequenceKeypoint.new(1, 1) }),
+		sg.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, dark), ColorSequenceKeypoint.new(0.3, tier.plate), ColorSequenceKeypoint.new(0.5, white), ColorSequenceKeypoint.new(0.7, tier.plate), ColorSequenceKeypoint.new(1, dark) })
+		spinGradient(sg, 3)
+		-- A sharp glint sweeping across every second or so.
+		local glint = disc(fx, white, 0, 0)
+		local gg = new("UIGradient", {
+			Parent = glint,
+			Rotation = 30,
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.4, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(0.6, 1), NumberSequenceKeypoint.new(1, 1) }),
 			Offset = Vector2.new(-1, 0),
 		})
-		TweenService:Create(grad, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, 0.5), { Offset = Vector2.new(1, 0) }):Play()
+		TweenService:Create(gg, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, 0.6), { Offset = Vector2.new(1, 0) }):Play()
 	else
-		-- Crystal: little four-point stars twinkling in and out.
+		sg.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, tier.plate), ColorSequenceKeypoint.new(0.33, tier.accent), ColorSequenceKeypoint.new(0.66, light), ColorSequenceKeypoint.new(1, tier.plate) })
+		spinGradient(sg, 2.5)
 		for k = 1, 6 do
-			local star = label({ Parent = fx, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.15 + ((k * 0.37) % 0.7), 0.15 + ((k * 0.61) % 0.7)), Size = UDim2.fromOffset(20, 20), Text = "✦", TextColor3 = Color3.new(1, 1, 1), TextScaled = true, TextTransparency = 1, TextStrokeColor3 = tier.accent, TextStrokeTransparency = 1, ZIndex = 0 })
-			TweenService:Create(star, TweenInfo.new(0.5 + (k % 3) * 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true, k * 0.17), { TextTransparency = 0, TextStrokeTransparency = 0.3, Rotation = 45 }):Play()
+			local star = label({ Parent = fx, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.2 + ((k * 0.37) % 0.6), 0.2 + ((k * 0.61) % 0.6)), Size = UDim2.fromOffset(18, 18), Text = "✦", TextColor3 = white, TextScaled = true, TextTransparency = 1, TextStrokeColor3 = tier.accent, TextStrokeTransparency = 1, ZIndex = 0 })
+			local s0 = new("UIScale", { Parent = star, Scale = 0.4 })
+			local info = TweenInfo.new(0.45 + (k % 3) * 0.15, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true, k * 0.13)
+			TweenService:Create(star, info, { TextTransparency = 0, TextStrokeTransparency = 0.3, Rotation = 90 }):Play()
+			TweenService:Create(s0, info, { Scale = 1.2 }):Play()
 		end
 	end
 	if tier.glow then
-		local halo = new("Frame", { Parent = fx, Size = UDim2.fromScale(1, 1), BackgroundColor3 = tier.accent, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 0 }, { UIKit.round() })
-		TweenService:Create(halo, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.95 }):Play()
+		local halo = disc(fx, tier.accent, 0.55)
+		TweenService:Create(halo, TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.95 }):Play()
 	end
+	-- A dark ring inside the rim so the colour reads as a gem set in the slot.
+	new("UIStroke", { Parent = swirl, Color = dark, Thickness = 2, Transparency = 0.2 })
 end
 
 local lastSelected: { [string]: boolean } = {}
@@ -227,7 +273,7 @@ local function rebuildHotbar()
 				-- The held item turns slowly in its slot, rocking as it goes, over a soft
 				-- warm glow that breathes in and out.
 				spinSince[id] = spinSince[id] or os.clock()
-				Icons.spin(icon, nil, spinSince[id])
+				Icons.wobble(icon, spinSince[id])
 				tierFx(slot, id)
 			end
 			-- Long names shrink to fit the slot so neighbours never overlap.
@@ -508,24 +554,9 @@ function UI.levelUp(fromLevel: number, toLevel: number)
 	end)
 end
 
--- Eating: a big flat green heart with "+N" in a white pill, centre screen.
-function UI.heart(amount: number)
-	if amount <= 0 then
-		return
-	end
-	local heart = label({ Parent = popupLayer, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(150, 130), Text = "♥", TextColor3 = C.xp, TextStrokeTransparency = 1, TextScaled = true })
-	local pill = new("Frame", { Parent = heart, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(64, 26), BackgroundColor3 = C.text }, { UIKit.round() })
-	local num = UIKit.new("TextLabel", { Parent = pill, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, FontFace = UIKit.FontFace, TextSize = 20, TextColor3 = Color3.fromRGB(70, 140, 60), Text = "+" .. amount })
-	task.delay(0.6, function()
-		local info = TweenInfo.new(0.35)
-		TweenService:Create(heart, info, { TextTransparency = 1 }):Play()
-		TweenService:Create(pill, info, { BackgroundTransparency = 1 }):Play()
-		local t = TweenService:Create(num, info, { TextTransparency = 1 })
-		t:Play()
-		t.Completed:Wait()
-		heart:Destroy()
-	end)
-end
+-- Eating: the healing itself shows as the green heart badge over you (Markers.lua),
+-- the same style as the badges over nameplates, so nothing big in the middle here.
+function UI.heart(_amount: number) end
 
 local feedRows: { [string]: TextLabel } = {}
 function UI.pickup(itemId: string, amount: number)
