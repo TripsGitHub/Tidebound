@@ -2723,6 +2723,25 @@ function WorldBuilder.build(bakeOnly: boolean?)
 					task.wait()
 				end
 			end
+			-- Then walk every path once more and open any stretch something filled
+			-- back in (the same check Caves.verify reports on), so a way the minimap
+			-- shows as open is open.
+			local opened = 0
+			for n, path in network.paths or {} do
+				for _, pt in Caves.samples(path) do
+					local region = Region3.new(pt - Vector3.one * 2, pt + Vector3.one * 2):ExpandToGrid(4)
+					local mats, occ = workspace.Terrain:ReadVoxels(region, 4)
+					local m = mats[1][1][1]
+					if m ~= Enum.Material.Air and m ~= Enum.Material.Water and occ[1][1][1] > 0.5 then
+						WorldBake.terrain:FillBall(pt, Caves.HALL_R * 0.7, if pt.Y < -2 and m == Enum.Material.Sand then Enum.Material.Water else Enum.Material.Air)
+						opened += 1
+					end
+				end
+				if n % 4 == 0 then
+					task.wait()
+				end
+			end
+			print("[World] reopened " .. opened .. " blocked bits of cave path")
 		end
 		local nodes = workspace:FindFirstChild("Nodes")
 		local cleared = 0

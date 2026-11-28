@@ -10,6 +10,7 @@ type QuestData = { progress: { [string]: number }, claimed: { [string]: boolean 
 
 local Quests = {}
 local data: { [Player]: QuestData } = {}
+local catchUp: (Player, QuestData) -> () -- defined below payPath
 
 function Quests.init(player: Player)
 	data[player] = { progress = {}, claimed = {}, path = 1, pathProgress = 0 }
@@ -28,7 +29,6 @@ function Quests.sync(player: Player)
 end
 
 -- Pays out a Tribe Path step: XP, Shells and any items, straight away.
-local catchUp: (Player, QuestData) -> ()
 local function payPath(player: Player, step)
 	local Inventory = require(script.Parent.Inventory)
 	local Items = require(Shared.Items)
