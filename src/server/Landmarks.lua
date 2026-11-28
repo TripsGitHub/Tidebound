@@ -509,6 +509,73 @@ function Landmarks.place(kind: string, centre: Vector3, groundAt, title: string?
 	return m
 end
 
+-- The way into the Maw: a giant jaw of stone teeth framing Maw Rock's cave mouth,
+-- a red beacon over it you can see from the other islands, and a lit path of torch
+-- posts winding up from the beach, with a sign at the bottom. `mouth` is the cave
+-- entrance, `out` the flat direction from the mountain out through it.
+function Landmarks.mawGate(mouth: Vector3, out: Vector3, groundAt): Model
+	local m = Instance.new("Model")
+	m.Name = "The Maw"
+	local tooth, gum = Color3.fromRGB(228, 220, 200), Color3.fromRGB(46, 40, 44)
+	local front = mouth + out * 6
+	local look = CFrame.lookAt(front, front + out)
+	local right = look.RightVector
+	-- Upper jaw: teeth hanging down in an arch over the mouth; lower jaw: teeth rising
+	-- from the lip. Slightly curved inward like a bite.
+	for i = -4, 4 do
+		local t = i / 4
+		local x = t * 17
+		local archY = 22 - (t * t) * 10
+		local h = 9 + (1 - math.abs(t)) * 6 + rng:NextNumber(-1, 1)
+		local at = front + right * x + Vector3.new(0, archY, 0)
+		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(3.6, h, 4), CFrame = CFrame.lookAt(at, at - out) * CFrame.Angles(math.rad(180 + 12), 0, 0) * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone })
+		Props.part(m, { Name = "Gum", Size = Vector3.new(4.6, 3, 5), CFrame = CFrame.lookAt(at + Vector3.new(0, 1.2, 0), at + Vector3.new(0, 1.2, 0) + out), Color = gum, Material = Enum.Material.Basalt })
+	end
+	for i = -3, 3 do
+		local t = i / 3
+		local x = t * 15
+		local h = 6 + (1 - math.abs(t)) * 4 + rng:NextNumber(-1, 1)
+		local at = front + right * x + Vector3.new(0, -1, 0)
+		Props.part(m, { Class = "WedgePart", Name = "Tooth", Size = Vector3.new(3.2, h, 3.6), CFrame = CFrame.lookAt(at, at + out) * CFrame.Angles(math.rad(-14), 0, 0) * CFrame.new(0, h / 2, 0), Color = tooth, Material = Enum.Material.Limestone })
+	end
+	-- The beacon: a tall faint red column of light above the jaw.
+	local beam = Props.part(m, { Name = "Beacon", Shape = Enum.PartType.Cylinder, Size = Vector3.new(160, 5, 5), CFrame = CFrame.new(front + Vector3.new(0, 30 + 80, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 70, 50), Material = Enum.Material.Neon, Transparency = 0.55, CanCollide = false, CanQuery = false, CastShadow = false })
+	local glow = Props.part(m, { Name = "MawGlow", Size = Vector3.new(10, 0.4, 10), CFrame = CFrame.new(mouth + Vector3.new(0, 0.5, 0)), Color = Color3.fromRGB(200, 40, 30), Material = Enum.Material.Neon, Transparency = 0.4, CanCollide = false, CanQuery = false })
+	local light = Instance.new("PointLight")
+	light.Color, light.Range, light.Brightness = Color3.fromRGB(255, 70, 40), 40, 2
+	light.Parent = glow
+	local top = Instance.new("PointLight")
+	top.Color, top.Range, top.Brightness = Color3.fromRGB(255, 80, 50), 60, 1.5
+	top.Parent = beam
+	Props.emitter(m, front + Vector3.new(0, 6, 0), Vector3.new(24, 6, 10), "embers")
+	-- The path down: walk outward and downhill from the mouth to the beach, a torch
+	-- post either side every 14 studs.
+	local p = front + out * 8
+	local last = p
+	for step = 1, 18 do
+		local nextP = p + out * 14
+		local hit = groundAt(nextP.X, nextP.Z)
+		if not hit or hit.Position.Y < 1.5 or hit.Material == Enum.Material.Water then
+			break
+		end
+		p = hit.Position
+		last = p
+		if step % 1 == 0 then
+			for _, side in { -1, 1 } do
+				local q = p + right * side * 7
+				local g = groundAt(q.X, q.Z)
+				if g then
+					Props.torchPost(m, g.Position, 7)
+				end
+			end
+		end
+	end
+	Props.bigSign(m, last + out * 4 + right * 9, out, "THE MAW")
+	m:SetAttribute("Landmark", "The Maw")
+	m.WorldPivot = CFrame.new(front)
+	return m
+end
+
 local function secretRoom(parent: Instance, room)
 	local m = Instance.new("Model")
 	m.Name = "SecretRoom"

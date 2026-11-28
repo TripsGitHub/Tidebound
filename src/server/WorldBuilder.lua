@@ -2017,6 +2017,9 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	end
 	stage("Raising the landmarks")
 	Landmarks.build(network, NAMED, groundAt, function(isl)
+		if isl.hub then
+			return nil -- Maw Rock gets the jaw gate at its cave mouth instead (below)
+		end
 		return findSpot(isl, {}, 0, Vector3.new(isl.x, 0, isl.z), isl.r * 0.4, "*")
 	end)
 	-- The Sunfruit Giant can be chopped down: its trunk, fronds and fruit become a node.
@@ -2043,6 +2046,28 @@ function WorldBuilder.build(bakeOnly: boolean?)
 			giant.Parent = nodes
 		else
 			giant:Destroy()
+		end
+	end
+	-- The way into the Maw, at Maw Rock's cave mouth.
+	for _, isl in ISLANDS do
+		if isl.hub then
+			local centre = Vector3.new(isl.x, 0, isl.z)
+			local best
+			for _, e in network.entrances do
+				local flat = Vector3.new(e.pos.X, 0, e.pos.Z) - centre
+				if flat.Magnitude < isl.r * 1.4 and (not best or e.pos.Y < best.pos.Y) then
+					best = e
+				end
+			end
+			if best then
+				local flat = Vector3.new(best.pos.X, 0, best.pos.Z) - centre
+				local ok, err = pcall(function()
+					Landmarks.mawGate(best.pos, if flat.Magnitude > 1 then flat.Unit else Vector3.zAxis, groundAt).Parent = workspace.Landmarks
+				end)
+				if not ok then
+					warn("[World] Maw gate failed: " .. tostring(err))
+				end
+			end
 		end
 	end
 	stage("Building the camps")
