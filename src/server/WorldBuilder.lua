@@ -1041,7 +1041,7 @@ local function buildTerrain()
 	local sea = (extent + 600) * 2 -- open water well past the outer islands
 	terrain:FillBlock(CFrame.new(0, -18 * V, 0), Vector3.new(sea, 36 * V, sea), Enum.Material.Water)
 	-- A thick sand bed under the whole sea: SeaFloor scoops basins out of it later.
-	local bedTop, bedBottom = -36 * V, -150
+	local bedTop, bedBottom = -36 * V, -240 -- well below the deepest basin, so no basin ever opens to the void
 	local CH = 2048
 	for bx = -sea / 2, sea / 2 - 1, CH do
 		for bz = -sea / 2, sea / 2 - 1, CH do

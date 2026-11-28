@@ -138,6 +138,23 @@ function Survival.start()
 	for _, player in Players:GetPlayers() do
 		watchPlayer(player)
 	end
+	-- Safety net: anyone who slips under the world (below the bedrock) is put back at
+	-- the spawn instead of falling forever.
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			for _, player in Players:GetPlayers() do
+				local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if root and root.Position.Y < -410 then
+					local spawn = workspace:FindFirstChildWhichIsA("SpawnLocation", true)
+					local to = if spawn then spawn.Position + Vector3.new(0, 5, 0) else Vector3.new(0, 60, 0)
+					root.AssemblyLinearVelocity = Vector3.zero
+					player.Character:PivotTo(CFrame.new(to))
+					Remotes.Notify:FireClient(player, "You fell out of the world, so you've been put back at the spawn", "warn")
+				end
+			end
+		end
+	end)
 	task.spawn(function()
 		while true do
 			task.wait(HEAL_TICK)

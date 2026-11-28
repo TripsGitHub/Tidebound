@@ -434,12 +434,17 @@ function builders.gold_slime(m)
 	return slimeModel(m, Color3.fromRGB(255, 206, 60), true)
 end
 
--- Seeds: a little heap of oblong seeds in the crop's colours.
+-- Seeds: a tied cloth pouch in the crop's colour with a few seeds spilling out, big
+-- enough to spot on the ground.
 local function seedsModel(m: Model, a: Color3, b: Color3): BasePart
-	local core
-	for i, o in { Vector3.new(0, 0, 0), Vector3.new(0.3, 0.02, 0.12), Vector3.new(-0.28, 0.02, 0.1), Vector3.new(0.06, 0.04, -0.28), Vector3.new(-0.1, 0.16, 0.05), Vector3.new(0.18, 0.14, -0.1), Vector3.new(-0.3, 0, -0.2) } do
-		local s = ball(m, Vector3.new(0.42, 0.2, 0.26), CFrame.new(o) * CFrame.Angles(0, i * 0.9, i * 0.2), if i % 2 == 0 then a else b)
-		core = core or s
+	local cloth = Color3.fromRGB(214, 190, 140)
+	local core = ball(m, Vector3.new(1.1, 0.95, 1.1), CFrame.new(0, 0, 0), cloth, Enum.Material.Fabric)
+	ball(m, Vector3.new(0.7, 0.4, 0.7), CFrame.new(0, 0.5, 0), cloth:Lerp(Color3.new(0, 0, 0), 0.1), Enum.Material.Fabric)
+	part(m, Vector3.new(0.74, 0.12, 0.74), CFrame.new(0, 0.42, 0), a, Enum.Material.Fabric, Enum.PartType.Cylinder).CFrame = CFrame.new(0, 0.42, 0) * CFrame.Angles(0, 0, math.rad(90))
+	-- A patch of the crop's colour on the front.
+	ball(m, Vector3.new(0.5, 0.5, 0.2), CFrame.new(0, 0, -0.5), a, Enum.Material.SmoothPlastic)
+	for i, o in { Vector3.new(0.6, -0.35, -0.3), Vector3.new(0.75, -0.38, 0.05), Vector3.new(0.5, -0.4, 0.3) } do
+		ball(m, Vector3.new(0.3, 0.16, 0.2), CFrame.new(o) * CFrame.Angles(0, i * 0.9, 0), if i % 2 == 0 then a else b)
 	end
 	return core
 end

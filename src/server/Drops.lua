@@ -34,7 +34,22 @@ function Drops.spawn(itemId: string, amount: number, position: Vector3, directio
 	model:PivotTo(CFrame.new(position) * spin)
 
 	-- Physics: the main part collides so it lands on the ground; the rest is welded on.
+	-- Small items get an invisible box round them to land on instead, so they never
+	-- slip through the terrain.
 	local primary = model.PrimaryPart :: BasePart
+	local boxCf, boxSize = model:GetBoundingBox()
+	if math.min(primary.Size.X, primary.Size.Y, primary.Size.Z) < 1.6 then
+		local box = Instance.new("Part")
+		box.Name = "Collider"
+		box.Transparency = 1
+		box.Size = Vector3.new(math.max(boxSize.X, 1.8), math.max(boxSize.Y, 1.8), math.max(boxSize.Z, 1.8))
+		box.CFrame = boxCf
+		box.CanTouch = false
+		box.Parent = model
+		primary.CanCollide = false
+		model.PrimaryPart = box
+		primary = box
+	end
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") then
 			p.Anchored = false
