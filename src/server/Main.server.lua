@@ -22,6 +22,7 @@ local Drops = require(Systems.Drops)
 local Save = require(Systems.Save)
 local Events = require(Systems.Events)
 local Oxygen = require(Systems.Oxygen)
+local Admin = require(Systems.Admin)
 
 -- Characters are spawned by hand (see onPlayerAdded), once the world exists and the
 -- player's save has loaded; otherwise they drop in at the map's centre before the
@@ -47,6 +48,7 @@ Rafts.start()
 Save.start()
 Events.start()
 Oxygen.start()
+Admin.start()
 
 Drops.setPickupCallback(function(player, itemId, amount)
 	Quests.record(player, "gather", itemId, amount)
