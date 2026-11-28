@@ -24,6 +24,7 @@ function Progression.addXp(player: Player, amount: number)
 	if level >= Config.MaxLevel then
 		return
 	end
+	amount = math.floor(amount * Config.XpBonus(level) + 0.5)
 	local xp = (player:GetAttribute("XP") or 0) + amount
 	while level < Config.MaxLevel and xp >= Config.XpForLevel(level) do
 		xp -= Config.XpForLevel(level)

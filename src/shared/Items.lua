@@ -25,7 +25,7 @@ local Items = {
 	wood_body = { name = "Wood Chestplate", kind = "armour", slot = "body", order = 41, defense = 0.05 },
 	wood_legs = { name = "Wood Leggings", kind = "armour", slot = "legs", order = 42, defense = 0.04 },
 	wood_boots = { name = "Wood Boots", kind = "armour", slot = "feet", order = 43, defense = 0.02 },
-	leather_bag = { name = "Leather Bag", kind = "armour", slot = "bag", order = 45, bagSize = 80 },
+	leather_bag = { name = "Leather Bag", kind = "armour", slot = "bag", order = 45, bagSize = 100 },
 	hide_pack = { name = "Hide Pack", kind = "armour", slot = "bag", order = 45.1, bagSize = 120 },
 	-- Diving gear: worn on the head, adds seconds of air under water.
 	aqua_mask = { name = "Diving Mask", kind = "armour", slot = "head", order = 44, defense = 0.02, air = 30 },
@@ -80,20 +80,84 @@ Items.fang_blade = { name = "Fang Blade", kind = "tool", swing = "slash", order 
 Items.golem_harvester = { name = "Golem Harvester", kind = "tool", order = 4.95, gather = { wood = 12, stone = 12, plant = 10, slime = 10 }, cooldown = 0.5, damage = 40 }
 Items.warden_pack = { name = "Warden Pack", kind = "armour", slot = "bag", order = 45.9, bagSize = 1000 }
 
--- What a Supply Crate can hold: { item, min, max, weight }.
-Items.CRATE_LOOT = {
-	{ "log", 8, 16, 10 },
-	{ "stone", 8, 16, 10 },
-	{ "leather", 3, 6, 8 },
-	{ "sticky_slime", 3, 6, 6 },
-	{ "cooked_meat", 2, 4, 6 },
-	{ "silver_ore", 2, 5, 6 },
-	{ "gold_ore", 2, 4, 4 },
-	{ "sunstone", 1, 3, 2.5 },
-	{ "key_fragment", 1, 2, 4 },
-	{ "diamond", 1, 2, 0.8 },
-	{ "fractite", 1, 1, 0.3 },
+-- Crates come in four rarities. Each holds its own loot table: { item, min, max, weight }.
+-- Level-up rewards give the crate that matches the level you reached (see
+-- Config.crateForLevel), so a level 6 crate never holds late-game ore. The Mythic
+-- materials (Star Shard, Abyss Pearl, Ancient Rune) come from nowhere else: they make
+-- the Tidecaller gear, the best in the game.
+Items.rare_crate = { name = "Rare Crate", kind = "crate", order = 132.1 }
+Items.epic_crate = { name = "Epic Crate", kind = "crate", order = 132.2 }
+Items.mythic_crate = { name = "Mythic Crate", kind = "crate", order = 132.3 }
+Items.star_shard = { name = "Star Shard", kind = "resource", order = 136, description = "A shard of a fallen star. Only found in Epic and Mythic Crates. Used for Tidecaller gear." }
+Items.abyss_pearl = { name = "Abyss Pearl", kind = "resource", order = 136.1, description = "A black pearl from the deepest sea. Only found in Mythic Crates. Used for Tidecaller gear." }
+Items.ancient_rune = { name = "Ancient Rune", kind = "resource", order = 136.2, description = "A carved stone from the first tribe. Only found in Mythic Crates. Used for Tidecaller gear." }
+-- rarity: colour and label used by the crate-opening screen.
+Items.CRATES = {
+	supply_crate = {
+		rarity = "Common",
+		colour = Color3.fromRGB(196, 150, 96),
+		rolls = { 2, 3 },
+		loot = {
+			{ "log", 8, 16, 10 },
+			{ "stone", 8, 16, 10 },
+			{ "stick", 6, 12, 8 },
+			{ "leaves", 6, 12, 6 },
+			{ "leather", 3, 6, 8 },
+			{ "cooked_meat", 2, 4, 7 },
+			{ "sticky_slime", 2, 5, 5 },
+			{ "arrow", 10, 20, 3 },
+			{ "rare_crate", 1, 1, 0.6 },
+		},
+	},
+	rare_crate = {
+		rarity = "Rare",
+		colour = Color3.fromRGB(80, 150, 240),
+		rolls = { 2, 4 },
+		loot = {
+			{ "silver_ore", 3, 6, 10 },
+			{ "silver_bar", 2, 4, 6 },
+			{ "gold_ore", 2, 5, 7 },
+			{ "gold_bar", 1, 3, 4 },
+			{ "leather", 6, 10, 6 },
+			{ "sticky_slime", 4, 8, 6 },
+			{ "cooked_meat", 4, 6, 5 },
+			{ "key_fragment", 1, 1, 3 },
+			{ "epic_crate", 1, 1, 0.5 },
+		},
+	},
+	epic_crate = {
+		rarity = "Epic",
+		colour = Color3.fromRGB(176, 90, 240),
+		rolls = { 3, 4 },
+		loot = {
+			{ "sunstone", 3, 6, 10 },
+			{ "sunsteel_bar", 2, 4, 6 },
+			{ "diamond", 2, 4, 7 },
+			{ "fractite", 1, 3, 5 },
+			{ "amethyst", 1, 2, 3 },
+			{ "key_fragment", 1, 2, 5 },
+			{ "pink_slime", 2, 4, 4 },
+			{ "star_shard", 1, 1, 1 },
+			{ "mythic_crate", 1, 1, 0.4 },
+		},
+	},
+	mythic_crate = {
+		rarity = "Mythic",
+		colour = Color3.fromRGB(255, 196, 60),
+		rolls = { 3, 5 },
+		loot = {
+			{ "amethyst", 3, 6, 8 },
+			{ "obsidian", 3, 6, 8 },
+			{ "moonstone", 2, 4, 6 },
+			{ "gold_slime", 1, 3, 4 },
+			{ "key_fragment", 2, 3, 4 },
+			{ "star_shard", 1, 3, 6 },
+			{ "abyss_pearl", 1, 1, 3 },
+			{ "ancient_rune", 1, 1, 3 },
+		},
+	},
 }
+Items.CRATE_LOOT = Items.CRATES.supply_crate.loot -- older code
 
 -- Ores and crystals (see Ores.lua), one per tier from Silver up.
 for i, ore in require(script.Parent.Ores) do
@@ -155,6 +219,15 @@ for _, tier in Tiers.list do
 	Items[harvester].order = 3 + r * 0.1 + 0.02
 end
 
+-- Tidecaller (Mythic) gear outclasses everything else, boss gear included.
+Items.tidecaller_sword.damage = 130
+Items.tidecaller_sword.cooldown = 0.5
+Items.tidecaller_harvester.gather = { wood = 14, stone = 14, plant = 12, slime = 12 }
+Items.tidecaller_harvester.cooldown = 0.45
+for _, key in { "sword", "harvester", "helmet", "body", "legs", "boots" } do
+	Items["tidecaller_" .. key].mythic = true
+end
+
 -- How well each set stands up to mobs and to other players (multipliers on its
 -- defence). Slime soaks up beasts but does little against a blade in a player's hand;
 -- obsidian is strong against both and best of all against players.
@@ -169,6 +242,7 @@ Items.ARMOUR_VS = {
 	amethyst = { mob = 0.95, player = 1.2 },
 	obsidian = { mob = 1.2, player = 1.4 },
 	lunar = { mob = 1.15, player = 1.15 },
+	tidecaller = { mob = 1.3, player = 1.3 },
 	slime = { mob = 1.8, player = 0.45 },
 }
 for _, tier in Tiers.extra do
@@ -297,7 +371,7 @@ end
 
 -- A bag for every ore tier, each one bigger than the last (after the Leather Bag,
 -- Hide Pack and Explorer Pack). Recipes are in Recipes.lua.
-Items.BAG_SIZES = { silver = 200, gold = 250, sunsteel = 310, diamond = 380, fractite = 460, amethyst = 550, obsidian = 650, lunar = 800 }
+Items.BAG_SIZES = { silver = 200, gold = 250, sunsteel = 310, diamond = 380, fractite = 460, amethyst = 550, obsidian = 650, lunar = 800, tidecaller = 1200 }
 for _, tier in Tiers.list do
 	local size = Items.BAG_SIZES[tier.id]
 	if size then

@@ -115,6 +115,7 @@ require(script.Parent.BossBar).init(UI.root :: ScreenGui)
 require(script.Parent.PlayerList).init(UI.root :: ScreenGui)
 require(script.Parent.Markers).start()
 require(script.Parent.AdminMenu).init(UI.root :: ScreenGui)
+require(script.Parent.CrateOpen).init()
 Effects.startAmbient()
 
 -- Swinging -----------------------------------------------------------------------

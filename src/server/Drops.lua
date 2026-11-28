@@ -88,7 +88,7 @@ local tierRank = {}
 for i, tier in Tiers.list do
 	tierRank[tier.id] = i
 end
-local RARE = { key_fragment = 4, maw_key = 5, queen_fang = 5, warden_core = 5, golem_heart = 5, supply_crate = 2 }
+local RARE = { key_fragment = 4, maw_key = 5, queen_fang = 5, warden_core = 5, golem_heart = 5, supply_crate = 2, rare_crate = 3, epic_crate = 4, mythic_crate = 5, star_shard = 5, abyss_pearl = 5, ancient_rune = 5 }
 
 function Drops.prioritySeconds(itemId: string): number
 	local item = Items[itemId]
@@ -224,7 +224,10 @@ function Drops.dropFromBag(player: Player, itemId: unknown)
 	-- little apart so they don't pile into one spot.
 	if Inventory.take(player, itemId, 1) then
 		local side = root.CFrame.RightVector * (math.random() - 0.5) * 2.4
-		Drops.spawn(itemId, 1, root.Position + root.CFrame.LookVector * 3 + side, root.CFrame.LookVector)
+		local model = Drops.spawn(itemId, 1, root.Position + root.CFrame.LookVector * 3 + side, root.CFrame.LookVector)
+		if model then
+			model:SetAttribute("DroppedBy", player.UserId) -- smelting XP goes to whoever dropped it in
+		end
 	end
 end
 

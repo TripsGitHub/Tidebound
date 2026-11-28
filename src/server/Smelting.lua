@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Items = require(Shared.Items)
+local Config = require(Shared.Config)
 local Drops = require(script.Parent.Drops)
 
 local Smelting = {}
@@ -26,7 +27,7 @@ local START_FUEL = 60 -- a freshly built fire
 local MAX_FUEL = 600
 local REACH = 6 -- how close to the fire a dropped item must land
 
-type Fire = { model: Model, core: BasePart, queue: { string }, progress: number, gui: BillboardGui, fuelFill: Frame, workFill: Frame, workText: TextLabel, fuelText: TextLabel }
+type Fire = { model: Model, core: BasePart, queue: { string }, owners: { number }?, progress: number, gui: BillboardGui, fuelFill: Frame, workFill: Frame, workText: TextLabel, fuelText: TextLabel }
 local fires: { [Model]: Fire } = {}
 
 local function bar(parent: Instance, y: number, colour: Color3): (Frame, TextLabel)
@@ -81,7 +82,7 @@ local function watch(model: Model)
 	local fuelFill, fuelText = bar(gui, 0, Color3.fromRGB(255, 150, 60))
 	local workFill, workText = bar(gui, 22, Color3.fromRGB(236, 236, 240))
 	workFill.Parent.Visible = false
-	fires[model] = { model = model, core = core, queue = {}, progress = 0, gui = gui, fuelFill = fuelFill, workFill = workFill, workText = workText, fuelText = fuelText }
+	fires[model] = { model = model, core = core, queue = {}, owners = {}, progress = 0, gui = gui, fuelFill = fuelFill, workFill = workFill, workText = workText, fuelText = fuelText }
 	model.Destroying:Connect(function()
 		local f = fires[model]
 		fires[model] = nil
@@ -116,8 +117,10 @@ local function step(f: Fire, dt: number)
 					fuel = math.min(MAX_FUEL, fuel + Smelting.FUEL[id] * amount)
 					drop:Destroy()
 				elseif Smelting.RECIPES[id] then
+					f.owners = f.owners or {}
 					for _ = 1, amount do
 						table.insert(f.queue, id)
+						table.insert(f.owners, drop:GetAttribute("DroppedBy") or 0)
 					end
 					drop:Destroy()
 				end
@@ -131,7 +134,16 @@ local function step(f: Fire, dt: number)
 		f.progress += dt / r.time
 		if f.progress >= 1 then
 			f.progress = 0
-			table.remove(f.queue, 1)
+			local done = table.remove(f.queue, 1)
+			local ownerId = if f.owners then table.remove(f.owners, 1) else nil
+			-- XP for smelting, more for rarer ore, to whoever dropped it in.
+			local owner = ownerId and ownerId ~= 0 and game:GetService("Players"):GetPlayerByUserId(ownerId)
+			local xp = Config.SmeltXp[done]
+			if owner and xp then
+				require(script.Parent.Progression).addXp(owner, xp)
+				local Quests = require(script.Parent.Quests)
+				Quests.record(owner, "smelt", done, 1)
+			end
 			local a = math.random() * math.pi * 2
 			Drops.spawn(r.out, 1, pos + Vector3.new(math.cos(a) * 3.5, 2, math.sin(a) * 3.5), Vector3.new(math.cos(a), 0.5, math.sin(a)))
 		end

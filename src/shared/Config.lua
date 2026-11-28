@@ -5,9 +5,10 @@ local Config = {}
 Config.MaxHunger = 100
 Config.HungerDrainPerSecond = 1 / 8 -- full to empty in about 13 minutes
 Config.StarveDamagePerSecond = 2
+Config.FoodHealScale = 1.5 -- food heals this much more than its listed heal (no passive regen)
 
 -- Carrying
-Config.BaseBagSize = 30 -- how many items you can carry with no bag equipped
+Config.BaseBagSize = 40 -- how many items you can carry with no bag equipped
 
 -- Reach
 Config.HitRange = 11 -- how far (studs) you can hit things from
@@ -40,6 +41,16 @@ function Config.XpForLevel(level: number): number
 	local early = math.min(1, 0.45 + level * 0.055)
 	return math.floor((15 + level * 3 + level * level * 0.12) * early)
 end
+-- Early levels earn extra XP so new players see the loop (gather, craft, level up,
+-- unlock) within minutes: double XP to level 10, easing back to normal by level 30.
+function Config.XpBonus(level: number): number
+	if level <= 10 then
+		return 2
+	end
+	return math.max(1, 2 - (level - 10) / 20)
+end
+-- XP for each piece a campfire smelts, by what goes in (rarer ore, more XP).
+Config.SmeltXp = { silver_ore = 10, gold_ore = 18, sunstone = 30, raw_meat = 3, raw_fish = 3, mushroom = 2, potato = 2 }
 -- Recipes and ores are written on a 1-20 scale (see Recipes.lua and Ores.lua); this
 -- spreads them over levels 1-200 on a curve, leaving 200-250 for the very end of the
 -- game. Wood gear stays in the first few levels (1-8), stone around 20-35, and the
@@ -55,21 +66,39 @@ end
 -- Past level 20: a Supply Crate every 5 levels, plus Shells every level.
 Config.LevelRewards = {
 	[2] = { berries = 5, log = 5 },
-	[3] = { stick = 6, stone = 6 },
-	[4] = { leather = 3, cooked_meat = 2 },
-	[5] = { wood_sword = 1, supply_crate = 1 },
-	[6] = { log = 12, stone = 10 },
-	[7] = { leaves = 10, sticky_slime = 3 },
-	[8] = { leather_bag = 1 },
-	[10] = { stone_harvester = 1, supply_crate = 1 },
+	[3] = { stick = 6, stone = 8, leather = 3 },
+	[4] = { cooked_meat = 3, leaves = 8 },
+	[5] = { stone = 12, supply_crate = 1 },
+	[7] = { log = 12, stone = 10 },
+	[9] = { leather = 5, cooked_meat = 3 },
+	[10] = { supply_crate = 1, sticky_slime = 4 },
 	[12] = { cooked_meat = 5, leather = 5 },
 	[15] = { aqua_mask = 1, supply_crate = 1 },
-	[20] = { stone_sword = 1, supply_crate = 2 },
+	[20] = { supply_crate = 2 },
 }
+-- Which crate a level-up hands out: the loot matches the level you reached, so early
+-- crates hold early materials and late crates hold late ones.
+function Config.crateForLevel(level: number): string
+	if level >= 150 then
+		return "mythic_crate"
+	elseif level >= 80 then
+		return "epic_crate"
+	elseif level >= 30 then
+		return "rare_crate"
+	end
+	return "supply_crate"
+end
 function Config.rewardsFor(level: number): { [string]: number }
-	local r = table.clone(Config.LevelRewards[level] or {})
+	local listed = Config.LevelRewards[level] or {}
+	local r = {}
+	for id, n in listed do
+		-- "supply_crate" in the table means "the crate for this level".
+		local key = if id == "supply_crate" then Config.crateForLevel(level) else id
+		r[key] = (r[key] or 0) + n
+	end
 	if level > 20 and level % 5 == 0 then
-		r.supply_crate = (r.supply_crate or 0) + 1 + math.floor(level / 50)
+		local crate = Config.crateForLevel(level)
+		r[crate] = (r[crate] or 0) + 1 + math.floor(level / 100)
 	end
 	return r
 end
@@ -84,7 +113,7 @@ function Config.hotbarSlotsFor(level: number): number
 	end
 	return n
 end
-Config.XpPerCraft = 5
+Config.XpPerCraft = 8
 
 -- World
 Config.DayLengthSeconds = 720 -- one full day/night cycle (12 minutes)

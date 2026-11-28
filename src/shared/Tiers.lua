@@ -31,6 +31,9 @@ local LIST: { Tier } = {
 	{ id = "obsidian", name = "Obsidian", style = "crystal", plate = rgb(36, 44, 58), trim = rgb(22, 26, 36), accent = rgb(255, 104, 36), strap = rgb(26, 28, 36), glow = true },
 	-- Lunar: clean teal crystal with pale moon-yellow inlays.
 	{ id = "lunar", name = "Lunar", style = "crystal", plate = rgb(34, 150, 146), trim = rgb(18, 98, 100), accent = rgb(250, 240, 150), strap = rgb(20, 70, 72), glow = true },
+	-- Tidecaller (Mythic): deep sea blue and gold with glowing foam-green inlays. Made
+	-- only from the Mythic crate materials (Star Shard, Abyss Pearl, Ancient Rune).
+	{ id = "tidecaller", name = "Tidecaller", style = "metal", plate = rgb(28, 64, 150), trim = rgb(232, 190, 80), accent = rgb(120, 255, 220), strap = rgb(30, 34, 60), glow = true, mythic = true },
 } :: any
 
 local Tiers = { list = LIST }

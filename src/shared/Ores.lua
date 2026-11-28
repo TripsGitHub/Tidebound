@@ -24,8 +24,8 @@ export type Ore = {
 }
 
 local Ores: { Ore } = {
-	{ tier = "silver", item = "silver_ore", name = "Silver Ore", node = "SilverVein", nodeName = "Silver Vein", look = "metal", minPower = 3, level = 9 },
-	{ tier = "gold", item = "gold_ore", name = "Gold Ore", node = "GoldVein", nodeName = "Gold Vein", look = "metal", minPower = 4, level = 11 },
+	{ tier = "silver", item = "silver_ore", name = "Silver Ore", node = "SilverVein", nodeName = "Silver Vein", look = "metal", minPower = 3, level = 7 },
+	{ tier = "gold", item = "gold_ore", name = "Gold Ore", node = "GoldVein", nodeName = "Gold Vein", look = "metal", minPower = 4, level = 10 },
 	{ tier = "sunsteel", item = "sunstone", name = "Sunstone", node = "SunstoneVein", nodeName = "Sunstone Vein", look = "metal", minPower = 5, level = 13 },
 	{ tier = "diamond", item = "diamond", name = "Diamond", node = "DiamondCluster", nodeName = "Diamond Cluster", look = "crystal", minPower = 6, level = 14 },
 	{ tier = "fractite", item = "fractite", name = "Fractite Shard", node = "FractiteCluster", nodeName = "Fractite Cluster", look = "crystal", minPower = 7, level = 15 },

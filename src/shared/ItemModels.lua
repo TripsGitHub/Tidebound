@@ -627,12 +627,66 @@ end
 
 -- Cave loot ------------------------------------------------------------------------
 
-function builders.supply_crate(m)
-	local core = part(m, Vector3.new(1.6, 1.3, 1.6), CFrame.new(), C.wood, Enum.Material.WoodPlanks)
-	for _, y in { -0.55, 0.55 } do
-		part(m, Vector3.new(1.7, 0.18, 1.7), CFrame.new(0, y, 0), C.woodDark, Enum.Material.Wood)
+-- Crates: a big iron-banded chest whose bands and lock show its rarity. The lid parts
+-- are named "Lid" so the opening screen can swing it open.
+local CRATE_LOOK = {
+	supply_crate = { wood = C.wood, band = Color3.fromRGB(96, 70, 48), gem = Color3.fromRGB(220, 180, 70), glow = false },
+	rare_crate = { wood = Color3.fromRGB(120, 86, 58), band = Color3.fromRGB(70, 120, 200), gem = Color3.fromRGB(120, 190, 255), glow = false },
+	epic_crate = { wood = Color3.fromRGB(86, 60, 70), band = Color3.fromRGB(140, 70, 200), gem = Color3.fromRGB(210, 140, 255), glow = true },
+	mythic_crate = { wood = Color3.fromRGB(60, 44, 40), band = Color3.fromRGB(230, 180, 60), gem = Color3.fromRGB(255, 220, 110), glow = true },
+}
+for id, look in CRATE_LOOK do
+	builders[id] = function(m)
+		local W, H, D = 2.4, 1.5, 1.7
+		local core = part(m, Vector3.new(W, H, D), CFrame.new(0, -0.2, 0), look.wood, Enum.Material.WoodPlanks)
+		-- Corner posts and the base rim.
+		for _, x in { -1, 1 } do
+			for _, z in { -1, 1 } do
+				part(m, Vector3.new(0.22, H + 0.06, 0.22), CFrame.new(x * (W / 2 - 0.05), -0.2, z * (D / 2 - 0.05)), look.band, Enum.Material.Metal)
+			end
+		end
+		part(m, Vector3.new(W + 0.1, 0.16, D + 0.1), CFrame.new(0, -0.2 - H / 2 + 0.08, 0), look.band, Enum.Material.Metal)
+		-- Two bands round the body.
+		for _, x in { -0.6, 0.6 } do
+			part(m, Vector3.new(0.18, H + 0.04, D + 0.06), CFrame.new(x, -0.2, 0), look.band, Enum.Material.Metal)
+		end
+		-- The lid: a slab with a rounded top and its own bands.
+		local lid = part(m, Vector3.new(W + 0.08, 0.3, D + 0.08), CFrame.new(0, 0.7, 0), look.wood, Enum.Material.WoodPlanks)
+		lid.Name = "Lid"
+		local top = part(m, Vector3.new(W - 0.1, 0.22, D - 0.2), CFrame.new(0, 0.95, 0), look.wood:Lerp(Color3.new(1, 1, 1), 0.08), Enum.Material.WoodPlanks)
+		top.Name = "Lid"
+		for _, x in { -0.6, 0.6 } do
+			local band = part(m, Vector3.new(0.2, 0.42, D + 0.12), CFrame.new(x, 0.8, 0), look.band, Enum.Material.Metal)
+			band.Name = "Lid"
+		end
+		-- Lock plate and gem on the front.
+		local plate = part(m, Vector3.new(0.5, 0.56, 0.08), CFrame.new(0, 0.5, -D / 2 - 0.06), look.band, Enum.Material.Metal)
+		plate.Name = "Lid"
+		local gem = part(m, Vector3.new(0.26, 0.26, 0.26), CFrame.new(0, 0.5, -D / 2 - 0.12) * CFrame.Angles(0, 0, math.rad(45)), look.gem, if look.glow then Enum.Material.Neon else Enum.Material.Glass)
+		gem.Name = "Lid"
+		return core
 	end
-	part(m, Vector3.new(0.3, 0.4, 0.1), CFrame.new(0, 0.1, -0.82), Color3.fromRGB(220, 180, 70), Enum.Material.Metal)
+end
+
+-- Mythic materials, only found in crates.
+function builders.star_shard(m)
+	local core = part(m, Vector3.new(0.5, 1.5, 0.5), CFrame.Angles(0, 0, math.rad(12)), Color3.fromRGB(255, 236, 150), Enum.Material.Neon)
+	part(m, Vector3.new(0.36, 1, 0.36), CFrame.new(0.35, -0.3, 0) * CFrame.Angles(0, 0, math.rad(-30)), Color3.fromRGB(255, 210, 90), Enum.Material.Glass)
+	part(m, Vector3.new(0.3, 0.8, 0.3), CFrame.new(-0.32, -0.35, 0.1) * CFrame.Angles(math.rad(10), 0, math.rad(35)), Color3.fromRGB(255, 250, 220), Enum.Material.Glass)
+	return core
+end
+function builders.abyss_pearl(m)
+	local core = part(m, Vector3.new(1, 1, 1), CFrame.new(0, 0.2, 0), Color3.fromRGB(40, 30, 70), Enum.Material.Glass, Enum.PartType.Ball)
+	core.Reflectance = 0.3
+	part(m, Vector3.new(1.4, 0.3, 1.2), CFrame.new(0, -0.35, 0), Color3.fromRGB(70, 86, 110), Enum.Material.Slate)
+	part(m, Vector3.new(0.3, 0.3, 0.3), CFrame.new(0.2, 0.45, -0.38), Color3.fromRGB(150, 120, 255), Enum.Material.Neon, Enum.PartType.Ball)
+	return core
+end
+function builders.ancient_rune(m)
+	local core = part(m, Vector3.new(1.2, 1.4, 0.4), CFrame.new(), Color3.fromRGB(120, 116, 104), Enum.Material.Slate)
+	part(m, Vector3.new(0.14, 0.9, 0.05), CFrame.new(0, 0, -0.22), Color3.fromRGB(120, 255, 220), Enum.Material.Neon)
+	part(m, Vector3.new(0.6, 0.14, 0.05), CFrame.new(0, 0.2, -0.22), Color3.fromRGB(120, 255, 220), Enum.Material.Neon)
+	part(m, Vector3.new(0.5, 0.14, 0.05), CFrame.new(0, -0.25, -0.22) * CFrame.Angles(0, 0, math.rad(30)), Color3.fromRGB(120, 255, 220), Enum.Material.Neon)
 	return core
 end
 

@@ -18,6 +18,7 @@ local NAMES = {
 	"Arrow", -- (character, from, to, hit) an arrow flying from a bow
 	"RaftState", -- (raftModel | nil) you're sitting on a raft (for the steer hint)
 	"AdminState", -- (state) admin menu: islands, players, mobs (admins only)
+	"CrateOpened", -- (crateId, { {itemId, amount} }) plays the crate-opening screen
 	-- client -> server
 	"Hit", -- (target)
 	"Equip", -- (itemId or nil) hold a tool/food/placeable

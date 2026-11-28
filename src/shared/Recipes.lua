@@ -3,20 +3,20 @@ local Recipes = {
 	-- Tools
 	{ id = "wood_club", tab = "Tools", level = 1, cost = { log = 3, stick = 1 } },
 	{ id = "wood_harvester", tab = "Tools", level = 1, cost = { log = 2, stick = 2, stone = 2 } },
-	{ id = "stone_harvester", tab = "Tools", level = 6, cost = { stick = 3, stone = 12, sticky_slime = 2 } },
-	{ id = "stone_sword", tab = "Tools", level = 7, cost = { log = 4, stone = 10, sticky_slime = 2 } },
+	{ id = "stone_harvester", tab = "Tools", level = 4, cost = { stick = 3, stone = 10, log = 2 } },
+	{ id = "stone_sword", tab = "Tools", level = 4, cost = { log = 4, stone = 10, stick = 2 } },
 	{ id = "wood_sword", tab = "Tools", level = 2, cost = { log = 5, stick = 2 } },
 
 	-- Armour
-	{ id = "leather_bag", tab = "Armour", level = 2, cost = { leather = 4, leaves = 6 } },
+	{ id = "leather_bag", tab = "Armour", level = 2, cost = { leather = 3, leaves = 6 } },
 	{ id = "wood_boots", tab = "Armour", level = 2, cost = { log = 4, leaves = 2 } },
 	{ id = "wood_helmet", tab = "Armour", level = 3, cost = { log = 5, leaves = 2 } },
 	{ id = "wood_legs", tab = "Armour", level = 4, cost = { log = 6, leaves = 3 } },
 	{ id = "wood_body", tab = "Armour", level = 4, cost = { log = 8, leaves = 3 } },
-	{ id = "stone_boots", tab = "Armour", level = 6, cost = { stone = 6, leather = 2 } },
-	{ id = "stone_helmet", tab = "Armour", level = 7, cost = { stone = 10, leather = 2 } },
-	{ id = "stone_legs", tab = "Armour", level = 8, cost = { stone = 14, leather = 3, sticky_slime = 1 } },
-	{ id = "stone_body", tab = "Armour", level = 8, cost = { stone = 18, leather = 4, sticky_slime = 2 } },
+	{ id = "stone_boots", tab = "Armour", level = 4, cost = { stone = 6, leather = 2 } },
+	{ id = "stone_helmet", tab = "Armour", level = 5, cost = { stone = 10, leather = 2 } },
+	{ id = "stone_legs", tab = "Armour", level = 5, cost = { stone = 14, leather = 3 } },
+	{ id = "stone_body", tab = "Armour", level = 6, cost = { stone = 18, leather = 4, stick = 4 } },
 	{ id = "aqua_mask", tab = "Armour", level = 6, cost = { leather = 4, sticky_slime = 6, stone = 4 } },
 	{ id = "pearl_helm", tab = "Armour", level = 15, cost = { silver_bar = 8, sticky_slime = 10, leather = 6 } },
 	{ id = "hide_pack", tab = "Armour", level = 8, cost = { leather = 10, sticky_slime = 3 } },
@@ -40,7 +40,7 @@ local Recipes = {
 	{ id = "wood_base", tab = "Buildables", level = 3, cost = { log = 30 } },
 	{ id = "wood_wall", tab = "Buildables", level = 3, cost = { log = 8 } },
 	{ id = "storage_chest", tab = "Buildables", level = 3, cost = { log = 10, stick = 4 } },
-	{ id = "wood_gate", tab = "Buildables", level = 4, cost = { log = 8, sticky_slime = 1 } },
+	{ id = "wood_gate", tab = "Buildables", level = 4, cost = { log = 8, stick = 2 } },
 	{ id = "stone_base", tab = "Buildables", level = 8, cost = { stone = 50, sticky_slime = 4 } },
 	{ id = "large_stone_base", tab = "Buildables", level = 12, cost = { stone = 90, sticky_slime = 8, silver_bar = 4 } },
 	{ id = "stone_wall", tab = "Buildables", level = 8, cost = { stone = 14, sticky_slime = 2 } },
@@ -53,14 +53,14 @@ local Recipes = {
 	{ id = "lamp", tab = "Buildables", level = 9, cost = { log = 3, silver_bar = 1, sticky_slime = 2 } },
 	{ id = "plant_box", tab = "Buildables", level = 2, cost = { log = 6, stick = 4, leaves = 4 } },
 	{ id = "wood_cart", tab = "Buildables", level = 3, cost = { log = 14, stick = 6 } },
-	{ id = "stone_cart", tab = "Buildables", level = 7, cost = { log = 10, stone = 16 } },
+	{ id = "stone_cart", tab = "Buildables", level = 5, cost = { log = 10, stone = 16 } },
 	{ id = "silver_cart", tab = "Buildables", level = 9, cost = { log = 10, silver_bar = 8 } },
 	{ id = "gold_cart", tab = "Buildables", level = 11, cost = { log = 12, gold_bar = 8 } },
 	{ id = "log_raft", tab = "Buildables", level = 2, cost = { log = 10, leaves = 6 } },
 	{ id = "sail_raft", tab = "Buildables", level = 8, cost = { log = 14, leather = 6, sticky_slime = 3 } },
 	{ id = "gold_raft", tab = "Buildables", level = 12, cost = { log = 18, leather = 8, gold_bar = 6 } },
 	{ id = "wood_shield", tab = "Armour", level = 2, cost = { log = 6, leather = 1 } },
-	{ id = "stone_shield", tab = "Armour", level = 6, cost = { stone = 10, log = 4, leather = 2 } },
+	{ id = "stone_shield", tab = "Armour", level = 4, cost = { stone = 10, log = 4, leather = 2 } },
 	{ id = "wood_bow", tab = "Tools", level = 3, cost = { log = 3, stick = 4, leather = 1 } },
 	{ id = "arrow", tab = "Tools", level = 3, amount = 10, cost = { stick = 3, stone = 2, leaves = 2 } },
 }
@@ -102,6 +102,20 @@ for i, ore in Ores do
 	if Items[bowId] then
 		table.insert(Recipes, { id = bowId, tab = "Tools", level = L, cost = cost(if Items[bowId].crossbow then 9 else 7, { log = 2, leather = 2 }, 2) })
 	end
+end
+
+-- Tidecaller (Mythic) gear: Moonstone plus the crate-only Mythic materials.
+for _, r in {
+	{ "harvester", "Tools", 18, { moonstone = 8, star_shard = 3, ancient_rune = 1, stick = 4 } },
+	{ "sword", "Tools", 18, { moonstone = 10, star_shard = 3, abyss_pearl = 1 } },
+	{ "shield", "Armour", 18, { moonstone = 8, star_shard = 2, abyss_pearl = 1 } },
+	{ "boots", "Armour", 18, { moonstone = 6, star_shard = 2, leather = 4 } },
+	{ "helmet", "Armour", 19, { moonstone = 9, star_shard = 3, ancient_rune = 1 } },
+	{ "legs", "Armour", 19, { moonstone = 12, star_shard = 3, abyss_pearl = 1 } },
+	{ "body", "Armour", 20, { moonstone = 15, star_shard = 4, abyss_pearl = 1, ancient_rune = 1 } },
+	{ "bag", "Armour", 20, { moonstone = 10, star_shard = 3, ancient_rune = 2, leather = 10 } },
+} do
+	table.insert(Recipes, { id = "tidecaller_" .. r[1], tab = r[2], level = r[3], cost = r[4] })
 end
 
 -- Recipes above are on a 1-20 scale; spread them over the real level range.

@@ -104,7 +104,7 @@ local Animals = {
 		xp = 40,
 		respawn = 120,
 		aggro = 24,
-		loot = { { "stone", 3, 6 }, { "leather", 1, 2 }, { "sunstone", 1, 1, 0.1 }, { "supply_crate", 1, 1, 0.06 } },
+		loot = { { "stone", 3, 6 }, { "leather", 1, 2 }, { "sunstone", 1, 1, 0.1 }, { "rare_crate", 1, 1, 0.06 } },
 	},
 	-- The lower and deep caves. Waits in the dark and rushes anyone who comes near:
 	-- go down with friends.
@@ -119,7 +119,7 @@ local Animals = {
 		respawn = 150,
 		aggro = 30,
 		cave = true,
-		loot = { { "leather", 1, 3 }, { "sticky_slime", 1, 3 }, { "gold_ore", 1, 2, 0.2 }, { "key_fragment", 1, 1, 0.35 }, { "supply_crate", 1, 1, 0.08 } },
+		loot = { { "leather", 1, 3 }, { "sticky_slime", 1, 3 }, { "gold_ore", 1, 2, 0.2 }, { "key_fragment", 1, 1, 0.35 }, { "rare_crate", 1, 1, 0.08 } },
 	},
 
 	-- Bosses: one in each lair below the Maw. `reach` is how close they bite from,
@@ -137,7 +137,7 @@ local Animals = {
 		reach = 9,
 		cave = true,
 		boss = true,
-		loot = { { "queen_fang", 1, 1 }, { "supply_crate", 2, 3 }, { "key_fragment", 1, 2 }, { "diamond", 2, 4 }, { "fractite", 1, 2, 0.5 } },
+		loot = { { "queen_fang", 1, 1 }, { "epic_crate", 1, 2 }, { "mythic_crate", 1, 1, 0.25 }, { "key_fragment", 1, 2 }, { "diamond", 2, 4 }, { "fractite", 1, 2, 0.5 } },
 	},
 	CrystalWarden = {
 		name = "Crystal Warden",
@@ -152,7 +152,7 @@ local Animals = {
 		reach = 11,
 		cave = true,
 		boss = true,
-		loot = { { "warden_core", 1, 1 }, { "supply_crate", 2, 3 }, { "key_fragment", 1, 2 }, { "amethyst", 1, 3, 0.6 }, { "fractite", 2, 3 } },
+		loot = { { "warden_core", 1, 1 }, { "epic_crate", 1, 2 }, { "mythic_crate", 1, 1, 0.35 }, { "key_fragment", 1, 2 }, { "amethyst", 1, 3, 0.6 }, { "fractite", 2, 3 } },
 	},
 	MagmaGolem = {
 		name = "Magma Golem",
@@ -167,7 +167,7 @@ local Animals = {
 		reach = 12,
 		cave = true,
 		boss = true,
-		loot = { { "golem_heart", 1, 1 }, { "supply_crate", 3, 4 }, { "key_fragment", 1, 2 }, { "obsidian", 2, 4 }, { "amethyst", 1, 2, 0.5 } },
+		loot = { { "golem_heart", 1, 1 }, { "epic_crate", 2, 2 }, { "mythic_crate", 1, 1, 0.5 }, { "key_fragment", 1, 2 }, { "obsidian", 2, 4 }, { "amethyst", 1, 2, 0.5 } },
 	},
 }
 

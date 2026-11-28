@@ -661,12 +661,12 @@ end
 local function rebuildQuests()
 	local list = panelLists.quests
 	clear(list)
-	for i, q in QuestList do
+	for i, q in ipairs(QuestList) do
 		local row = UIKit.block({ Parent = list, LayoutOrder = i, Size = UDim2.new(1, -8, 0, 62) })
 		local progress = questProgress[q.id] or 0
 		local done, claimed = progress >= q.amount, questClaimed[q.id]
 		label({ Parent = row, Position = UDim2.fromOffset(10, 4), Size = UDim2.new(1, -100, 0, 24), Text = q.title, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = false, TextSize = 21 })
-		label({ Parent = row, Position = UDim2.fromOffset(10, 32), Size = UDim2.new(1, -100, 0, 20), TextScaled = false, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, Text = q.text .. "  (" .. progress .. "/" .. q.amount .. ")  ·  " .. q.reward .. " Shells" })
+		label({ Parent = row, Position = UDim2.fromOffset(10, 32), Size = UDim2.new(1, -100, 0, 20), TextScaled = false, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, Text = q.text .. "  (" .. progress .. "/" .. q.amount .. ")  ·  " .. q.reward .. " Shells, " .. (q.xp or 0) .. " XP" })
 		button({ Parent = row, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(78, 28), BackgroundColor3 = if claimed then C.cardLocked elseif done then C.good else C.cardDark, Text = if claimed then "Done" elseif done then "Claim" else (progress .. "/" .. q.amount), TextScaled = false, TextSize = 18 }, function()
 			if done and not claimed then
 				callbacks.onClaim(q.id)
@@ -851,9 +851,12 @@ function UI.setInventory(items, equipped, armour, bagSize)
 	refreshOpen()
 end
 
-function UI.setQuests(progress, claimed)
+function UI.setQuests(progress, claimed, path)
 	questProgress, questClaimed = progress, claimed
 	refreshOpen()
+	if path then
+		require(script.Parent.Tutorial).setPath(path)
+	end
 end
 
 -- Top-left menu: label above, an icon on a small tan square, and the key in a tiny
