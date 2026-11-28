@@ -24,7 +24,7 @@ local body: TextLabel? = nil
 local reward: TextLabel? = nil
 local fill: Frame? = nil
 local fillText: TextLabel? = nil
-local state = { index = 0, progress = 0 }
+local state: { index: number?, progress: number } = { index = nil, progress = 0 }
 local lastIndex = 0
 local finished = false
 
@@ -45,6 +45,11 @@ local function show()
 	if not frame or not title or not count or not body or not reward or not fill or not fillText then
 		return
 	end
+	if state.index == nil then
+		frame.Visible = false -- not heard from the server yet
+		return
+	end
+	frame.Visible = true
 	local step = PATH[state.index]
 	if not step then
 		if finished then
@@ -83,7 +88,7 @@ local function show()
 	TweenService:Create(fill, TweenInfo.new(0.25), { Size = UDim2.fromScale(math.max(ratio, 0.02), 1) }):Play()
 	fillText.Text = state.progress .. " / " .. step.amount
 	if state.index ~= lastIndex then
-		lastIndex = state.index
+		lastIndex = state.index :: number
 		pop()
 	end
 end

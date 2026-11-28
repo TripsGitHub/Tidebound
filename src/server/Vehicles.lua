@@ -97,7 +97,6 @@ function Vehicles.rig(model: Model, root: BasePart, kind: string, speed: number,
 	vel.PrimaryTangentAxis = Vector3.xAxis
 	vel.SecondaryTangentAxis = Vector3.zAxis
 	vel.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-	vel.MaxPlanarVelocity = speed * 1.2
 	vel.MaxAxesForce = Vector3.new(push, 0, push)
 	vel.PlaneVelocity = Vector2.zero
 	vel.Parent = root
