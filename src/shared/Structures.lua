@@ -2,31 +2,31 @@
 local Config = require(script.Parent.Config)
 
 local Structures = {
-	Campfire = { size = Vector3.new(9, 2.4, 9), hp = 120 },
+	Campfire = { size = Vector3.new(10, 2.6, 10), hp = 120 },
 	-- Bases: the plot your home stands on. One per player; what's built on it saves.
-	WoodBase = { size = Vector3.new(32, 1.4, 32), hp = 1500 },
-	StoneBase = { size = Vector3.new(32, 1.6, 32), hp = 4000 },
-	LargeStoneBase = { size = Vector3.new(48, 1.8, 48), hp = 7000 },
-	WoodWall = { size = Vector3.new(8, 18, 1.2), hp = 300 },
-	StoneWall = { size = Vector3.new(8, 18, 2), hp = 900 },
-	WoodGate = { size = Vector3.new(8, 18, 1.2), hp = 250 },
-	Chest = { size = Vector3.new(5, 3.4, 3.4), hp = 260 },
+	WoodBase = { size = Vector3.new(56, 1.6, 56), hp = 1500 },
+	StoneBase = { size = Vector3.new(68, 1.8, 68), hp = 4000 },
+	LargeStoneBase = { size = Vector3.new(92, 2, 92), hp = 7000 },
+	WoodWall = { size = Vector3.new(12, 24, 1.6), hp = 300 },
+	StoneWall = { size = Vector3.new(12, 24, 2.6), hp = 900 },
+	WoodGate = { size = Vector3.new(12, 24, 1.6), hp = 250 },
+	Chest = { size = Vector3.new(6, 4.2, 4.2), hp = 260 },
 }
 
 -- Round 7: lights, bed, trap, ladder, ore walls and chests, carts.
 Structures.Torch = { size = Vector3.new(1.6, 7, 1.6), hp = 40, small = true }
 Structures.Lamp = { size = Vector3.new(2.4, 9, 2.4), hp = 90, small = true }
-Structures.Bed = { size = Vector3.new(4.4, 2, 8), hp = 150 }
-Structures.SpikeTrap = { size = Vector3.new(6, 0.8, 6), hp = 160, trap = true }
-Structures.Ladder = { size = Vector3.new(3.2, 16, 1), hp = 120 }
+Structures.Bed = { size = Vector3.new(5.2, 2.4, 9.4), hp = 150 }
+Structures.SpikeTrap = { size = Vector3.new(8, 1, 8), hp = 160, trap = true }
+Structures.Ladder = { size = Vector3.new(3.6, 22, 1.1), hp = 120 }
 Structures.Chest.chest = Config.ChestCapacity
 do
 	local Tiers = require(script.Parent.Tiers)
 	for _, tier in Tiers.list do
 		if tier.rank >= 3 then
 			local name = tier.name:gsub("%s", "")
-			Structures[name .. "Wall"] = { size = Vector3.new(8, 18, 1.8), hp = math.floor(900 * (1 + (tier.rank - 2) * 0.55)), tier = tier.id, wall = true }
-			Structures[name .. "Chest"] = { size = Vector3.new(5, 3.4, 3.4), hp = 260 + tier.rank * 220, tier = tier.id, chest = Config.ChestCapacity + (tier.rank - 2) * 150 }
+			Structures[name .. "Wall"] = { size = Vector3.new(12, 24, 2.4), hp = math.floor(900 * (1 + (tier.rank - 2) * 0.55)), tier = tier.id, wall = true }
+			Structures[name .. "Chest"] = { size = Vector3.new(6, 4.2, 4.2), hp = 260 + tier.rank * 220, tier = tier.id, chest = Config.ChestCapacity + (tier.rank - 2) * 150 }
 		end
 	end
 	for i, t in { "wood", "stone", "silver", "gold" } do

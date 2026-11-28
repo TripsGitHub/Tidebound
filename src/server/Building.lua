@@ -83,7 +83,7 @@ end
 function builders.WoodWall(model: Model, cf: CFrame, size: Vector3)
 	local core = part(model, true, { Name = "Core", Size = size - Vector3.new(0.2, 0, 0.3), CFrame = cf, Color = WOOD, Material = Enum.Material.Wood })
 	-- Upright logs with pointed tops, like a palisade.
-	local logs = 7
+	local logs = math.max(7, math.round(size.X / 1.4))
 	local w = size.X / logs
 	for i = 0, logs - 1 do
 		local x = -size.X / 2 + w * (i + 0.5)
