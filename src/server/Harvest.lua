@@ -96,6 +96,17 @@ local function warnOnce(player: Player, kind: string, text: string)
 	end
 end
 
+-- The weakest harvester whose stone power reaches `power`, by name.
+local function needHarvester(power: number): string
+	local best, bestOrder = nil, math.huge
+	for _, it in Items do
+		if type(it) == "table" and it.kind == "tool" and it.gather and not it.swing and (it.gather.stone or 0) >= power and string.find(it.name or "", "Harvester") and (it.order or 99) < bestOrder then
+			best, bestOrder = it.name, it.order or 99
+		end
+	end
+	return best or "stronger harvester"
+end
+
 local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 	local def = Nodes[model:GetAttribute("NodeType")]
 	if not def or model:GetAttribute("Depleted") then
@@ -136,11 +147,9 @@ local function hitNode(player: Player, model: Model, item, rootPos: Vector3)
 		return
 	end
 	if def.minPower and power < def.minPower then
-		-- A weaker harvester still works, just slowly: the further below what the ore
-		-- wants, the less each hit takes off.
-		local ratio = power / def.minPower
-		power = math.max(1, math.floor(power * ratio * ratio * 0.6 + 0.5))
-		warnOnce(player, "ore", "Your harvester is weak for " .. def.name .. ": it'll take a while")
+		-- Ores need the right harvester: Stone for Silver, Silver for Gold, and so on.
+		warnOnce(player, "ore", def.name .. " needs a " .. needHarvester(def.minPower) .. " or better")
+		return
 	end
 	-- Hits only wear it down; the loot and XP come out when it breaks.
 	local hp = math.max((model:GetAttribute("HP") or def.hp) - power, 0)

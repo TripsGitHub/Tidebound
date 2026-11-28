@@ -569,15 +569,11 @@ local function step(player: Player, character: Model, s: State, now: number, dt:
 		apply(character, runPose(s.phase), s.run)
 	end
 
-	-- Gliding: falling for a while spreads your arms and slows the fall (your own
-	-- character only; everyone sees the pose).
+	-- Falling for a while spreads your arms (pose only: the fall speed is untouched).
 	local falling = s.airborne and now - s.airSince > 0.55 and vel.Y < -10 and state == Enum.HumanoidStateType.Freefall
 	s.glide = (s.glide or 0) + ((if falling then 1 else 0) - (s.glide or 0)) * math.min(1, dt * 6)
 	if s.glide > 0.01 then
 		apply(character, glidePose(now), s.glide)
-		if falling and player == Players.LocalPlayer and vel.Y < -26 then
-			root.AssemblyLinearVelocity = Vector3.new(vel.X, -26, vel.Z) + root.CFrame.LookVector * Vector3.new(1, 0, 1) * 0.4
-		end
 	end
 	-- Swimming: lie flat and crawl.
 	local swimming = state == Enum.HumanoidStateType.Swimming

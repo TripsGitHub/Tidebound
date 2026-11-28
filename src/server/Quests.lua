@@ -22,11 +22,13 @@ end
 function Quests.sync(player: Player)
 	local d = data[player]
 	if d then
+		catchUp(player, d)
 		Remotes.QuestState:FireClient(player, d.progress, d.claimed, { index = d.path, progress = d.pathProgress })
 	end
 end
 
 -- Pays out a Tribe Path step: XP, Shells and any items, straight away.
+local catchUp: (Player, QuestData) -> ()
 local function payPath(player: Player, step)
 	local Inventory = require(script.Parent.Inventory)
 	local Items = require(Shared.Items)
@@ -47,6 +49,33 @@ local function payPath(player: Player, step)
 	Progression.addXp(player, step.xp or 0)
 end
 
+-- A new step can already be done: ore you mined before you reached the Silver step,
+-- or a sword you crafted early. Count what's in your bag (and gear you already have)
+-- so the path never gets stuck asking for something you're holding.
+function catchUp(player: Player, d: QuestData)
+	local Inventory = require(script.Parent.Inventory)
+	for _ = 1, #QuestList.PATH do
+		local step = QuestList.PATH[d.path]
+		if not step or not step.item then
+			return
+		end
+		local have = 0
+		if step.type == "gather" or step.type == "craft" then
+			have = Inventory.count(player, step.item)
+		end
+		if have <= d.pathProgress then
+			return
+		end
+		d.pathProgress = math.min(step.amount, have)
+		if d.pathProgress < step.amount then
+			return
+		end
+		d.path += 1
+		d.pathProgress = 0
+		payPath(player, step)
+	end
+end
+
 -- kind is "gather", "craft", "build", "hunt" or "smelt".
 function Quests.record(player: Player, kind: string, itemId: string?, amount: number)
 	local d = data[player]
@@ -63,6 +92,7 @@ function Quests.record(player: Player, kind: string, itemId: string?, amount: nu
 			d.path += 1
 			d.pathProgress = 0
 			payPath(player, step)
+			catchUp(player, d)
 		end
 	end
 	for _, quest in ipairs(QuestList) do

@@ -121,6 +121,16 @@ function Tutorial.start(parent: ScreenGui)
 	reward = UIKit.label({ Parent = f, Position = UDim2.new(0.42, 18, 0, 74), Size = UDim2.new(0.58, -28, 0, 34), Text = "", TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, TextScaled = false, TextSize = 12, TextColor3 = C.gold })
 	frame = f
 	show()
+	-- Step out of the way while the bag / crafting screen is open.
+	local inv = parent:FindFirstChild("Inventory") or parent:WaitForChild("Inventory", 20)
+	game:GetService("RunService").Heartbeat:Connect(function()
+		if frame and state.index ~= nil then
+			local open = inv ~= nil and (inv :: GuiObject).Visible
+			if frame.Visible == open then
+				frame.Visible = not open
+			end
+		end
+	end)
 end
 
 return Tutorial

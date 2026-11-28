@@ -202,8 +202,9 @@ local function rebuildCrafting()
 	styleTabs(craftTabs, craftTab)
 	local level = player:GetAttribute("Level") or 1
 	for i, recipe in Recipes do
-		-- Locked recipes only show a few levels ahead, so the list isn't all late-game gear.
-		local show = (craftTab == "All" or recipe.tab == craftTab) and recipe.level <= level + 3
+		-- Every recipe shows, locked ones greyed with the level they unlock at, so you
+		-- can see what you're working towards.
+		local show = craftTab == "All" or recipe.tab == craftTab
 		local entry = craftCards[recipe.id]
 		if show and not entry then
 			entry = craftCard(i, recipe)

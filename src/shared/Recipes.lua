@@ -118,6 +118,44 @@ for _, r in {
 	table.insert(Recipes, { id = "tidecaller_" .. r[1], tab = r[2], level = r[3], cost = r[4] })
 end
 
+-- A whole tier's gear unlocks together, at the level of its first piece: reaching
+-- Silver's level opens the silver harvester, sword, shield, bow and all the armour
+-- at once, instead of one piece a level.
+do
+	local GEAR = { "harvester", "sword", "boots", "helmet", "legs", "body", "bag", "shield", "bow", "crossbow" }
+	local tierLevel: { [string]: number } = {}
+	local function tierOf(id: string): string?
+		for _, g in GEAR do
+			local t = string.match(id, "^(.-)_" .. g .. "$")
+			if t then
+				return t
+			end
+		end
+		return nil
+	end
+	for _, r in Recipes do
+		local t = tierOf(r.id)
+		if t then
+			tierLevel[t] = math.min(tierLevel[t] or math.huge, r.level)
+		end
+	end
+	for _, r in Recipes do
+		local t = tierOf(r.id)
+		if t then
+			r.level = tierLevel[t]
+		end
+	end
+end
+
+-- Cheaper crafting: bags are small early on, so the first levels' recipes cost about
+-- a third less, and everything else a little less.
+for _, r in Recipes do
+	local k = if r.level <= 6 then 0.65 else 0.85
+	for id, n in r.cost do
+		r.cost[id] = math.max(1, math.ceil(n * k))
+	end
+end
+
 -- Recipes above are on a 1-20 scale; spread them over the real level range.
 local Config = require(script.Parent.Config)
 for _, r in Recipes do

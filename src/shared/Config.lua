@@ -8,12 +8,12 @@ Config.StarveDamagePerSecond = 2
 Config.FoodHealScale = 1.5 -- food heals this much more than its listed heal (no passive regen)
 
 -- Carrying
-Config.BaseBagSize = 40 -- how many items you can carry with no bag equipped
+Config.BaseBagSize = 60 -- how many items you can carry with no bag equipped
 
 -- Reach
 Config.HitRange = 11 -- how far (studs) you can hit things from
 Config.HeldScale = 1.3 -- tools in your hand are drawn this much bigger
-Config.PickupRange = 10 -- how far you can pick up dropped items from
+Config.PickupRange = 18 -- how far you can pick up dropped items from
 Config.BuildRange = 36 -- how far away you can place a structure
 Config.GridSize = 2 -- structures snap to this grid
 Config.MaxStructures = 250 -- per player; saved and rebuilt when you come back

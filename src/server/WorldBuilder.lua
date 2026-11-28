@@ -1727,6 +1727,9 @@ local function makeCaveMouth(centre: Vector3, facing: Vector3, size: number?)
 	for k = 0, 8 do
 		local a = math.rad(-150 + k * 37.5)
 		local offset = Vector3.new(math.cos(a) * 9.5, 0, math.sin(a) * 6 - 3) * k0
+		if offset.Z < -1 * k0 and math.abs(offset.X) < 8 * k0 then
+			continue -- nothing in front of the mouth, where the tunnel runs in
+		end
 		local base = look * CFrame.new(offset)
 		local hit = groundAt(base.X, base.Z)
 		local y = if hit then hit.Position.Y else base.Y
@@ -2686,6 +2689,27 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		for _, sh in network.shafts or {} do
 			table.insert(mouths, sh.top)
 		end
+		-- The first stretch of every way in, from the mouth down until it's well under
+		-- the ground: later passes (island dressing, camps, landmarks) can put rock or
+		-- earth back over it, so carve it open again here and keep nodes out of it.
+		local throats = {}
+		for _, path in network.paths or {} do
+			local pts = Caves.samples(path)
+			for i, pt in pts do
+				if i > 40 or pt.Y < -20 then
+					break
+				end
+				table.insert(throats, pt)
+			end
+		end
+		if not WorldBake.baked then
+			for i, pt in throats do
+				WorldBake.terrain:FillBall(pt, Caves.HALL_R * 0.8, Enum.Material.Air)
+				if i % 30 == 0 then
+					task.wait()
+				end
+			end
+		end
 		local nodes = workspace:FindFirstChild("Nodes")
 		local cleared = 0
 		if nodes then
@@ -2697,6 +2721,15 @@ function WorldBuilder.build(bakeOnly: boolean?)
 							m:Destroy()
 							cleared += 1
 							break
+						end
+					end
+					if m.Parent then
+						for _, at in throats do
+							if (p - at).Magnitude < Caves.HALL_R + 3 then
+								m:Destroy()
+								cleared += 1
+								break
+							end
 						end
 					end
 				end

@@ -29,17 +29,43 @@ function Progression.addXp(player: Player, amount: number)
 	while level < Config.MaxLevel and xp >= Config.XpForLevel(level) do
 		xp -= Config.XpForLevel(level)
 		level += 1
-		local unlocked = {}
+		-- One notification per thing unlocked; a whole tier's gear reads as one line.
+		local byTier: { [string]: { string } } = {}
+		local tierOrder, singles = {}, {}
 		for _, recipe in Recipes do
 			if recipe.level == level then
-				table.insert(unlocked, Items[recipe.id].name)
+				local item = Items[recipe.id]
+				local t = nil
+				for _, g in { "harvester", "sword", "boots", "helmet", "legs", "body", "bag", "shield", "bow", "crossbow" } do
+					t = t or string.match(recipe.id, "^(.-)_" .. g .. "$")
+				end
+				if t then
+					if not byTier[t] then
+						byTier[t] = {}
+						table.insert(tierOrder, t)
+					end
+					table.insert(byTier[t], item.name)
+				else
+					table.insert(singles, item.name)
+				end
 			end
 		end
-		local text = "Level " .. level .. "!"
-		if #unlocked > 0 then
-			text ..= "  Unlocked: " .. table.concat(unlocked, ", ")
+		local Tiers = require(Shared.Tiers)
+		for _, t in tierOrder do
+			local list = byTier[t]
+			if #list >= 3 then
+				local tier = Tiers.get(t)
+				local tname = if tier then tier.name else (string.upper(string.sub(t, 1, 1)) .. string.sub(t, 2))
+				Remotes.Notify:FireClient(player, "Unlocked: all " .. tname .. " gear (" .. #list .. " recipes)", "good")
+			else
+				for _, name in list do
+					table.insert(singles, name)
+				end
+			end
 		end
-		Remotes.Notify:FireClient(player, text, "good")
+		for _, name in singles do
+			Remotes.Notify:FireClient(player, "Unlocked: " .. name, "good")
+		end
 		-- Level rewards go straight into your bag (even if it's full), plus Shells.
 		local Inventory = require(script.Parent.Inventory)
 		local got = {}

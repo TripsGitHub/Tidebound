@@ -1,6 +1,5 @@
--- The crate-opening screen. The crate drops in, shakes harder and harder, the lid
--- bursts open in a flash of its rarity colour, and the loot pops out one card at a
--- time with its name and amount. Click (or wait) to close it.
+-- The crate-opening screen. The crate slides in, shakes a little, pops open, and the
+-- loot pops out one card at a time with its name and amount. Click (or wait) to close it.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -58,37 +57,6 @@ local function play(crateId: string, loot: { { any } })
 	})
 	tween(root, 0.25, { BackgroundTransparency = 0.45 })
 
-	-- Rays behind the crate, in the rarity colour.
-	local glow = UIKit.new("ImageLabel", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.4),
-		Size = UDim2.fromOffset(0, 0),
-		BackgroundTransparency = 1,
-		Image = "rbxasset://textures/ui/Glow.png",
-		ImageColor3 = colour,
-		ImageTransparency = 0.2,
-		Parent = root,
-	})
-	local rays = UIKit.new("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.4),
-		Size = UDim2.fromOffset(420, 420),
-		BackgroundTransparency = 1,
-		Parent = root,
-	})
-	for i = 1, 10 do
-		UIKit.new("Frame", {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.new(0, 26, 1, 0),
-			Rotation = i * 18,
-			BackgroundColor3 = colour,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Parent = rays,
-		}, { UIKit.corner(12) })
-	end
-
 	-- The crate itself, in 3D.
 	local vf = UIKit.new("ViewportFrame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -123,43 +91,29 @@ local function play(crateId: string, loot: { { any } })
 	})
 	tween(title, 0.3, { TextTransparency = 0 })
 
-	-- Drop in with a bounce.
-	tween(vf, 0.55, { Position = UDim2.fromScale(0.5, 0.4) }, Enum.EasingStyle.Bounce)
-	task.wait(0.6)
-
-	-- Shake, faster and harder, while the glow builds.
-	tween(glow, 1.1, { Size = UDim2.fromOffset(380, 380) })
+	-- Slide in, then a short shake.
+	tween(vf, 0.3, { Position = UDim2.fromScale(0.5, 0.4) }, Enum.EasingStyle.Quad)
+	task.wait(0.35)
 	local base = model:GetPivot()
 	local t0 = os.clock()
-	while os.clock() - t0 < 1.1 do
-		local k = (os.clock() - t0) / 1.1
-		local a = math.sin((os.clock() - t0) * (20 + 40 * k)) * (0.04 + 0.12 * k)
+	while os.clock() - t0 < 0.7 do
+		local a = math.sin((os.clock() - t0) * 38) * 0.07
 		model:PivotTo(base * CFrame.Angles(0, 0, a))
 		RunService.RenderStepped:Wait()
 	end
 	model:PivotTo(base)
 
-	-- Burst: the lid flies up and off, the rays flash out and keep turning.
+	-- Pop: the lid flips up and off and the crate gives a little hop.
 	local lidParts = {}
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") and p.Name == "Lid" then
 			table.insert(lidParts, { p, p.CFrame })
 		end
 	end
-	local flash = UIKit.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = colour, BackgroundTransparency = 0.3, Parent = root })
-	tween(flash, 0.5, { BackgroundTransparency = 1 })
-	for _, ray in rays:GetChildren() do
-		if ray:IsA("Frame") then
-			tween(ray, 0.4, { BackgroundTransparency = 0.75 })
-		end
-	end
-	task.spawn(function()
-		local spinStart = os.clock()
-		while rays.Parent do
-			rays.Rotation = (os.clock() - spinStart) * 25
-			RunService.RenderStepped:Wait()
-		end
-	end)
+	local pop = Instance.new("UIScale")
+	pop.Scale = 1.12
+	pop.Parent = vf
+	tween(pop, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
 	task.spawn(function()
 		local s0 = os.clock()
 		while os.clock() - s0 < 0.6 and model.Parent do
@@ -208,7 +162,7 @@ local function play(crateId: string, loot: { { any } })
 			Parent = card,
 		}, { UIKit.corner(6) })
 		shine.Position = UDim2.new(0, 0, 1, -8)
-		Icons.spin(Icons.make(id, card, UDim2.new(1, -20, 0, 86), UDim2.fromOffset(10, 8)), 0.8)
+		Icons.make(id, card, UDim2.new(1, -20, 0, 86), UDim2.fromOffset(10, 8))
 		UIKit.label({
 			Position = UDim2.new(0, 4, 0, 94),
 			Size = UDim2.new(1, -8, 0, 22),

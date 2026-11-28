@@ -352,9 +352,9 @@ Items.LEGACY = { diamond_bow = "diamond_crossbow" }
 
 -- Rafts: drop one in the water and ride it.
 Items.RAFTS = {
-	log_raft = { name = "Log Raft", speed = 24, hp = 120, order = 38 },
-	sail_raft = { name = "Sail Raft", speed = 32, hp = 180, order = 38.1 },
-	gold_raft = { name = "Gilded Raft", speed = 42, hp = 320, order = 38.2 },
+	log_raft = { name = "Log Raft", speed = 32, hp = 120, order = 38 },
+	sail_raft = { name = "Sail Raft", speed = 42, hp = 180, order = 38.1 },
+	gold_raft = { name = "Gilded Raft", speed = 54, hp = 320, order = 38.2 },
 }
 for id, r in Items.RAFTS do
 	Items[id] = { name = r.name, kind = "raft", order = r.order, description = "Use it at the shore to put it in the water, then sit on it and sail. Top speed " .. r.speed .. "." }

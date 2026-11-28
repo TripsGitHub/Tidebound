@@ -263,12 +263,8 @@ local function queueXpCheck()
 		end
 		if lastLevel and lastXp then
 			local gained = if level > lastLevel then Config.XpForLevel(lastLevel) - lastXp + xp else xp - lastXp
-			if gained > 0 then
-				popup("+" .. gained .. "xp", C.xp, true)
-			end
-			if level > lastLevel then
-				UI.levelUp(lastLevel, level)
-			end
+			-- XP gains show as the green orb over you (Markers.lua), and what a level
+			-- unlocks comes as notifications from the server: no popups here.
 		end
 		lastLevel, lastXp = level, xp
 	end)

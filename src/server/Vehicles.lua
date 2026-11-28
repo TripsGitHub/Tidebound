@@ -98,6 +98,9 @@ function Vehicles.rig(model: Model, root: BasePart, kind: string, speed: number,
 	vel.SecondaryTangentAxis = Vector3.zAxis
 	vel.ForceLimitMode = Enum.ForceLimitMode.PerAxis
 	vel.MaxAxesForce = Vector3.new(push, 0, push)
+	-- Plane mode uses the planar limit (default 1000, far too weak: carts stood still
+	-- and rafts crawled). Found in Studio.
+	vel.MaxPlanarAxesForce = Vector2.new(push, push)
 	vel.PlaneVelocity = Vector2.zero
 	vel.Parent = root
 
