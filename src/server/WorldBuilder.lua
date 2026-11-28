@@ -1751,7 +1751,18 @@ end
 
 -- bakeOnly: build just enough to make the map's terrain and cave network, then save
 -- them (WorldBake.bakeInStudio runs this from the command bar in edit mode).
+local buildStart, stageStart, stageName = os.clock(), os.clock(), "start"
+-- Names the loading step for players and logs how long the last one took, so slow
+-- steps show up in the output.
+local function stage(name: string)
+	local now = os.clock()
+	print(string.format("[World] %s took %.1fs (%.1fs total)", stageName, now - stageStart, now - buildStart))
+	stageName, stageStart = name, now
+	workspace:SetAttribute("LoadingStep", name)
+end
+
 function WorldBuilder.build(bakeOnly: boolean?)
+	buildStart, stageStart = os.clock(), os.clock()
 	for _, child in workspace:GetChildren() do
 		if child.Name == "Baseplate" or child:IsA("SpawnLocation") or child.Name == "TestGround" then
 			child:Destroy()
@@ -1760,7 +1771,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	if not bakeOnly then
 		setLighting()
 	end
-	workspace:SetAttribute("LoadingStep", "Raising the islands")
+	stage("Raising the islands")
 	buildTerrain()
 
 	-- Right after the server starts, raycasts can't see freshly filled terrain yet.
@@ -1813,7 +1824,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		table.insert(taken, spawnPos + Vector3.new(math.cos(a) * 10, 0, math.sin(a) * 10))
 	end
 
-	workspace:SetAttribute("LoadingStep", "Growing the forests")
+	stage("Growing the forests")
 	for _, isl in ISLANDS do
 		-- Each island only checks spacing against what's on it (keeps placement fast).
 		local local_ = {}
@@ -1835,7 +1846,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	local chambers, tunnels = shelfCave(shelf)
 
 	-- The cave network under the whole map, with an entrance on every island.
-	workspace:SetAttribute("LoadingStep", "Carving the caves")
+	stage("Carving the caves")
 	-- A baked map already has its caves: load the network that was saved with it.
 	local network = if WorldBake.baked
 		then WorldBake.loadNetwork()
@@ -1890,8 +1901,9 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		if network.hub then
 			table.insert(spaces, network.hub)
 		end
-		workspace:SetAttribute("LoadingStep", "Dressing the sea floor")
+		stage("Dressing the sea floor")
 		SeaFloor.build(ISLANDS, bores, spaces)
+		stage("Sinking the grottos")
 		-- Sunken grottos under the open sea, clear of every cave above.
 		local avoid = {}
 		for _, t in bores do
@@ -1908,6 +1920,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		end
 		Grottos.build(ISLANDS, avoid, nodes, { spawnNode = spawnNode, crystal = crystal, makeSeal = makeSeal, npcAvatar = npcAvatar }, extent)
 	end
+	stage("Lighting the lava")
 	-- Glowing lava veins in the deep caves (painted by Caves.paint).
 	do
 		local glow = Instance.new("Folder")
@@ -1957,6 +1970,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 			end
 		end
 	end
+	stage("Dressing the caves")
 	dressCaves(nodes, chambers, tunnels, network.pockets)
 	for _, sh in network.shafts do
 		dressShaft(sh)
@@ -1990,6 +2004,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		Props.bigSign(hub, floor + Vector3.new(0, 0, 14), Vector3.new(0, 0, 1), "THE MAW")
 		hub.Parent = workspace
 	end
+	stage("Raising the landmarks")
 	Landmarks.build(network, NAMED, groundAt, function(isl)
 		return findSpot(isl, {}, 0, Vector3.new(isl.x, 0, isl.z), isl.r * 0.4, "*")
 	end)
@@ -2019,6 +2034,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 			giant:Destroy()
 		end
 	end
+	stage("Building the camps")
 	-- Four big camps, each built by hand in its own style, and one small outpost on
 	-- every nameless island. Trees and rocks inside them are cleared.
 	local places = Instance.new("Folder")
@@ -2153,6 +2169,7 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		WorldBake.save(network)
 		return
 	end
+	stage("Setting out the scenes")
 	-- Small lived-in scenes between the camps: one to three per island.
 	local ambient = Instance.new("Folder")
 	ambient.Name = "Ambient"
@@ -2215,11 +2232,13 @@ function WorldBuilder.build(bakeOnly: boolean?)
 		end
 	end
 	print("[World] ambient scenes: " .. placedAmbient)
+	stage("Drawing the map")
 	Minimap.publish(ISLANDS, network, groundAt)
 	if game:GetService("RunService"):IsStudio() and workspace:GetAttribute("VerifyCaves") ~= false then
 		task.spawn(Caves.verify, workspace.Terrain, network)
 	end
 
+	stage("Waking the animals")
 	-- Boars roam the two grassy islands.
 	Animals.spawnHerd("Boar", Vector3.new(home.x + CloverIsland.Herd.X * H, 0, home.z + CloverIsland.Herd.Y * H), 5)
 	local hills = ISLANDS[2]
@@ -2268,8 +2287,9 @@ function WorldBuilder.build(bakeOnly: boolean?)
 	-- Bosses wait behind their gates: they spawn when a gate is opened (see above).
 	Animals.start()
 
-	workspace:SetAttribute("LoadingStep", "Almost there")
+	stage("Almost there")
 	startDayNight()
+	stage("Ready")
 	if not WorldBake.baked then
 		warn("[World] this place has no baked map, so it was built from scratch (slow). See WorldBake.lua for the one-line bake, then save the place.")
 	end
