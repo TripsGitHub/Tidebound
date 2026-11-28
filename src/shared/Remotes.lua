@@ -19,6 +19,7 @@ local NAMES = {
 	"RaftState", -- (raftModel | nil) you're sitting on a raft (for the steer hint)
 	"AdminState", -- (state) admin menu: islands, players, mobs (admins only)
 	"CrateOpened", -- (crateId, { {itemId, amount} }) plays the crate-opening screen
+	"KillFeed", -- (killer, killerLevel?, weaponId?, victim, victimLevel) a line in the kill feed
 	-- client -> server
 	"Hit", -- (target)
 	"Equip", -- (itemId or nil) hold a tool/food/placeable
@@ -36,6 +37,7 @@ local NAMES = {
 	"Launch", -- (itemId) put a raft in the water in front of you
 	"AdminRun", -- (commandText) a command from the admin menu, e.g. "tp Tide Isle"
 	"ToggleLock", -- (structureModel) the owner locks / unlocks their build
+	"SetPassive", -- (on) Passive Mode: no PvP, and you only see other passive players
 	"HotbarLayout", -- (text) your pinned hotbar slots, "id,id,,id", saved with your data
 }
 

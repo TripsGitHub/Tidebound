@@ -5,13 +5,16 @@
 local Drops = require(script.Parent.Drops)
 local Inventory = require(script.Parent.Inventory)
 local Harvest = require(script.Parent.Harvest)
+local Combat = require(script.Parent.Combat)
 
 local Death = {}
 
-function Death.onDied(player: Player, character: Model)
-	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root then
-		return
+-- Drop the held tool (not the Rock) and worn armour (not the bag) on the ground
+-- under the character. Used on death, and when someone leaves while in combat.
+function Death.dropGear(player: Player, character: Model?): Vector3?
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not character or not root then
+		return nil
 	end
 	local lost: { string } = {}
 	local held = Inventory.getEquipped(player)
@@ -35,6 +38,15 @@ function Death.onDied(player: Player, character: Model)
 			Drops.reserve(Drops.spawn(itemId, 1, at), top)
 		end
 	end
+	return at
+end
+
+function Death.onDied(player: Player, character: Model)
+	local at = Death.dropGear(player, character)
+	-- Kill feed, and a Soul for a PvP kill (the killer gets first pick of it).
+	Combat.onDied(player, at, function(itemId: string, amount: number, where: Vector3, killer: Player)
+		Drops.reserve(Drops.spawn(itemId, amount, where), killer)
+	end)
 end
 
 return Death

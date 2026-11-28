@@ -772,6 +772,32 @@ function builders.fang_blade(m)
 	blade.Reflectance = 0.15
 	return grip
 end
+-- A Soul: a pale cyan wisp, a glowing orb in a faint glass shell.
+function builders.soul(m)
+	local core = part(m, Vector3.new(0.9, 0.9, 0.9), CFrame.new(), Color3.fromRGB(150, 240, 255), Enum.Material.Neon)
+	core.Shape = Enum.PartType.Ball
+	local shell = part(m, Vector3.new(1.4, 1.4, 1.4), CFrame.new(), Color3.fromRGB(200, 250, 255), Enum.Material.Glass)
+	shell.Shape = Enum.PartType.Ball
+	shell.Transparency = 0.55
+	part(m, Vector3.new(0.35, 0.6, 0.35), CFrame.new(0, 0.85, 0) * CFrame.Angles(0, 0, math.rad(20)), Color3.fromRGB(150, 240, 255), Enum.Material.Neon).Transparency = 0.3
+	return core
+end
+-- The Soul Sword: a ghostly cyan blade with a glowing core, a dark grip and a soul
+-- set in the guard.
+function builders.soul_sword(m)
+	local blade = Color3.fromRGB(110, 220, 240)
+	local glow = Color3.fromRGB(200, 250, 255)
+	local grip = part(m, Vector3.new(0.26, 1, 0.26), CFrame.new(0, 0.35, 0), Color3.fromRGB(34, 30, 48), Enum.Material.Fabric)
+	part(m, Vector3.new(0.34, 0.22, 0.34), CFrame.new(0, -0.25, 0), Color3.fromRGB(60, 54, 84))
+	part(m, Vector3.new(1.1, 0.22, 0.32), CFrame.new(0, 0.95, 0), Color3.fromRGB(60, 54, 84))
+	local gem = part(m, Vector3.new(0.3, 0.3, 0.36), CFrame.new(0, 0.95, 0), glow, Enum.Material.Neon)
+	gem.Shape = Enum.PartType.Ball
+	local b = part(m, Vector3.new(0.5, 2.7, 0.1), CFrame.new(0, 2.4, 0), blade, Enum.Material.Glass)
+	b.Transparency = 0.15
+	part(m, Vector3.new(0.12, 2.5, 0.14), CFrame.new(0, 2.35, 0), glow, Enum.Material.Neon)
+	part(m, Vector3.new(0.354, 0.354, 0.1), CFrame.new(0, 3.75, 0) * CFrame.Angles(0, 0, math.rad(45)), blade, Enum.Material.Glass)
+	return grip
+end
 function builders.golem_harvester(m)
 	local grip = part(m, Vector3.new(0.35, 3, 0.35), CFrame.new(0, 1, 0), C.woodDark, Enum.Material.Wood)
 	part(m, Vector3.new(2.2, 0.7, 0.5), CFrame.new(0, 2.6, 0), Color3.fromRGB(44, 36, 34), Enum.Material.Basalt)

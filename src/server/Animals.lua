@@ -12,6 +12,7 @@ local Drops = require(script.Parent.Drops)
 local Remotes = require(Shared.Remotes)
 local Progression = require(script.Parent.Progression)
 local Quests = require(script.Parent.Quests)
+local Combat = require(script.Parent.Combat)
 
 local Animals = {}
 local Bosses -- required lazily (it needs Inventory, which is fine, but keeps start-up order simple)
@@ -909,6 +910,7 @@ local function step(s: State, dt: number)
 				s.nextBite = now + s.def.attackCooldown
 				if flat.Magnitude < reach + 1.5 then
 					local defense = Inventory.defense(s.attacker :: Player, "mob")
+					Combat.mobHit(s.attacker :: Player, s.def.name)
 					attackerHum:TakeDamage(s.def.damage * (1 - defense))
 					Remotes.HitFeedback:FireAllClients(s.attacker.Character)
 				end

@@ -57,7 +57,10 @@ local function playersIn(centre: Vector3, radius: number): { { player: Player, h
 	return out
 end
 
+local Combat = require(script.Parent.Combat)
+local thinking = "a boss" -- the boss whose turn it is, named in the kill feed
 local function hurt(target, amount: number)
+	Combat.mobHit(target.player, thinking)
 	local defense = Inventory.defense(target.player, "mob")
 	target.hum:TakeDamage(amount * (1 - defense))
 	Remotes.HitFeedback:FireAllClients(target.player.Character)
@@ -292,6 +295,7 @@ end
 
 -- Called from Animals' step for an angry boss. `target` is who it's after.
 function Bosses.think(s, target: BasePart, spawnMinion: (string, Vector3) -> Model?)
+	thinking = s.def.name or "a boss"
 	local now = os.clock()
 	s.next = s.next or {}
 	s.minions = s.minions or {}

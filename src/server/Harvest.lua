@@ -20,6 +20,7 @@ local Inventory = require(script.Parent.Inventory)
 local Progression = require(script.Parent.Progression)
 local Drops = require(script.Parent.Drops)
 local Animals = require(script.Parent.Animals)
+local Combat = require(script.Parent.Combat)
 
 local Harvest = {}
 local nextSwing: { [Player]: number } = {}
@@ -201,9 +202,18 @@ local function hitPlayer(attacker: Player, victimCharacter: Model, item)
 	if victimCharacter:FindFirstChildOfClass("ForceField") then
 		return
 	end
+	local ok, why = Combat.canHurt(attacker, victim)
+	if not ok then
+		if why then
+			warnOnce(attacker, why, why)
+		end
+		return
+	end
 	local defense = Inventory.defense(victim, "player")
-	local dealt = (item.damage or Config.UnarmedDamage) * (1 - defense)
+	local dealt = (item.damage or Config.UnarmedDamage) * (item.pvpBonus or 1) * (1 - defense)
+	dealt = math.floor(dealt * 10 + 0.5) / 10 -- one decimal, as the marker shows it
 	humanoid:TakeDamage(dealt)
+	Combat.playerHit(attacker, victim, Inventory.getEquipped(attacker))
 	-- Tally who hurt whom, for loot priority when they die (see Death.lua).
 	local tally = Harvest.damageBy[victimCharacter] or {}
 	tally[attacker] = (tally[attacker] or 0) + dealt

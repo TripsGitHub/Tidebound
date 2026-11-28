@@ -28,6 +28,19 @@ Config.LootSackLifetime = 300
 
 -- Combat
 Config.UnarmedDamage = 5
+-- Combat (Island Tribes rules): hitting or being hit by a player tags you "in combat"
+-- for CombatTagSeconds. Leaving the game while tagged drops your held tool and armour
+-- where you stood. Passive Mode can't be switched while tagged, and only every
+-- PassiveCooldown seconds.
+Config.CombatTagSeconds = 15
+Config.PassiveCooldown = 60
+-- Flat icons drawn for the damage markers and the in-combat badge (assets/icons,
+-- uploaded to Roblox). 0 = not uploaded yet: a drawn stand-in is used instead.
+Config.Icons = {
+	hitSwords = 0,
+	hurtHeart = 0,
+	healHeart = 0,
+}
 Config.BaseAir = 15 -- seconds of air under water with no diving gear
 Config.AirRefillRate = 6 -- air comes back this many times faster than it runs out
 Config.DrownDamagePerSecond = 10

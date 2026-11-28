@@ -1,7 +1,7 @@
 -- Damage markers, like Island Tribes: every time something takes a hit a marker pops up
--- and floats away. Red crossed swords when you hit something, a red heart when you're
--- hurt, a green heart when you heal, each with the number on a white pill, and a green
--- "XP" orb with "+N Xp" whenever you earn XP.
+-- and floats away. One colour: red crossed swords when you hit something, a red heart
+-- when you're hurt (a green one when you heal), each with the number on a white pill,
+-- and a green "XP" orb with "+N Xp" whenever you earn XP.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -12,92 +12,11 @@ local Remotes = require(Shared.Remotes)
 local Markers = {}
 
 local RED = Color3.fromRGB(255, 70, 58)
-local GREEN = Color3.fromRGB(110, 230, 90)
 local FONT = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy)
 
--- A chunky number with a dark outline that appears, drifts straight up and fades out,
--- smooth and the same every time: damage, healing and your own hurts all move alike,
--- and the icon, number and outline fade together (one CanvasGroup).
+-- Every marker moves the same: pops in, drifts straight up and fades out.
 local RISE = 2.6 -- studs it drifts up
 local LIFE = 1.05 -- seconds on screen
--- Island Tribes style: a flat heart (red when hurt, green when healing) or a red badge
--- with the tool's icon (when you hit something), with a white rounded pill on it
--- holding the number.
-local function heart(parent: Instance, size: number, colour: Color3, z: number)
-	local holder = Instance.new("Frame")
-	holder.BackgroundTransparency = 1
-	holder.AnchorPoint = Vector2.new(0.5, 0.5)
-	holder.Position = UDim2.fromScale(0.5, 0.5)
-	holder.Size = UDim2.fromOffset(size, size)
-	holder.ZIndex = z
-	holder.Parent = parent
-	local function piece(x: number, y: number, w: number, round: boolean, rot: number)
-		local f = Instance.new("Frame")
-		f.AnchorPoint = Vector2.new(0.5, 0.5)
-		f.Position = UDim2.fromScale(x, y)
-		f.Size = UDim2.fromScale(w, w)
-		f.Rotation = rot
-		f.BackgroundColor3 = colour
-		f.BorderSizePixel = 0
-		f.ZIndex = z
-		f.Parent = holder
-		if round then
-			Instance.new("UICorner", f).CornerRadius = UDim.new(1, 0)
-		else
-			Instance.new("UICorner", f).CornerRadius = UDim.new(0.12, 0)
-		end
-	end
-	piece(0.5, 0.56, 0.6, false, 45)
-	piece(0.3, 0.36, 0.52, true, 0)
-	piece(0.7, 0.36, 0.52, true, 0)
-	return holder
-end
-
--- Two crossed swords, drawn flat: red blades with dark edges, gold guards and grips.
-local function swords(parent: Instance, size: number, z: number)
-	local holder = Instance.new("Frame")
-	holder.BackgroundTransparency = 1
-	holder.AnchorPoint = Vector2.new(0.5, 0.5)
-	holder.Position = UDim2.fromScale(0.5, 0.42)
-	holder.Size = UDim2.fromOffset(size, size)
-	holder.ZIndex = z
-	holder.Parent = parent
-	local function bar(x: number, y: number, w: number, h: number, rot: number, colour: Color3, edge: Color3?, zi: number)
-		local f = Instance.new("Frame")
-		f.AnchorPoint = Vector2.new(0.5, 0.5)
-		f.Position = UDim2.fromScale(x, y)
-		f.Size = UDim2.fromScale(w, h)
-		f.Rotation = rot
-		f.BackgroundColor3 = colour
-		f.BorderSizePixel = 0
-		f.ZIndex = zi
-		f.Parent = holder
-		Instance.new("UICorner", f).CornerRadius = UDim.new(0.3, 0)
-		if edge then
-			local st = Instance.new("UIStroke")
-			st.Color = edge
-			st.Thickness = 2
-			st.Parent = f
-		end
-		return f
-	end
-	local red, edge, gold = Color3.fromRGB(232, 58, 48), Color3.fromRGB(110, 18, 14), Color3.fromRGB(250, 200, 70)
-	for _, side in { -1, 1 } do
-		local rot = side * 45
-		local rad = math.rad(rot)
-		local function along(d: number): (number, number)
-			-- d: -0.5 (handle end, bottom) .. 0.5 (tip, top)
-			return 0.5 + math.sin(rad) * d * 0.9, 0.5 - math.cos(rad) * d * 0.9
-		end
-		local bx, by = along(0.12)
-		bar(bx, by, 0.16, 0.7, rot, red, edge, z + 1)
-		local gx, gy = along(-0.26)
-		bar(gx, gy, 0.42, 0.1, rot, gold, edge, z + 2)
-		local hx, hy = along(-0.38)
-		bar(hx, hy, 0.1, 0.2, rot, Color3.fromRGB(120, 70, 36), edge, z + 2)
-	end
-	return holder
-end
 
 -- An Island Tribes XP orb: a green octagon with "XP" on it.
 local function xpOrb(parent: Instance, size: number, z: number)
@@ -143,7 +62,25 @@ local function xpOrb(parent: Instance, size: number, z: number)
 	return holder
 end
 
-local function show(at: Vector3, amount: number, color: Color3, itemId: string?, _self: boolean, heal: boolean?)
+local Config = require(Shared.Config)
+local EDGE = Color3.fromRGB(120, 14, 10)
+local HEAL_TEXT = Color3.fromRGB(40, 150, 46)
+local HEAL_EDGE = Color3.fromRGB(22, 84, 24)
+
+-- 12 -> "12", 12.46 -> "12.5": decimals only when there are any, like Island Tribes.
+local function fmt(n: number): string
+	local r = math.floor(n * 10 + 0.5) / 10
+	if r == math.floor(r) then
+		return tostring(math.floor(r))
+	end
+	return string.format("%.1f", r)
+end
+
+-- Island Tribes' damage marker, in one colour: a flat red icon (crossed swords when
+-- you hit something, a heart when you're hurt) with a white rounded pill over its
+-- lower half holding the red number. Healing is the same in green. It pops in,
+-- drifts straight up and fades.
+local function show(at: Vector3, amount: number, _color: Color3, itemId: string?, _self: boolean, heal: boolean?)
 	local anchor = Instance.new("Part")
 	anchor.Anchored, anchor.CanCollide, anchor.CanQuery, anchor.CanTouch = true, false, false, false
 	anchor.Transparency = 1
@@ -151,118 +88,76 @@ local function show(at: Vector3, amount: number, color: Color3, itemId: string?,
 	anchor.CFrame = CFrame.new(at + Vector3.new(math.random() * 1.2 - 0.6, 1.2, math.random() * 1.2 - 0.6))
 	anchor.Parent = workspace.CurrentCamera
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(72, 72)
+	gui.Size = UDim2.fromOffset(76, 76)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
 	gui.MaxDistance = 120
 	gui.Parent = anchor
-	-- One group so everything fades together. Item icons are 3D (ViewportFrames),
-	-- which don't draw inside a CanvasGroup, so those markers fade piece by piece.
-	-- Drawn like the badges over nameplates: a smooth rounded tile with a dark rim and
-	-- a lit left half, a white glyph on it (a sword when you hit something, a heart
-	-- when you're hurt or healed), and the number on a white pill underneath. No
-	-- CanvasGroup: it renders at low resolution and looks pixelated, so every piece
-	-- fades on its own instead.
-	local withIcon = true
+	-- No CanvasGroup (it renders at low resolution): each piece fades on its own.
 	local group = Instance.new("Frame")
 	group.BackgroundTransparency = 1
-	group.AnchorPoint = Vector2.new(0.5, 0.5)
-	group.Position = UDim2.fromScale(0.5, 0.5)
 	group.Size = UDim2.fromScale(1, 1)
 	group.Parent = gui
 	local scale = Instance.new("UIScale")
 	scale.Scale = 0.5
 	scale.Parent = group
-	local dark = if heal then Color3.fromRGB(24, 80, 30) elseif _self then Color3.fromRGB(90, 14, 12) else Color3.fromRGB(110, 20, 16)
-	local fill = if heal then Color3.fromRGB(80, 196, 72) elseif _self then Color3.fromRGB(196, 40, 36) else Color3.fromRGB(232, 62, 50)
-	local textColour = if heal then Color3.fromRGB(36, 130, 44) else Color3.fromRGB(196, 34, 28)
-	local function tile(size: number, colour: Color3, z: number, round: number): Frame
-		local f = Instance.new("Frame")
-		f.AnchorPoint = Vector2.new(0.5, 0.5)
-		f.Position = UDim2.fromScale(0.5, 0.36)
-		f.Size = UDim2.fromOffset(size, size)
-		f.BackgroundColor3 = colour
-		f.BorderSizePixel = 0
-		f.ZIndex = z
-		f.Parent = group
-		Instance.new("UICorner", f).CornerRadius = UDim.new(0, round)
-		return f
-	end
-	tile(40, dark, 1, 11)
-	local face = tile(34, Color3.new(1, 1, 1), 2, 9)
-	local light = fill:Lerp(Color3.new(1, 1, 1), 0.3)
-	local g = Instance.new("UIGradient")
-	g.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, light), ColorSequenceKeypoint.new(0.5, light), ColorSequenceKeypoint.new(0.501, fill), ColorSequenceKeypoint.new(1, fill) })
-	g.Parent = face
-	if itemId and not heal and not _self then
-		-- A white sword, upright: blade, guard and grip, all square to the screen.
-		local function bar(x: number, y: number, w: number, h: number, c: Color3)
-			local b = Instance.new("Frame")
-			b.AnchorPoint = Vector2.new(0.5, 0.5)
-			b.Position = UDim2.new(0.5, x, 0.5, y)
-			b.Size = UDim2.fromOffset(w, h)
-			b.BackgroundColor3 = c
-			b.BorderSizePixel = 0
-			b.ZIndex = 3
-			b.Parent = face
-			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 2)
-		end
-		bar(0, -3, 6, 20, Color3.new(1, 1, 1))
-		bar(0, 8, 18, 4, Color3.fromRGB(255, 214, 90))
-		bar(0, 13, 4, 6, Color3.fromRGB(120, 72, 38))
+
+	local hit = itemId ~= nil and not heal and not _self
+	local imageId = if heal then Config.Icons.healHeart elseif hit then Config.Icons.hitSwords else Config.Icons.hurtHeart
+	local fill = if heal then Color3.fromRGB(86, 200, 70) else Color3.fromRGB(232, 52, 44)
+	if imageId ~= 0 then
+		local img = Instance.new("ImageLabel")
+		img.BackgroundTransparency = 1
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromScale(0.5, 0.38)
+		img.Size = UDim2.fromOffset(50, 50)
+		img.Image = "rbxassetid://" .. imageId
+		img.ZIndex = 1
+		img.Parent = group
 	else
-		local h = Instance.new("TextLabel")
-		h.BackgroundTransparency = 1
-		h.Size = UDim2.fromScale(1, 1)
-		h.Position = UDim2.fromScale(0, 0.04)
-		h.Text = "♥"
-		h.TextScaled = true
-		h.TextColor3 = Color3.new(1, 1, 1)
-		h.ZIndex = 3
-		h.Parent = face
+		-- Not uploaded yet: a plain glyph in the same red.
+		local g = Instance.new("TextLabel")
+		g.BackgroundTransparency = 1
+		g.AnchorPoint = Vector2.new(0.5, 0.5)
+		g.Position = UDim2.fromScale(0.5, 0.36)
+		g.Size = UDim2.fromOffset(50, 50)
+		g.Text = if hit then "X" else "♥"
+		g.TextScaled = true
+		g.FontFace = FONT
+		g.TextColor3 = fill
+		g.TextStrokeColor3 = if heal then HEAL_EDGE else EDGE
+		g.TextStrokeTransparency = 0
+		g.ZIndex = 1
+		g.Parent = group
 	end
-	local pillY = 0.74
+
 	local pill = Instance.new("TextLabel")
 	pill.AnchorPoint = Vector2.new(0.5, 0.5)
-	pill.Position = UDim2.fromScale(0.5, pillY)
-	pill.Size = UDim2.fromOffset(0, 20)
+	pill.Position = UDim2.fromScale(0.5, 0.7)
+	pill.Size = UDim2.fromOffset(0, 22)
 	pill.AutomaticSize = Enum.AutomaticSize.X
 	pill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	pill.ZIndex = 5
+	pill.ZIndex = 3
 	pill.FontFace = FONT
-	pill.TextSize = 18
-	pill.TextColor3 = textColour
-	pill.Text = (if heal then "+" else "-") .. tostring(math.max(1, math.floor(amount + 0.5)))
+	pill.TextSize = 20
+	pill.TextColor3 = if heal then HEAL_TEXT else Color3.fromRGB(214, 36, 28)
+	pill.Text = (if heal then "+" else "-") .. fmt(math.max(amount, 0.1))
 	pill.Parent = group
-	Instance.new("UICorner", pill).CornerRadius = UDim.new(0, 6)
+	Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
 	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 6), UDim.new(0, 6)
+	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 7), UDim.new(0, 7)
 	pad.Parent = pill
-	local edge = Instance.new("UIStroke")
-	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-	edge.Color = dark
-	edge.Thickness = 2
-	edge.Parent = pill
 
 	-- Pop in, drift up, and fade out together.
 	TweenService:Create(scale, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	TweenService:Create(gui, TweenInfo.new(LIFE, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(0, RISE, 0) }):Play()
-	if withIcon then
-		local fadeInfo = TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4)
-		for _, d in group:GetDescendants() do
-			if d:IsA("ViewportFrame") then
-				TweenService:Create(d, fadeInfo, { ImageTransparency = 1 }):Play()
-			elseif d:IsA("TextLabel") then
-				TweenService:Create(d, fadeInfo, { TextTransparency = 1, BackgroundTransparency = 1 }):Play()
-			elseif d:IsA("Frame") and d.BackgroundTransparency < 1 then
-				TweenService:Create(d, fadeInfo, { BackgroundTransparency = 1 }):Play()
-			elseif d:IsA("UIStroke") then
-				TweenService:Create(d, fadeInfo, { Transparency = 1 }):Play()
-			end
+	local fadeInfo = TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4)
+	for _, d in group:GetDescendants() do
+		if d:IsA("ImageLabel") then
+			TweenService:Create(d, fadeInfo, { ImageTransparency = 1 }):Play()
+		elseif d:IsA("TextLabel") then
+			TweenService:Create(d, fadeInfo, { TextTransparency = 1, TextStrokeTransparency = 1, BackgroundTransparency = 1 }):Play()
 		end
-	else
-		TweenService:Create(group, TweenInfo.new(0.12), { GroupTransparency = 0 }):Play()
-		TweenService:Create(group, TweenInfo.new(LIFE * 0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, LIFE * 0.4), { GroupTransparency = 1 }):Play()
 	end
 	task.delay(LIFE + 0.05, function()
 		anchor:Destroy()

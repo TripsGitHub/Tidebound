@@ -28,6 +28,7 @@ local Recipes = {
 	-- Boss gear is made only at the wandering merchant (trader = true, see Traders.lua).
 	{ id = "fang_blade", tab = "Tools", level = 19, trader = true, cost = { queen_fang = 1, diamond = 6, leather = 6 } },
 	{ id = "golem_harvester", tab = "Tools", level = 20, trader = true, cost = { golem_heart = 1, obsidian = 8, stick = 6 } },
+	{ id = "soul_sword", tab = "Tools", level = 15, trader = true, cost = { soul = 5, obsidian = 6, leather = 4 } },
 	{ id = "warden_pack", tab = "Armour", level = 19, trader = true, cost = { warden_core = 1, amethyst = 4, leather = 12 } },
 
 	-- Slime armour: soaks up beasts' bites, weak against other players' blades.

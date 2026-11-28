@@ -78,6 +78,10 @@ Items.warden_core = { name = "Warden Core", kind = "resource", order = 134 }
 Items.golem_heart = { name = "Golem Heart", kind = "resource", order = 135 }
 Items.fang_blade = { name = "Fang Blade", kind = "tool", swing = "slash", order = 4.9, gather = { wood = 2, plant = 2 }, cooldown = 0.55, damage = 110 }
 Items.golem_harvester = { name = "Golem Harvester", kind = "tool", order = 4.95, gather = { wood = 12, stone = 12, plant = 10, slime = 10 }, cooldown = 0.5, damage = 40 }
+-- PvP: every player you kill drops their Soul. Souls make the Soul Sword, sold only
+-- at the wandering merchant, the best weapon against other players.
+Items.soul = { name = "Soul", kind = "resource", order = 137, description = "Dropped by a player when another player kills them. Used for the Soul Sword." }
+Items.soul_sword = { name = "Soul Sword", kind = "tool", swing = "slash", order = 4.97, gather = { wood = 1, plant = 1 }, cooldown = 0.5, damage = 95, pvpBonus = 1.25, description = "Forged from the Souls of fallen players. Hits players 25% harder." }
 Items.warden_pack = { name = "Warden Pack", kind = "armour", slot = "bag", order = 45.9, bagSize = 1000 }
 
 -- Crates come in four rarities. Each holds its own loot table: { item, min, max, weight }.

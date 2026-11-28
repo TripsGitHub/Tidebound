@@ -145,41 +145,29 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 		end
 	end
 
-	-- Health: a thin bar under the plank that shows for a few seconds whenever your
-	-- health changes (hit, healed), then fades away.
-	local hpBack = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromOffset(120, 7), BackgroundColor3 = rgb(40, 28, 20), BorderSizePixel = 0, Visible = false, ZIndex = 6 }, {
+	-- Health, like Island Tribes: a red line along the top edge of the plank,
+	-- always there, that shrinks as the player is hurt.
+	local hpBack = new("Frame", { Parent = gui, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 1, -44), Size = UDim2.fromOffset(120, 5), Rotation = -1.5, BackgroundColor3 = rgb(60, 14, 12), BorderSizePixel = 0, Visible = not npc, ZIndex = 6 }, {
 		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
-		new("UIStroke", { Color = rgb(30, 20, 12), Thickness = 1.5 }),
+		new("UIStroke", { Color = rgb(30, 8, 6), Thickness = 1.5 }),
 	})
-	local hpFill = new("Frame", { Parent = hpBack, Size = UDim2.fromScale(1, 1), BackgroundColor3 = rgb(110, 210, 90), BorderSizePixel = 0, ZIndex = 7 }, {
+	local hpFill = new("Frame", { Parent = hpBack, Size = UDim2.fromScale(1, 1), BackgroundColor3 = rgb(236, 50, 42), BorderSizePixel = 0, ZIndex = 7 }, {
 		new("UICorner", { CornerRadius = UDim.new(1, 0) }),
 	})
-	local lastHealth = humanoid.Health
-	local shownAt = 0
 	local function showHealth()
 		local h = humanoid :: Humanoid
-		if math.abs(h.Health - lastHealth) < 0.5 then
-			return
-		end
-		lastHealth = h.Health
 		local frac = math.clamp(h.Health / math.max(h.MaxHealth, 1), 0, 1)
 		UIKit.slideBar(hpFill, frac)
-		hpFill.BackgroundColor3 = if frac > 0.5 then rgb(110, 210, 90) elseif frac > 0.25 then rgb(236, 180, 60) else rgb(232, 80, 70)
-		hpBack.Visible = true
-		shownAt = os.clock()
-		local mine = shownAt
-		task.delay(4, function()
-			if shownAt == mine then
-				hpBack.Visible = false
-			end
-		end)
 	end
+	showHealth()
 
 	local function place()
 		-- Keep the token on the plank's left end whatever the name's length.
 		local fit = gui:FindFirstChildOfClass("UIScale")
 		local w = plank.AbsoluteSize.X / (if fit and fit.Scale > 0 then fit.Scale else 1)
 		token.Position = UDim2.new(0.5, -w / 2 + 5, 1, -11)
+		hpBack.Size = UDim2.fromOffset(math.max(w - 30, 20), 5)
+		hpBack.Position = UDim2.new(0.5, 14, 1, -44)
 	end
 
 	local function restyle()
@@ -248,6 +236,14 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 		end
 		return parts
 	end
+	-- In combat: flat red crossed swords over the head, seen by everyone.
+	local combatBadge = new("Frame", { Parent = badgeRow, LayoutOrder = 0, Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1, Visible = false })
+	local swordsId = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config")).Icons.hitSwords
+	if swordsId ~= 0 then
+		new("ImageLabel", { Parent = combatBadge, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = "rbxassetid://" .. swordsId, ZIndex = 8 })
+	else
+		new("TextLabel", { Parent = combatBadge, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "X", TextScaled = true, TextColor3 = rgb(236, 50, 42), TextStrokeTransparency = 0, FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json", Enum.FontWeight.Heavy), ZIndex = 8 })
+	end
 	local shield = new("Frame", { Parent = badgeRow, LayoutOrder = 1, Size = UDim2.fromOffset(34, 36), BackgroundTransparency = 1 })
 	local shieldParts = shieldShape(shield, rgb(38, 112, 226), rgb(12, 30, 72))
 	local vsPlayer = pctLabel(shield)
@@ -306,7 +302,9 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 			end
 		end
 		shield.Visible, slime.Visible = m > 0 or p > 0, m > 0 or p > 0
-		badgeRow.Visible = not npc and (m > 0 or p > 0 or anyBoost)
+		local fighting = plr:GetAttribute("InCombat") == true
+		combatBadge.Visible = fighting
+		badgeRow.Visible = not npc and (m > 0 or p > 0 or anyBoost or fighting)
 		local function fmt(n: number)
 			return (if n == math.floor(n) then tostring(n) else string.format("%.1f", n)) .. "%"
 		end
@@ -322,6 +320,7 @@ local function attach(plr: any, character: Model, displayName: string?, npc: boo
 		plr:GetAttributeChangedSignal("BoostDamage"):Connect(armour),
 		plr:GetAttributeChangedSignal("BoostRegen"):Connect(armour),
 		plr:GetAttributeChangedSignal("Heavy"):Connect(armour),
+		plr:GetAttributeChangedSignal("InCombat"):Connect(armour),
 		plr:GetAttributeChangedSignal("Level"):Connect(refresh),
 		plr:GetAttributeChangedSignal("Nameplate"):Connect(restyle),
 		plr:GetAttributeChangedSignal("Title"):Connect(restyle),

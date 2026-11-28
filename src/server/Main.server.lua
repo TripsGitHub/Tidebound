@@ -24,6 +24,7 @@ local Events = require(Systems.Events)
 local Oxygen = require(Systems.Oxygen)
 local Avatar = require(Systems.Avatar)
 local Admin = require(Systems.Admin)
+local Combat = require(Systems.Combat)
 
 -- Characters are spawned by hand (see onPlayerAdded), once the world exists and the
 -- player's save has loaded; otherwise they drop in at the map's centre before the
@@ -51,6 +52,7 @@ Save.start()
 Events.start()
 Oxygen.start()
 Admin.start()
+Combat.start()
 
 -- Ore is counted when it's mined (Harvest.lua), everything else when picked up.
 local ORE_ITEMS = {}
@@ -136,11 +138,20 @@ for _, player in Players:GetPlayers() do
 end
 
 Players.PlayerRemoving:Connect(function(player)
+	-- Combat logging: leave while in combat and your held tool and armour stay
+	-- behind on the ground (before the save, so you don't keep them).
+	if Combat.inCombat(player) then
+		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if hum and hum.Health > 0 and Death.dropGear(player, player.Character) then
+			Remotes.WorldEvent:FireAllClients(player.DisplayName .. " logged out in combat and dropped their gear!")
+		end
+	end
 	Save.leave(player) -- snapshots first, so this must come before removePlayer
 	Crafting.removePlayer(player)
 	Inventory.removePlayer(player)
 	Quests.removePlayer(player)
 	Harvest.removePlayer(player)
+	Combat.removePlayer(player)
 	Survival.removePlayer(player)
 	Rafts.removePlayer(player)
 end)
