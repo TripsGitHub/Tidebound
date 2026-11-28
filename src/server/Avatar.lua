@@ -19,8 +19,8 @@ local HIDE = { rgb(150, 86, 44), rgb(136, 78, 42), rgb(160, 100, 56), rgb(122, 7
 -- belted hide kilt (assets/clothing/tribe_shirt.png and tribe_pants.png, uploaded as
 -- images). The templates are pale; Clothing.Color3 tints them to each player's hide.
 -- 0 = not uploaded yet: the older part-built outfit is used instead.
-local SHIRT_IMAGE = 0
-local PANTS_IMAGE = 0
+local SHIRT_IMAGE = 121150488271081
+local PANTS_IMAGE = 132925476755734
 local useClothing = SHIRT_IMAGE ~= 0 and PANTS_IMAGE ~= 0
 
 local function look(userId: number)
